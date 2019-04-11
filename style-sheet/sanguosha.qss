@@ -1,0 +1,110 @@
+QProgressBar {
+    color : solid gray;
+    border: 2px solid gray;
+    border-radius: 5px;
+    background: transparent;
+    padding: 0px;
+    text-align: center;
+}
+
+QProgressBar::chunk {
+    background: #B22222;
+}
+
+QTextEdit {
+	border-left: none;
+	border-right: none;
+	border-top: 1px solid qlineargradient(spread:reflect, x1:0, y1:0, x2:0.5, y2:0, stop:0 transparent, stop:1 rgb(166, 150, 122));
+	border-bottom: none;
+    background-color: rgba(0, 0, 0, 40%);
+}
+
+QTextEdit[description="true"] {
+    border: 2px solid rgb(185, 195, 199);
+	padding-left: 8px;
+	min-height: 32px;
+	border-radius: 6px;
+	alignment: left;
+	background-color: white;
+}
+
+QLineEdit#chat_edit {
+    background-color: rgba(0, 0, 0, 200);
+    color: white;
+    border: 1px solid rgb(166, 150, 122);
+    height: 20px;
+    border-radius: 2px;
+}
+
+QStatusBar::item {
+     border: 0px solid grey;
+ }
+
+QMenu[private_pile="true"] {
+    background-color: rgba(43,63,53,200);
+    border-radius: 1px;
+    color: white;
+}
+
+QPushButton[private_pile="true"] {
+    background-color: rgba(43,63,53,200);
+    border-radius: 1px;
+    color: white;
+}
+
+QMenu[treasure = true] {
+    background-color: rgba(64, 52, 0, 200);
+    border-radius: 5px;
+    color: white;
+}
+
+QPushButton[treasure = true] {
+    background-color: rgba(64, 52, 0, 200);
+    border-radius: 5px;
+    color: white;
+}
+
+QPushButton[game_control="true"] {
+    border: 0px solid gray;
+    font: 12px;
+    border-radius: 5px;
+    padding: 6px 12px 6px 12px;
+}
+
+QPushButton#pause {
+    background-image: url(image/system/button/pause.png);
+}
+
+QPushButton#play {
+    background-image: url(image/system/button/play.png);
+}
+
+QPushButton#slow-down {
+    background-image: url(image/system/button/slow-down.png);
+}
+
+QPushButton#speed-up {
+    background-image: url(image/system/button/speed-up.png);
+}
+
+QPushButton#uniform {
+    background-image: url(image/system/button/uniform.png);
+}
+
+QPushButton[control = true] {
+	color: rgb(183, 218, 238);
+	background-color:rgba(0, 0, 0, 0);
+	border-style:none;
+}
+
+QPushButton[control = true]:hover {
+	background-color: rgb(72, 160, 212);
+}
+
+QPushButton[control = true][bold = true] {
+	font: bold;
+}
+
+#closeButton[control = true]:hover {
+	background-color: rgb(238, 44, 44);
+}
