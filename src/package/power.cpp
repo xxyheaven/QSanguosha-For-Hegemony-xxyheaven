@@ -181,6 +181,14 @@ public:
         return true;
     }
 
+    virtual void record(TriggerEvent triggerEvent, Room *room, ServerPlayer *player, QVariant &) const
+    {
+        if (triggerEvent == EventPhaseStart && player->getPhase()== Player::NotActive) {
+            foreach (ServerPlayer *p, room->getAlivePlayers())
+                room->setPlayerProperty(p, "zhengbi_specific_assignee", QVariant());
+        }
+    }
+
     virtual QStringList triggerable(TriggerEvent triggerEvent, Room *, ServerPlayer *player, QVariant &, ServerPlayer * &) const
     {
         if (triggerEvent == EventPhaseStart && player->getPhase() == Player::Play) {
@@ -235,12 +243,11 @@ public:
                     CardMoveReason reason(CardMoveReason::S_REASON_GIVE, p->objectName(), player->objectName(), objectName(), QString());
                     room->obtainCard(player, dummy_card, reason, true);
                 } else {
-                    room->setPlayerFlag(player, "ZhengbiSource");
-                    room->setPlayerFlag(p, "ZhengbiTarget");
-                    JsonArray arg;
-                    arg << QSanProtocol::S_GAME_EVENT_UPDATE_ROLEBOX;
-                    room->doBroadcastNotify(QSanProtocol::S_COMMAND_LOG_EVENT, arg);
-                    room->getThread()->trigger(DFDebut, room, player);
+
+                    QStringList assignee_list = player->property("zhengbi_specific_assignee").toString().split("+");
+                    assignee_list << p->objectName();
+                    room->setPlayerProperty(player, "zhengbi_specific_assignee", assignee_list.join("+"));
+
                 }
             }
         }
@@ -291,6 +298,21 @@ public:
 };
 
 
+FengyingCard::FengyingCard()
+{
+    target_fixed = true;
+    will_throw = false;
+}
+
+const Card *FengyingCard::validate(CardUseStruct &card_use) const
+{
+    ThreatenEmperor *te = new ThreatenEmperor(Card::SuitToBeDecided, 0);
+    te->addSubcards(card_use.from->getHandcards());
+    te->setSkillName("fengying");
+    te->setShowSkill("fengying");
+    return te;
+}
+
 class Fengying : public ZeroCardViewAsSkill
 {
 public:
@@ -302,11 +324,7 @@ public:
 
     virtual const Card *viewAs() const
     {
-        ThreatenEmperor *te = new ThreatenEmperor(Card::SuitToBeDecided, 0);
-        te->addSubcards(Self->getHandcards());
-        te->setSkillName(objectName());
-        te->setShowSkill(objectName());
-        return te;
+        return new FengyingCard;
     }
 
     virtual bool isEnabledAtPlay(const Player *player) const
@@ -315,7 +333,7 @@ public:
         ThreatenEmperor *te = new ThreatenEmperor(Card::SuitToBeDecided, 0);
         te->addSubcards(player->getHandcards());
         te->setSkillName(objectName());
-        return te->isAvailable(player);
+        return !player->isProhibited(player, te) && !player->isLocked(te);
     }
 };
 
@@ -340,20 +358,16 @@ public:
         }
     }
 
-    virtual QStringList triggerable(TriggerEvent triggerEvent, Room *room, ServerPlayer *, QVariant &data, ServerPlayer * &) const
+    virtual QStringList triggerable(TriggerEvent triggerEvent, Room *, ServerPlayer *player, QVariant &data, ServerPlayer * &) const
     {
-        if (triggerEvent != CardUsed) return QStringList();
+        if (triggerEvent != CardUsed || player == NULL || player->isDead()) return QStringList();
 
         const Card *card = data.value<CardUseStruct>().card;
 
-        if (card != NULL && card->getSkillName() == "fengying") {
-            QList<ServerPlayer *> all_players = room->getAlivePlayers();
+        if (card != NULL && card->getSkillName() == "fengying")
+            return QStringList(objectName());
 
-            foreach (ServerPlayer *p, all_players) {
-               if (p->isBigKingdomPlayer()) return QStringList(objectName());
-            }
 
-        }
         return QStringList();
     }
 
@@ -364,18 +378,18 @@ public:
 
     virtual bool effect(TriggerEvent, Room *room, ServerPlayer *player, QVariant &, ServerPlayer *) const
     {
-
-        QList<ServerPlayer *> bigkingdoms, all_players = room->getAlivePlayers();
+        QList<ServerPlayer *> players, all_players = room->getAlivePlayers();
 
         foreach (ServerPlayer *p, all_players) {
-           if (p->isBigKingdomPlayer())
-               bigkingdoms << p;
+           if (p->isFriendWith(player))
+               players << p;
         }
-        if (bigkingdoms.isEmpty()) return false;
-        room->sortByActionOrder(bigkingdoms);
-        foreach (ServerPlayer *p, bigkingdoms)
+        if (players.isEmpty()) return false;
+        room->sortByActionOrder(players);
+        foreach (ServerPlayer *p, players)
             room->doAnimate(QSanProtocol::S_ANIMATE_INDICATE, player->objectName(), p->objectName());
-        foreach (ServerPlayer *to, bigkingdoms) {
+
+        foreach (ServerPlayer *to, players) {
             if (to->isAlive()) {
                 int x = to->getMaxHp() - to->getHandcardNum();
                 if (x > 0)
@@ -502,7 +516,7 @@ void JianglveCard::use(Room *room, ServerPlayer *source, QList<ServerPlayer *> &
 {
     int index = source->startCommand("jianglve");
 
-    ServerPlayer *dest;
+    ServerPlayer *dest = NULL;
     if (index == 0) {
         dest = room->askForPlayerChosen(source, room->getAlivePlayers(), "command_jianglve", "@command-damage");
         room->doAnimate(QSanProtocol::S_ANIMATE_INDICATE, source->objectName(), dest->objectName());
@@ -790,12 +804,16 @@ void XuanhuoAttachCard::use(Room *room, ServerPlayer *source, QList<ServerPlayer
 
     QString all_skills = "wusheng+paoxiao+longdan+tieqi+liegong+kuanggu";
     QStringList skill_list;
+    QList<const Skill *> skills;
+    foreach (ServerPlayer *p, room->getAlivePlayers()) {
+        if (p->hasShownGeneral1())
+            skills << p->getActualGeneral1()->getVisibleSkillList();
+        if (p->getGeneral2() && p->hasShownGeneral2())
+            skills << p->getActualGeneral2()->getVisibleSkillList();
+    }
+
     foreach (QString skill_name, all_skills.split("+")) {
-        QList<const Skill *> skills;
-        if (source->hasShownGeneral1())
-            skills << source->getActualGeneral1()->getVisibleSkillList();
-        if (source->getGeneral2() && source->hasShownGeneral2())
-            skills << source->getActualGeneral2()->getVisibleSkillList();
+
 
         bool can_choose = true;
         foreach (const Skill *s, skills) {
@@ -811,9 +829,9 @@ void XuanhuoAttachCard::use(Room *room, ServerPlayer *source, QList<ServerPlayer
     QString skill_name = room->askForChoice(source, "xuanhuo", skill_list.join("+"), QVariant(), "@xuanhuo-choose", all_skills);
     skill_name = skill_name + "_xh";
     room->acquireSkill(source, skill_name, true, false);
-    QStringList skills = source->tag["XuanhuoSkills"].toStringList();
-    skills << skill_name;
-    source->tag["XuanhuoSkills"] = QVariant::fromValue(skills);
+    QStringList skillnames = source->tag["XuanhuoSkills"].toStringList();
+    skillnames << skill_name;
+    source->tag["XuanhuoSkills"] = QVariant::fromValue(skillnames);
 }
 
 class XuanhuoAttachVS : public OneCardViewAsSkill
@@ -863,22 +881,24 @@ public:
             room->handleAcquireDetachSkills(player, detachList, true);
             player->tag["XuanhuoSkills"] = QVariant();
         } else if (triggerEvent == GeneralShown || triggerEvent == DFDebut) {
-            QList<const Skill *> skills;
-            if (player->hasShownGeneral1())
-                skills << player->getActualGeneral1()->getVisibleSkillList();
-            if (player->getGeneral2() && player->hasShownGeneral2())
-                skills << player->getActualGeneral2()->getVisibleSkillList();
-            QStringList xuanhuoskills = player->tag["XuanhuoSkills"].toStringList();
-            QStringList detachList;
-            foreach (const Skill *skill, skills) {
-                QString skill_name = skill->objectName()+"_xh";
-                if (xuanhuoskills.contains(skill_name)) {
-                    xuanhuoskills.removeOne(skill_name);
-                    detachList.append("-" + skill_name + "!");
+            foreach (ServerPlayer *p, room->getAlivePlayers()) {
+                QList<const Skill *> skills;
+                if (p->hasShownGeneral1())
+                    skills << p->getActualGeneral1()->getVisibleSkillList();
+                if (p->getGeneral2() && p->hasShownGeneral2())
+                    skills << p->getActualGeneral2()->getVisibleSkillList();
+                QStringList xuanhuoskills = p->tag["XuanhuoSkills"].toStringList();
+                QStringList detachList;
+                foreach (const Skill *skill, skills) {
+                    QString skill_name = skill->objectName()+"_xh";
+                    if (xuanhuoskills.contains(skill_name)) {
+                        xuanhuoskills.removeOne(skill_name);
+                        detachList.append("-" + skill_name + "!");
+                    }
                 }
+                room->handleAcquireDetachSkills(p, detachList, true);
+                p->tag["XuanhuoSkills"] = QVariant::fromValue(xuanhuoskills);
             }
-            room->handleAcquireDetachSkills(player, detachList, true);
-            player->tag["XuanhuoSkills"] = QVariant::fromValue(xuanhuoskills);
         }
     }
 
@@ -1453,7 +1473,7 @@ public:
 
     virtual bool viewFilter(const QList<const Card *> &selected, const Card *to_select) const
     {
-        if (Self->isJilei(to_select) || to_select->isEquipped()) return false;
+        if (Self->isJilei(to_select)) return false;
         if (selected.isEmpty())
             return true;
         else if (selected.length() == 1)
@@ -1488,7 +1508,7 @@ public:
 
     virtual QStringList triggerable(TriggerEvent, Room *, ServerPlayer *player, QVariant &, ServerPlayer* &) const
     {
-        if (!TriggerSkill::triggerable(player) || player->getHandcardNum() < 2) return QStringList();
+        if (!TriggerSkill::triggerable(player) || player->getCardCount(true) < 2) return QStringList();
         return QStringList(objectName());
     }
 
@@ -1577,8 +1597,13 @@ public:
     {
         JudgeStruct *judge = data.value<JudgeStruct *>();
         player->obtainCard(judge->card);
-        if (player->getPhase() != Player::NotActive)
-            room->addPlayerMark(player, "zhuweiTimes");
+
+        ServerPlayer *current = room->getCurrent();
+        if (current != NULL && current->getPhase() != Player::NotActive) {
+            if (room->askForChoice(player, objectName(), "yes+no", data, "@zhuwei-choose:" + current->objectName()) == "yes")
+                room->addPlayerMark(current, "zhuweiTimes");
+        }
+
         return false;
     }
 };
@@ -2607,6 +2632,7 @@ PowerPackage::PowerPackage()
     insertRelatedSkills("zongyu", "#zongyu-compulsory");
 
     addMetaObject<ZhengbiCard>();
+    addMetaObject<FengyingCard>();
     addMetaObject<JieyueCard>();
     addMetaObject<JianglveCard>();
     addMetaObject<XuanhuoAttachCard>();

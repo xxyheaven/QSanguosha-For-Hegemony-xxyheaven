@@ -257,7 +257,8 @@ public:
     virtual QStringList triggerable(TriggerEvent, Room *, ServerPlayer *player, QVariant &data, ServerPlayer* &) const
     {
         CardUseStruct use = data.value<CardUseStruct>();
-        if (use.card->getTypeId() == Card::TypeTrick && use.card->getSkillName(true) == "qice" && player->isAlive() && player->canTransform()) {
+        if (use.card->getTypeId() == Card::TypeTrick && use.card->getSkillName(true) == "qice" && player->isAlive()
+                && player->getMark("qicetransformUsed") ==0 && player->canTransform()) {
             return QStringList(objectName());
         }
         return QStringList();
@@ -267,7 +268,7 @@ public:
     {
         if (room->askForChoice(player, "transform", "yes+no", QVariant(), "@transform-ask:::"+objectName()) == "yes") {
             room->broadcastSkillInvoke("transform", player->isMale());
-            room->setPlayerProperty(player, "transformUsed", QVariant(true));
+            room->addPlayerMark(player, "qicetransformUsed");
             return true;
         }
 
@@ -945,9 +946,9 @@ public:
             CardMoveReason reason(CardMoveReason::S_REASON_EXTRACTION, player->objectName());
             room->obtainCard(player, Sanguosha->getCard(card_id), reason, false);
         }
-        if (to->isFriendWith(player) && to->canTransform() &&
-                (room->askForChoice(to, "transform", "yes+no", QVariant(), "@transform-ask:::"+objectName()) == "yes")) {
-            room->setPlayerProperty(to, "transformUsed", QVariant(true));
+        if (to->isFriendWith(player) && to->canTransform() && player->getMark("zhimantransformUsed") == 0
+                && (room->askForChoice(to, "transform", "yes+no", QVariant(), "@transform-ask:::"+objectName()) == "yes")) {
+            room->addPlayerMark(player, "zhimantransformUsed");
             room->broadcastSkillInvoke("transform", to->isMale());
             room->transformDeputyGeneral(to);
         }
@@ -1143,107 +1144,150 @@ public:
 };
 
 //lvfan
-DiaoduequipCard::DiaoduequipCard()
-{
-    will_throw = false;
-    handling_method = Card::MethodNone;
-}
 
-bool DiaoduequipCard::targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
-{
-    if (targets.isEmpty() && to_select != Self && Self->isFriendWith(to_select)) {
-        const Card *card = Sanguosha->getCard(subcards.first());
-        const EquipCard *equip = qobject_cast<const EquipCard *>(card->getRealCard());
-        int equip_index = static_cast<int>(equip->location());
-        return (!to_select->getEquip(equip_index));
-    }
-    return false;
-}
-
-void DiaoduequipCard::onEffect(const CardEffectStruct &effect) const
-{
-    ServerPlayer *player = effect.from, *to = effect.to;
-    Room *room = player->getRoom();
-
-    LogMessage log;
-    log.type = "$DiaoduEquip";
-    log.from = to;
-    log.card_str = QString::number(getEffectiveId());
-    room->sendLog(log);
-
-    room->moveCardTo(this, player, to, Player::PlaceEquip, CardMoveReason(CardMoveReason::S_REASON_CHANGE_EQUIP, player->objectName(), "diaodu", QString()));
-}
-
-class Diaoduequip : public OneCardViewAsSkill
+class Diaodu : public TriggerSkill
 {
 public:
-    Diaoduequip() : OneCardViewAsSkill("diaodu_equip")
+    Diaodu() : TriggerSkill("diaodu")
     {
-        filter_pattern = "EquipCard!";
-        response_pattern = "@@diaodu_equip";
-        response_or_use = true;
+        events << EventPhaseStart << CardUsed;
     }
 
-    virtual bool isEnabledAtPlay(const Player *) const
+    virtual QStringList triggerable(TriggerEvent triggerEvent, Room *room, ServerPlayer *player, QVariant &data, ServerPlayer * &) const
     {
+        if (triggerEvent == EventPhaseStart && player->getPhase() == Player::Play) {
+            if (TriggerSkill::triggerable(player)) {
+                bool can_invoke = false;
+                QList<ServerPlayer *> all_players = room->getAlivePlayers();
+                foreach (ServerPlayer *p, all_players) {
+                    if (player->isFriendWith(p) && player->canGetCard(p, "e")) {
+                        can_invoke = true;
+                        break;
+                    }
+                }
+                if (can_invoke)
+                    return QStringList(objectName());
+            }
+        } else if (triggerEvent == CardUsed) {
+            CardUseStruct use = data.value<CardUseStruct>();
+            if (TriggerSkill::triggerable(player) && use.card->getTypeId() == Card::TypeEquip)
+                return QStringList(objectName());
+        }
+        return QStringList();
+    }
+
+    virtual bool cost(TriggerEvent triggerEvent, Room *room, ServerPlayer *player, QVariant &, ServerPlayer *) const
+    {
+        if (triggerEvent == EventPhaseStart) {
+            QList<ServerPlayer *> targets;
+            QList<ServerPlayer *> all_players = room->getAlivePlayers();
+            foreach (ServerPlayer *p, all_players) {
+                if (player->isFriendWith(p) && player->canGetCard(p, "e"))
+                    targets << p;
+            }
+            ServerPlayer *victim;
+            if ((victim = room->askForPlayerChosen(player, targets, objectName(), "@diaodu", true, true)) != NULL) {
+                room->broadcastSkillInvoke(objectName(), player);
+
+                QStringList target_list = player->tag["diaodu_target"].toStringList();
+                target_list.append(victim->objectName());
+                player->tag["diaodu_target"] = target_list;
+
+                return true;
+            }
+        } else if (triggerEvent == CardUsed) {
+            if (player->askForSkillInvoke(objectName())) {
+                room->broadcastSkillInvoke(objectName(), player);
+                return true;
+            }
+        }
         return false;
     }
 
-    virtual const Card *viewAs(const Card *originalcard) const
+    virtual bool effect(TriggerEvent triggerEvent, Room *room, ServerPlayer *player, QVariant &, ServerPlayer *) const
     {
-        if (Self->hasEquip(originalcard)) {
-            DiaoduequipCard *first = new DiaoduequipCard;
-            first->addSubcard(originalcard->getId());
-            return first;
-        }
-        return originalcard;
+        if (triggerEvent == EventPhaseStart) {
+            QStringList target_list = player->tag["diaodu_target"].toStringList();
+            QString target_name = target_list.last();
+            target_list.removeLast();
+            player->tag["diaodu_target"] = target_list;
+
+            ServerPlayer *target = room->findPlayerbyobjectName(target_name);
+            if (target != NULL) {
+
+                int card_id = room->askForCardChosen(player, target, "e", objectName(), false, Card::MethodGet);
+                const Card *card = Sanguosha->getCard(card_id);
+
+                CardMoveReason reason(CardMoveReason::S_REASON_EXTRACTION, player->objectName());
+                room->obtainCard(player, card, reason, false);
+
+                if (room->getCardOwner(card_id) == player && room->getCardPlace(card_id) == Player::PlaceHand) {
+                    ServerPlayer *victim = room->askForPlayerChosen(player, room->getOtherPlayers(player), "diaodu_give",
+                                                                    "@diaodu-give:::" + card->objectName(), true);
+                    if (victim != NULL) {
+                        CardMoveReason reason2(CardMoveReason::S_REASON_GIVE, player->objectName(), victim->objectName(), "diaodu", QString());
+                        room->obtainCard(victim, card, reason2, true);
+                    }
+
+                }
+            }
+        } else if (triggerEvent == CardUsed)
+            player->drawCards(1, objectName());
+
+        return false;
     }
 };
 
-DiaoduCard::DiaoduCard()
-{
-    target_fixed = true;
-    mute = true;
-}
-
-void DiaoduCard::onUse(Room *room, const CardUseStruct &card_use) const
-{
-    room->broadcastSkillInvoke("diaodu", card_use.from);
-
-    CardUseStruct new_use = card_use;
-    new_use.to << card_use.from;
-    if (card_use.from->getRole() != "careerist")
-        foreach (ServerPlayer *p, room->getOtherPlayers(card_use.from))
-            if (card_use.from->isFriendWith(p))
-                new_use.to << p;
-    room->sortByActionOrder(new_use.to);
-
-    Card::onUse(room, new_use);
-}
-
-void DiaoduCard::onEffect(const CardEffectStruct &effect) const
-{
-    Room *room = effect.to->getRoom();
-    room->askForUseCard(effect.to, "@@diaodu_equip", "@Diaodu-distribute", -1, Card::MethodUse);
-}
-
-class Diaodu : public ZeroCardViewAsSkill
+class DiaoduDraw : public TriggerSkill
 {
 public:
-    Diaodu() : ZeroCardViewAsSkill("diaodu")
+    DiaoduDraw() : TriggerSkill("#diaodu-draw")
     {
+        events << CardUsed;
+        frequency = Compulsory;
     }
-    virtual bool isEnabledAtPlay(const Player *player) const
+
+    virtual TriggerList triggerable(TriggerEvent, Room *room, ServerPlayer *player, QVariant &data) const
     {
-        return !player->hasUsed("DiaoduCard");
+        if (player != NULL && player->isAlive()) {
+            CardUseStruct use = data.value<CardUseStruct>();
+            if (use.card->getTypeId() == Card::TypeEquip) {
+                QList<ServerPlayer *> owners = room->findPlayersBySkillName("diaodu");
+                TriggerList skill_list;
+                foreach (ServerPlayer *owner, owners)
+                    if (owner != player && player->isFriendWith(owner) && owner->hasShownSkill("diaodu"))
+                        skill_list.insert(owner, QStringList(objectName()));
+                return skill_list;
+            }
+        }
+        return TriggerList();
     }
-    virtual const Card *viewAs() const
+
+    virtual bool cost(TriggerEvent, Room *room, ServerPlayer *player, QVariant &data, ServerPlayer *owner) const
     {
-        DiaoduCard *dd = new DiaoduCard;
-        dd->setShowSkill(objectName());
-        return dd;
+        if (room->askForChoice(player, "diaodu", "yes+no", data, "@diaodu-draw:" + owner->objectName()) == "yes") {
+            LogMessage log;
+            log.type = "#InvokeOthersSkill";
+            log.from = player;
+            log.to << owner;
+            log.arg = "diaodu";
+            room->sendLog(log);
+            room->broadcastSkillInvoke("diaodu", owner);
+            room->notifySkillInvoked(owner, "diaodu");
+
+            return true;
+        }
+        return false;
+    }
+
+    virtual bool effect(TriggerEvent, Room *, ServerPlayer *player, QVariant &, ServerPlayer *) const
+    {
+        player->drawCards(1, "diaodu");
+        return false;
     }
 };
+
+
 
 class Diancai : public TriggerSkill
 {
@@ -1301,8 +1345,9 @@ public:
         if (ask_who->getHandcardNum() < ask_who->getMaxHp())
             ask_who->drawCards(ask_who->getMaxHp() - ask_who->getHandcardNum(), objectName());
 
-        if (ask_who->canTransform() && room->askForChoice(ask_who, "transform", "yes+no", QVariant(), "@transform-ask:::"+objectName()) == "yes") {
-            room->setPlayerProperty(ask_who, "transformUsed", QVariant(true));
+        if (ask_who->canTransform() && ask_who->getMark("diancaitransformUsed") == 0
+                && room->askForChoice(ask_who, "transform", "yes+no", QVariant(), "@transform-ask:::"+objectName()) == "yes") {
+            room->addPlayerMark(ask_who, "diancaitransformUsed");
             room->broadcastSkillInvoke("transform", ask_who->isMale());
             room->transformDeputyGeneral(ask_who);
         }
@@ -1900,7 +1945,9 @@ TransformationPackage::TransformationPackage()
 
     General *lvfan = new General(this, "lvfan", "wu", 3);
     lvfan->addSkill(new Diaodu);
+    lvfan->addSkill(new DiaoduDraw);
     lvfan->addSkill(new Diancai);
+    insertRelatedSkills("diaodu", "#diaodu-draw");
 
     General *sunquan = new General(this, "lord_sunquan$", "wu", 4, true, true);
     sunquan->addSkill(new Jiahe);
@@ -1919,8 +1966,6 @@ TransformationPackage::TransformationPackage()
     insertRelatedSkills("haoshi_flamemap", "#haoshi_flamemap-give");
 
     addMetaObject<YongjinCard>();
-    addMetaObject<DiaoduequipCard>();
-    addMetaObject<DiaoduCard>();
     addMetaObject<QiceCard>();
     addMetaObject<XiongsuanCard>();
     addMetaObject<SanyaoCard>();
@@ -1928,7 +1973,7 @@ TransformationPackage::TransformationPackage()
     addMetaObject<FlameMapCard>();
 
     skills << new HuashenVH;
-    skills << new Diaoduequip << new YongjinNext;
+    skills << new YongjinNext;
     skills << new ZhimanSecond;
     skills << new FlameMap;
     skills << new Yingzi("flamemap", false) << new Shelie << new HaoshiFlamemap << new HaoshiFlamemapGive << new DuoshiFlamemap;

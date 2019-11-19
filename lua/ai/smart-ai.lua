@@ -1971,13 +1971,16 @@ end
 sgs.ai_choicemade_filter.playerChosen.general = function(self, from, promptlist)
 	if from:objectName() == promptlist[3] then return end
 	local reason = string.gsub(promptlist[2], "%-", "_")
-	local to = findPlayerByObjectName(promptlist[3])
-	local callback = sgs.ai_playerchosen_intention[reason]
-	if callback then
-		if type(callback) == "number" then
-			sgs.updateIntention(from, to, sgs.ai_playerchosen_intention[reason])
-		elseif type(callback) == "function" then
-			callback(self, from, to)
+	local nameslist = promptlist[3]:split("+")
+	for _, to_name in ipairs(nameslist) do
+		local to = findPlayerByObjectName(to_name)
+		local callback = sgs.ai_playerchosen_intention[reason]
+		if callback then
+			if type(callback) == "number" then
+				sgs.updateIntention(from, to, sgs.ai_playerchosen_intention[reason])
+			elseif type(callback) == "function" then
+				callback(self, from, to)
+			end
 		end
 	end
 end

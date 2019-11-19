@@ -69,6 +69,13 @@ bool Slash::IsAvailable(const Player *player, const Card *slash, bool considerSp
                         return true;
                 }
             }
+            QStringList assignee_list2 = player->property("zhengbi_specific_assignee").toString().split("+");
+            if (!assignee_list2.isEmpty()) {
+                foreach (const Player *p, player->getAliveSiblings()) {
+                    if (assignee_list2.contains(p->objectName()) && !p->hasShownOneGeneral() && player->canSlash(p, THIS_SLASH, false))
+                        return true;
+                }
+            }
         }
         return false;
     } else {
@@ -85,6 +92,8 @@ bool Slash::IsSpecificAssignee(const Player *player, const Player *from, const C
         && !Slash::IsAvailable(from, slash, false)) {
         QStringList assignee_list = from->property("extra_slash_specific_assignee").toString().split("+");
         if (assignee_list.contains(player->objectName())) return true;
+        QStringList assignee_list2 = from->property("zhengbi_specific_assignee").toString().split("+");
+        if (assignee_list2.contains(player->objectName()) && !player->hasShownOneGeneral()) return true;
     }
     return false;
 }
@@ -181,6 +190,11 @@ bool Slash::targetFilter(const QList<const Player *> &targets, const Player *to_
     int slash_targets = 1 + Sanguosha->correctCardTarget(TargetModSkill::ExtraTarget, Self, this);
     bool distance_limit = ((1 + Sanguosha->correctCardTarget(TargetModSkill::DistanceLimit, Self, this)) < 500);
     if (Self->hasFlag("slashNoDistanceLimit"))
+        distance_limit = false;
+
+    QStringList assignee_list = Self->property("zhengbi_specific_assignee").toString().split("+");
+
+    if (assignee_list.contains(to_select->objectName()) && !to_select->hasShownOneGeneral())
         distance_limit = false;
 
     int rangefix = 0;

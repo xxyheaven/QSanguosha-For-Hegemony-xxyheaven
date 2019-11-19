@@ -2889,14 +2889,19 @@ void Room::transformDeputyGeneral(ServerPlayer *player)
 
     QStringList names;
     names << player->getActualGeneral1Name() << player->getActualGeneral2Name();
-    QStringList available;
+    QStringList available, to_select;
     foreach (QString name, Sanguosha->getLimitedGeneralNames())
         if (!name.startsWith("lord_") && !used_general.contains(name) && Sanguosha->getGeneral(name)->getKingdom() == player->getKingdom())
             available << name;
     if (available.isEmpty()) return;
 
     qShuffle(available);
-    QString general_name = available.first();
+    for (int i = 1; i <= 3; i++) {
+        if (available.isEmpty()) break;
+        to_select << available.takeFirst();
+    }
+
+    QString general_name = askForGeneral(player, to_select.join("+"), QString(), true, "transform");
 
     handleUsedGeneral("-" + player->getActualGeneral2Name());
     handleUsedGeneral(general_name);
@@ -4045,7 +4050,7 @@ bool Room::useCard(const CardUseStruct &use, bool add_history)
 void Room::loseHp(ServerPlayer *victim, int lose)
 {
     Q_ASSERT(lose > 0);
-    if (lose <= 0)
+    if (lose <= 0 || victim->isRemoved())
         return;
 
     if (victim->isDead())
@@ -4209,7 +4214,7 @@ bool Room::isJinkEffected(ServerPlayer *user, const Card *jink)
 void Room::damage(const DamageStruct &data)
 {
     DamageStruct damage_data = data;
-    if (damage_data.to == NULL || damage_data.to->isDead())
+    if (damage_data.to == NULL || damage_data.to->isDead() || damage_data.to->isRemoved())
         return;
 
     QVariant qdata = QVariant::fromValue(damage_data);

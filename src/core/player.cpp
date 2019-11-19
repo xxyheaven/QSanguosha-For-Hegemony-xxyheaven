@@ -114,7 +114,7 @@ bool Player::isWounded() const
 
 bool Player::canRecover() const
 {
-    return isAlive() && isWounded() && !tag["CannotRecover"].toBool();
+    return isAlive() && isWounded() && !tag["CannotRecover"].toBool() && !isRemoved();
 }
 
 General::Gender Player::getGender() const
@@ -863,17 +863,7 @@ void Player::setKingdom(const QString &kingdom)
 
 QString Player::getSeemingKingdom() const
 {
-    if (!hasShownOneGeneral()) {
-        //for zhengbi
-        if (hasFlag("ZhengbiTarget")) {
-            QList<const Player *> siblings = getSiblings();
-            foreach (const Player *p, siblings) {
-                if (p->hasFlag("ZhengbiSource"))
-                    return p->getSeemingKingdom();
-            }
-        }
-        return QString();
-    }
+    if (!hasShownOneGeneral()) return QString();
     if (getRole() == "careerist") return "careerist";
     return getKingdom();
 }
@@ -1088,7 +1078,7 @@ bool Player::canPindianTo(const Player *to) const
 
 bool Player::canTransform() const
 {
-    return getGeneral2() && !property("transformUsed").toBool();
+    return getGeneral2();
 }
 
 void Player::addDelayedTrick(const Card *trick)
@@ -2072,29 +2062,11 @@ bool Player::isFriendWith(const Player *player) const
 
     if (this == player) return true;
 
-    if (!hasShownOneGeneral()) {
-        if (hasFlag("ZhengbiTarget")) {
-            QList<const Player *> siblings = getSiblings();
-            foreach (const Player *p, siblings) {
-                if (p->hasFlag("ZhengbiSource") && p->hasShownOneGeneral())
-                    return p->isFriendWith(player);
-            }
-        }
-        return false;
-    }
+    if (!hasShownOneGeneral() || !player->hasShownOneGeneral()) return false;
 
-    if (!player->hasShownOneGeneral()) {
-        if (player->hasFlag("ZhengbiTarget")) {
-            QList<const Player *> siblings = player->getSiblings();
-            foreach (const Player *p, siblings) {
-                if (p->hasFlag("ZhengbiSource") && p->hasShownOneGeneral())
-                    return isFriendWith(p);
-            }
-        }
-        return false;
-    }
+    if (role == "careerist" || player->role == "careerist") return false;
 
-    return getSeemingKingdom() == player->getSeemingKingdom() && getSeemingKingdom() != "careerist";
+    return kingdom == player->kingdom;
 }
 
 bool Player::willBeFriendWith(const Player *player) const

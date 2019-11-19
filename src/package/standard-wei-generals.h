@@ -82,14 +82,14 @@ public:
     virtual void onEffect(const CardEffectStruct &effect) const;
 };
 
-class Tuxi : public PhaseChangeSkill
+class Tuxi : public DrawCardsSkill
 {
 public:
     explicit Tuxi(const QString &owner = QString());
 
     virtual QStringList triggerable(TriggerEvent triggerEvent, Room *room, ServerPlayer *player, QVariant &data, ServerPlayer * &ask_who) const;
     virtual bool cost(TriggerEvent triggerEvent, Room *room, ServerPlayer *player, QVariant &data, ServerPlayer *ask_who = NULL) const;
-    virtual bool onPhaseChange(ServerPlayer *target) const;
+    virtual int getDrawNum(ServerPlayer *zhangliao, int n) const;
 
 };
 
@@ -115,17 +115,17 @@ public:
     virtual bool onPhaseChange(ServerPlayer *target) const;
 
 };
-/*
-class Xiaoguo : public PhaseChangeSkill
+
+class DaoshuCard : public SkillCard
 {
+    Q_OBJECT
+
 public:
-    explicit Xiaoguo(const QString &owner = QString());
+    Q_INVOKABLE DaoshuCard();
 
-    virtual TriggerList triggerable(TriggerEvent triggerEvent, Room *room, ServerPlayer *player, QVariant &data) const;
-    virtual bool cost(TriggerEvent triggerEvent, Room *room, ServerPlayer *player, QVariant &data, ServerPlayer *ask_who = NULL) const;
-    virtual bool effect(TriggerEvent triggerEvent, Room *room, ServerPlayer *player, QVariant &data, ServerPlayer *ask_who) const;
-
+    virtual bool targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const;
+    virtual void onEffect(const CardEffectStruct &effect) const;
 };
-*/
+
 #endif
 

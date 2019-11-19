@@ -228,7 +228,7 @@ public:
     void removeGeneral(bool head_general = true);
     void sendSkillsToOthers(bool head_skill = true);
     void disconnectSkillsFromOthers(bool head_skill = true);
-    bool askForGeneralShow(const QString &reason, bool head = true, bool deputy = true, bool all = true, bool refusable = true);
+    bool askForGeneralShow(const QString &reason, bool head = true, bool deputy = true, bool all = true, bool refusable = true, bool change = false);
     void notifyPreshow();
 
     bool inSiegeRelation(const ServerPlayer *skill_owner, const ServerPlayer *victim) const;

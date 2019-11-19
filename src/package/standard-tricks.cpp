@@ -438,7 +438,10 @@ bool Snatch::targetFilter(const QList<const Player *> &targets, const Player *to
         ++rangefix;
 
     int distance = Self->distanceTo(to_select, rangefix);
-    if (distance == -1 || distance > distance_limit)
+
+    QStringList assignee_list = Self->property("zhengbi_specific_assignee").toString().split("+");
+
+    if (distance == -1 || (distance > distance_limit && (!assignee_list.contains(to_select->objectName()) || to_select->hasShownOneGeneral())))
         return false;
 
     if (!Self->canGetCard(to_select, "hej"))
@@ -1275,8 +1278,10 @@ bool SupplyShortage::targetFilter(const QList<const Player *> &targets, const Pl
     if (Self->getOffensiveHorse() && subcards.contains(Self->getOffensiveHorse()->getId()))
         ++rangefix;
 
+    QStringList assignee_list = Self->property("zhengbi_specific_assignee").toString().split("+");
+
     int distance = Self->distanceTo(to_select, rangefix);
-    if (distance == -1 || distance > distance_limit)
+    if (distance == -1 || (distance > distance_limit && (!assignee_list.contains(to_select->objectName()) || to_select->hasShownOneGeneral())))
         return false;
 
     return true;

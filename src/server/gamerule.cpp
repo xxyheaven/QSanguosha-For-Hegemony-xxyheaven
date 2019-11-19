@@ -127,12 +127,12 @@ GameRule::GameRule(QObject *parent)
         << SlashHit << SlashEffected << SlashProceed
         << ConfirmDamage << DamageDone << DamageComplete
         << StartJudge << FinishRetrial << FinishJudge
-        << ChoiceMade << GeneralShown
+        << ChoiceMade << GeneralShown << DFDebut
         << BeforeCardsMove << CardsMoveOneTime;
 
     QList<Skill *> list;
     //list << new GameRule_AskForArraySummon;
-    list << new GameRule_LordConvertion;
+    //list << new GameRule_LordConvertion;
 
     QList<const Skill *> list_copy;
     foreach (Skill *s, list) {
@@ -165,8 +165,7 @@ void GameRule::onPhaseProceed(ServerPlayer *player) const
     }
     case Player::RoundStart:{
         //ask for show general(s)
-        bool is_lord = (Sanguosha->getGeneral(room->getTag(player->objectName()).toStringList().first())->isLord());
-        player->askForGeneralShow("GameRule_AskForGeneralShow", true, !is_lord, true, !(is_lord && !player->hasShownGeneral1()));
+        player->askForGeneralShow("GameRule_AskForGeneralShow", true, true, true, true, (player->getMark("Global_TurnCount") == 1));
         break;
     }
     case Player::Start: {
@@ -765,19 +764,6 @@ bool GameRule::effect(TriggerEvent triggerEvent, Room *room, ServerPlayer *playe
     }
     case GameOverJudge: {
 
-        if (player->getGeneral()->isLord()) {
-            foreach (ServerPlayer *p, room->getOtherPlayers(player, true)) {
-                if (p->getKingdom() == player->getKingdom()) {
-                    if (p->hasShownOneGeneral()) {
-                        room->setPlayerProperty(p, "role", "careerist");
-                    } else {
-                        p->setRole("careerist");
-                        room->notifyProperty(p, p, "role");
-                    }
-                }
-            }
-        }
-
         QString winner = getWinner(player);
         if (!winner.isNull()) {
             room->gameOver(winner);
@@ -803,6 +789,20 @@ bool GameRule::effect(TriggerEvent triggerEvent, Room *room, ServerPlayer *playe
                 room->setEmotion(killer, "zylove", false, 4000);
             rewardAndPunish(killer, player);
         }
+
+        if (player->getGeneral()->isLord() && player == data.value<DeathStruct>().who) {
+            foreach (ServerPlayer *p, room->getOtherPlayers(player, true)) {
+                if (p->getKingdom() == player->getKingdom()) {
+                    if (p->hasShownOneGeneral()) {
+                        room->setPlayerProperty(p, "role", "careerist");
+                    } else {
+                        p->setRole("careerist");
+                        room->notifyProperty(p, p, "role");
+                    }
+                }
+            }
+        }
+
 
         break;
     }
@@ -884,6 +884,13 @@ bool GameRule::effect(TriggerEvent triggerEvent, Room *room, ServerPlayer *playe
                     room->addPlayerMark(player, "@firstshow");
                 }
             }
+        }
+    }
+    case DFDebut: {
+        QString winner = getWinner(player);
+        if (!winner.isNull()) {
+            room->gameOver(winner); // if all hasShownGenreal, and they are all friend, game over.
+            return true;
         }
     }
     case BeforeCardsMove: {
@@ -973,17 +980,17 @@ QString GameRule::getWinner(ServerPlayer *victim) const
                     has_diff_kingdoms = true;
                     break;// if both shown but not friend, hehe.
                 }
-//                if ((p->hasShownOneGeneral() && !p2->hasShownOneGeneral() && !p2->willBeFriendWith(p))
-//                    || (!p->hasShownOneGeneral() && p2->hasShownOneGeneral() && !p->willBeFriendWith(p2))) {
-//                    has_diff_kingdoms = true;
-//                    break;// if either shown but not friend, hehe.
-//                }
-//                if (!p->hasShownOneGeneral() && !p2->hasShownOneGeneral()) {
+                if ((p->hasShownOneGeneral() && !p2->hasShownOneGeneral() && !p2->willBeFriendWith(p))
+                    || (!p->hasShownOneGeneral() && p2->hasShownOneGeneral() && !p->willBeFriendWith(p2))) {
+                    has_diff_kingdoms = true;
+                    break;// if either shown but not friend, hehe.
+                }
+                if (!p->hasShownOneGeneral() && !p2->hasShownOneGeneral()) {
                     if (p->getActualGeneral1()->getKingdom() != p2->getActualGeneral1()->getKingdom()) {
                         has_diff_kingdoms = true;
                         break;  // if neither shown and not friend, hehe.
                     }
-//                }
+                }
             }
             if (has_diff_kingdoms)
                 break;

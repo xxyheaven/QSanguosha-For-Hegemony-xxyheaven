@@ -396,6 +396,8 @@ void ChooseGeneralBox::chooseGeneral(const QStringList &_generals, bool view_onl
             progress_bar->setCountdown(QSanProtocol::S_COMMAND_CHOOSE_GENERAL);
         progress_bar->show();
     }
+    if (view_only)
+        confirm->setEnabled(true);
 }
 
 void ChooseGeneralBox::_adjust()

@@ -403,7 +403,7 @@ public:
 
     virtual bool isEnabledAtPlay(const Player *player) const
     {
-        return !player->hasUsed("WoodenOxCard");
+        return !player->hasUsed("WoodenOxCard") && player->getPile("wooden_ox").length() < 5;
     }
 
     virtual const Card *viewAs(const Card *originalCard) const
@@ -753,32 +753,32 @@ bool LureTiger::targetFilter(const QList<const Player *> &targets, const Player 
     return to_select != Self;
 }
 
-void LureTiger::use(Room *room, ServerPlayer *source, QList<ServerPlayer *> &targets) const
-{
-    QStringList nullified_list = room->getTag("CardUseNullifiedList").toStringList();
-    bool all_nullified = nullified_list.contains("_ALL_TARGETS");
-    foreach (ServerPlayer *target, targets) {
-        CardEffectStruct effect;
-        effect.card = this;
-        effect.from = source;
-        effect.to = target;
-        effect.multiple = (targets.length() > 1);
-        effect.nullified = (all_nullified || nullified_list.contains(target->objectName()));
+//void LureTiger::use(Room *room, ServerPlayer *source, QList<ServerPlayer *> &targets) const
+//{
+//    QStringList nullified_list = room->getTag("CardUseNullifiedList").toStringList();
+//    bool all_nullified = nullified_list.contains("_ALL_TARGETS");
+//    foreach (ServerPlayer *target, targets) {
+//        CardEffectStruct effect;
+//        effect.card = this;
+//        effect.from = source;
+//        effect.to = target;
+//        effect.multiple = (targets.length() > 1);
+//        effect.nullified = (all_nullified || nullified_list.contains(target->objectName()));
 
-        QVariantList players;
-        for (int i = targets.indexOf(target); i < targets.length(); i++) {
-            if (!nullified_list.contains(targets.at(i)->objectName()) && !all_nullified)
-                players.append(QVariant::fromValue(targets.at(i)));
-        }
-        room->setTag("targets" + this->toString(), QVariant::fromValue(players));
+//        QVariantList players;
+//        for (int i = targets.indexOf(target); i < targets.length(); i++) {
+//            if (!nullified_list.contains(targets.at(i)->objectName()) && !all_nullified)
+//                players.append(QVariant::fromValue(targets.at(i)));
+//        }
+//        room->setTag("targets" + this->toString(), QVariant::fromValue(players));
 
-        room->cardEffect(effect);
-    }
+//        room->cardEffect(effect);
+//    }
 
-    room->removeTag("targets" + this->toString());
+//    room->removeTag("targets" + this->toString());
 
-    source->drawCards(1, objectName());
-}
+//    source->drawCards(1, objectName());
+//}
 
 void LureTiger::onEffect(const CardEffectStruct &effect) const
 {
@@ -1090,25 +1090,37 @@ void AllianceFeast::onEffect(const CardEffectStruct &effect) const
 {
     Room *room = effect.to->getRoom();
     if (effect.to->getMark(objectName()) > 0) {
-        effect.to->drawCards(effect.to->getMark(objectName()), objectName());
-    } else {
-        QStringList choices;
-        if (effect.to->isWounded())
-            choices << "recover";
-        choices << "draw";
-        QString choice = room->askForChoice(effect.to, objectName(), choices.join("+"), QVariant(), QString(), "recover+draw");
-        if (choice == "recover") {
-            RecoverStruct recover;
-            recover.who = effect.from;
-            room->recover(effect.to, recover);
-        } else {
-            effect.to->drawCards(1, objectName());
-            if (effect.to->isChained()) {
-                effect.to->setChained(false);
-                room->setEmotion(effect.to, "chain");
-                room->broadcastProperty(effect.to, "chained");
-                room->getThread()->trigger(ChainStateChanged, room, effect.to);
+        int x = effect.to->getMark(objectName());
+        int y = qMin(x, effect.to->getLostHp());
+
+        if (y == 0) effect.to->drawCards(x, objectName());
+        else {
+            QStringList draw_num;
+            for (int i = 0; i <= y; draw_num << QString::number(i++)) {
+
             }
+            int num = room->askForChoice(effect.to, "alliancefeast_draw", draw_num.join("+"), QVariant(), "@alliancefeast-choose").toInt();
+
+            if(x > num)
+                effect.to->drawCards(x - num, objectName());
+
+            if (num > 0 && effect.to->canRecover()) {
+                RecoverStruct rec;
+                rec.recover = num;
+                rec.who = effect.to;
+                room->recover(effect.to, rec);
+            }
+        }
+
+
+
+    } else {
+        effect.to->drawCards(1, objectName());
+        if (effect.to->isChained()) {
+            effect.to->setChained(false);
+            room->setEmotion(effect.to, "chain");
+            room->broadcastProperty(effect.to, "chained");
+            room->getThread()->trigger(ChainStateChanged, room, effect.to);
         }
     }
 }

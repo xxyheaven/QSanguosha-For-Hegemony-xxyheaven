@@ -1398,129 +1398,148 @@ class DragonPhoenixSkill : public WeaponSkill
 public:
     DragonPhoenixSkill() : WeaponSkill("DragonPhoenix")
     {
-        events << TargetChosen;
+        events << TargetChosen << Dying;
     }
 
-    virtual QStringList triggerable(TriggerEvent, Room *, ServerPlayer *player, QVariant &data, ServerPlayer* &) const
+    virtual QStringList triggerable(TriggerEvent triggerEvent, Room *, ServerPlayer *player, QVariant &data, ServerPlayer* &) const
     {
-        CardUseStruct use = data.value<CardUseStruct>();
-        if (WeaponSkill::triggerable(player) && use.card != NULL && use.card->isKindOf("Slash")) {
-            QStringList targets;
-            foreach (ServerPlayer *to, use.to) {
-                if (!to->isNude())
-                    targets << to->objectName();
+        if (!WeaponSkill::triggerable(player)) return QStringList();
+        if (triggerEvent == TargetChosen) {
+            CardUseStruct use = data.value<CardUseStruct>();
+            if (use.card != NULL && use.card->isKindOf("Slash")) {
+                QStringList targets;
+                foreach (ServerPlayer *to, use.to) {
+                    if (!to->isNude())
+                        targets << to->objectName();
+                }
+                if (!targets.isEmpty())
+                    return QStringList(objectName() + "->" + targets.join("+"));
             }
-            if (!targets.isEmpty())
-                return QStringList(objectName() + "->" + targets.join("+"));
+        } else if (triggerEvent == Dying) {
+            DyingStruct dying = data.value<DyingStruct>();
+            ServerPlayer *target = dying.who;
+            if (dying.damage && dying.damage->from == player && dying.damage->card && dying.damage->card->isKindOf("Slash")
+                    && !dying.damage->chain && !dying.damage->transfer) {
+                if (player->canGetCard(target, "h"))
+                    return QStringList(objectName() + "->" + target->objectName());
+            }
         }
+
         return QStringList();
     }
 
-    virtual bool cost(TriggerEvent, Room *room, ServerPlayer *player, QVariant &, ServerPlayer *ask_who) const
+    virtual bool cost(TriggerEvent , Room *room, ServerPlayer *player, QVariant &, ServerPlayer *ask_who) const
     {
         if (ask_who->askForSkillInvoke(this, QVariant::fromValue(player))) {
             room->setEmotion(ask_who, "weapon/dragonphoenix");
+            room->doAnimate(QSanProtocol::S_ANIMATE_INDICATE, ask_who->objectName(), player->objectName());
             return true;
         }
         return false;
     }
 
-    virtual bool effect(TriggerEvent, Room *room, ServerPlayer *player, QVariant &, ServerPlayer *) const
+    virtual bool effect(TriggerEvent triggerEvent, Room *room, ServerPlayer *player, QVariant &, ServerPlayer *ask_who) const
     {
-        room->askForDiscard(player, objectName(), 1, 1, false, true, "@dragonphoenix-discard");
-        return false;
-    }
-};
-
-class DragonPhoenixSkill2 : public WeaponSkill
-{
-public:
-    DragonPhoenixSkill2() : WeaponSkill("#DragonPhoenix")
-    {
-        events << BuryVictim;
-    }
-
-    virtual int getPriority() const
-    {
-        return -4;
-    }
-
-    virtual bool triggerable(const ServerPlayer *target) const
-    {
-        return target != NULL;
-    }
-
-    virtual bool effect(TriggerEvent, Room *room, ServerPlayer *player, QVariant &data, ServerPlayer *) const
-    {
-        if (!room->getMode().endsWith('p')) return false;
-
-        DeathStruct death = data.value<DeathStruct>();
-        DamageStruct *damage = death.damage;
-        if (!damage || !damage->card || !damage->card->isKindOf("Slash")) return false;
-        ServerPlayer *dfowner = damage->from;
-
-        if (!dfowner || !dfowner->hasWeapon("DragonPhoenix") || dfowner->getRole() == "careerist" || !dfowner->hasShownOneGeneral()) return false;
-
-        if (!room->getLord(dfowner->getKingdom()) && !(dfowner->getPlayerNumWithKingdom(true) < room->getPlayers().length() / 2)) return false;
-
-        int num = dfowner->getPlayerNumWithKingdom();
-
-        foreach (ServerPlayer *p, room->getAlivePlayers()) {
-            if (p->hasShownOneGeneral() && !dfowner->isFriendWith(p) && p->getPlayerNumWithKingdom() <= num) {
-                return false;
-            }
-        }
-
-        QStringList generals = Sanguosha->getLimitedGeneralNames(true);
-        foreach (QString name, room->getUsedGeneral())
-            if (generals.contains(name)) generals.removeAll(name);
-
-        QStringList avaliable_generals;
-
-        foreach (const QString &general, generals) {
-            if (Sanguosha->getGeneral(general)->getKingdom() != dfowner->getKingdom())
-                continue;
-
-            bool continue_flag = false;
-            foreach (ServerPlayer *p, room->getAlivePlayers()) {
-                QStringList generals_of_player = room->getTag(p->objectName()).toStringList();
-                if (generals_of_player.contains(general)) {
-                    continue_flag = true;
-                    break;
-                }
-            }
-
-            if (continue_flag)
-                continue;
-
-            avaliable_generals << general;
-        }
-
-        if (avaliable_generals.isEmpty()) return false;
-
-        bool invoke = room->askForSkillInvoke(dfowner, "DragonPhoenix", data) &&
-                (room->askForChoice(player, "DragonPhoenix_revive", "yes+no", data, "@DragonPhoenix-choose:" + dfowner->objectName()) == "yes");
-        if (invoke) {
-            room->setEmotion(dfowner, "weapon/dragonphoenix");
-            room->setPlayerProperty(player, "Duanchang", QVariant());
-            QString to_change = room->askForGeneral(player, avaliable_generals, QString(), true, "DragonPhoenix", dfowner->getKingdom());
-
-            if (!to_change.isEmpty()) {
-                room->doDragonPhoenix(player, to_change, QString(), false, dfowner->getKingdom(), true, "h");
-                room->setPlayerProperty(player, "hp", 2);
-
-                player->setChained(false);
-                room->broadcastProperty(player, "chained");
-
-                player->setFaceUp(true);
-                room->broadcastProperty(player, "faceup");
-
-                player->drawCards(1, "revive");
-            }
+        if (triggerEvent == TargetChosen)
+            room->askForDiscard(player, objectName(), 1, 1, false, true, "@dragonphoenix-discard");
+        else if (triggerEvent == Dying) {
+            int card_id = room->askForCardChosen(ask_who, player, "h", objectName(), false, Card::MethodGet);
+            CardMoveReason reason(CardMoveReason::S_REASON_EXTRACTION, ask_who->objectName());
+            room->obtainCard(ask_who, Sanguosha->getCard(card_id), reason, false);
         }
         return false;
     }
 };
+
+//class DragonPhoenixSkill2 : public WeaponSkill
+//{
+//public:
+//    DragonPhoenixSkill2() : WeaponSkill("#DragonPhoenix")
+//    {
+//        events << BuryVictim;
+//    }
+
+//    virtual int getPriority() const
+//    {
+//        return -4;
+//    }
+
+//    virtual bool triggerable(const ServerPlayer *target) const
+//    {
+//        return target != NULL;
+//    }
+
+//    virtual bool effect(TriggerEvent, Room *room, ServerPlayer *player, QVariant &data, ServerPlayer *) const
+//    {
+//        if (!room->getMode().endsWith('p')) return false;
+
+//        DeathStruct death = data.value<DeathStruct>();
+//        DamageStruct *damage = death.damage;
+//        if (!damage || !damage->card || !damage->card->isKindOf("Slash")) return false;
+//        ServerPlayer *dfowner = damage->from;
+
+//        if (!dfowner || !dfowner->hasWeapon("DragonPhoenix") || dfowner->getRole() == "careerist" || !dfowner->hasShownOneGeneral()) return false;
+
+//        if (!room->getLord(dfowner->getKingdom()) && !(dfowner->getPlayerNumWithKingdom(true) < room->getPlayers().length() / 2)) return false;
+
+//        int num = dfowner->getPlayerNumWithKingdom();
+
+//        foreach (ServerPlayer *p, room->getAlivePlayers()) {
+//            if (p->hasShownOneGeneral() && !dfowner->isFriendWith(p) && p->getPlayerNumWithKingdom() <= num) {
+//                return false;
+//            }
+//        }
+
+//        QStringList generals = Sanguosha->getLimitedGeneralNames(true);
+//        foreach (QString name, room->getUsedGeneral())
+//            if (generals.contains(name)) generals.removeAll(name);
+
+//        QStringList avaliable_generals;
+
+//        foreach (const QString &general, generals) {
+//            if (Sanguosha->getGeneral(general)->getKingdom() != dfowner->getKingdom())
+//                continue;
+
+//            bool continue_flag = false;
+//            foreach (ServerPlayer *p, room->getAlivePlayers()) {
+//                QStringList generals_of_player = room->getTag(p->objectName()).toStringList();
+//                if (generals_of_player.contains(general)) {
+//                    continue_flag = true;
+//                    break;
+//                }
+//            }
+
+//            if (continue_flag)
+//                continue;
+
+//            avaliable_generals << general;
+//        }
+
+//        if (avaliable_generals.isEmpty()) return false;
+
+//        bool invoke = room->askForSkillInvoke(dfowner, "DragonPhoenix", data) &&
+//                (room->askForChoice(player, "DragonPhoenix_revive", "yes+no", data, "@DragonPhoenix-choose:" + dfowner->objectName()) == "yes");
+//        if (invoke) {
+//            room->setEmotion(dfowner, "weapon/dragonphoenix");
+//            room->setPlayerProperty(player, "Duanchang", QVariant());
+//            QString to_change = room->askForGeneral(player, avaliable_generals, QString(), true, "DragonPhoenix", dfowner->getKingdom());
+
+//            if (!to_change.isEmpty()) {
+//                room->doDragonPhoenix(player, to_change, QString(), false, dfowner->getKingdom(), true, "h");
+//                room->setPlayerProperty(player, "hp", 2);
+
+//                player->setChained(false);
+//                room->broadcastProperty(player, "chained");
+
+//                player->setFaceUp(true);
+//                room->broadcastProperty(player, "faceup");
+
+//                player->drawCards(1, "revive");
+//            }
+//        }
+//        return false;
+//    }
+//};
 
 
 FormationEquipPackage::FormationEquipPackage() : Package("formation_equip", CardPack)
@@ -1528,8 +1547,8 @@ FormationEquipPackage::FormationEquipPackage() : Package("formation_equip", Card
     DragonPhoenix *dp = new DragonPhoenix();
     dp->setParent(this);
 
-    skills << new DragonPhoenixSkill << new DragonPhoenixSkill2;
-    insertRelatedSkills("DragonPhoenix", "#DragonPhoenix");
+    skills << new DragonPhoenixSkill;
+    //insertRelatedSkills("DragonPhoenix", "#DragonPhoenix");
 }
 
 ADD_PACKAGE(FormationEquip)

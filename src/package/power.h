@@ -39,6 +39,16 @@ public:
     virtual void onEffect(const CardEffectStruct &effect) const;
 };
 
+class FengyingCard : public SkillCard
+{
+    Q_OBJECT
+
+public:
+    Q_INVOKABLE FengyingCard();
+
+    const Card *validate(CardUseStruct &card_use) const;
+};
+
 class JieyueCard : public SkillCard
 {
     Q_OBJECT

@@ -2047,7 +2047,7 @@ void ServerPlayer::disconnectSkillsFromOthers(bool head_skill /* = true */)
 
 }
 
-bool ServerPlayer::askForGeneralShow(const QString &reason, bool head, bool deputy, bool all, bool refusable)
+bool ServerPlayer::askForGeneralShow(const QString &reason, bool head, bool deputy, bool all, bool refusable, bool change)
 {
     if (hasShownAllGenerals()) return false;
 
@@ -2067,13 +2067,37 @@ bool ServerPlayer::askForGeneralShow(const QString &reason, bool head, bool depu
 
     if (choices.isEmpty()) return false;
 
-    QString choice = room->askForChoice(this, reason, choices.join("+"), QVariant(), "@generalshow-choose", all_choices);
+    QString prompt = "@generalshow-choose";
+    bool change_to_lord = false;
+
+    if (change && Config.value("EnableLordConvertion", true).toBool() && !hasShownGeneral1()) {
+        QString lord = "lord_" + getActualGeneral1()->objectName();
+        bool check = true;
+        foreach (ServerPlayer *p2, room->getOtherPlayers(this)) {                                 //no duplicate lord
+            if (this != p2 && lord == "lord_" + p2->getActualGeneral1()->objectName()) {
+                check = false;
+                break;
+            }
+        }
+        const General *lord_general = Sanguosha->getGeneral(lord);
+        if (check && lord_general && !Sanguosha->getBanPackages().contains(lord_general->getPackage())) {
+            change_to_lord = true;
+            prompt = prompt +"-lord";
+        }
+    }
+
+    QString choice = room->askForChoice(this, reason, choices.join("+"), QVariant(), prompt, all_choices);
 
     if (choice == "cancel") return false;
 
     bool show_head=false, show_deputy=false;
+
     if ((choice == "show_head_general" || choice == "show_both_generals") && !hasShownGeneral1()) {
         show_head = true;
+
+        if (change_to_lord && room->askForChoice(this, "changetolord", "yes+no", QVariant(), "@changetolord") == "yes")
+            changeToLord();
+
         showGeneral(true, false, false);
     }
 
@@ -2335,10 +2359,12 @@ void ServerPlayer::changeToLord()
     int doubleMaxHp = lord->getMaxHpHead() + deputy->getMaxHpDeputy();
     room->setPlayerMark(this, "HalfMaxHpLeft", doubleMaxHp % 2);
 
+    int x = getMaxHp();
     setMaxHp(doubleMaxHp / 2);
-    setHp(doubleMaxHp / 2);
+    setHp(getHp() - x + doubleMaxHp / 2);
 
     room->broadcastProperty(this, "maxhp");
+
     room->broadcastProperty(this, "hp");
 
     setActualGeneral1Name(name);

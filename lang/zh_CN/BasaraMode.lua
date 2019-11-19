@@ -29,6 +29,7 @@ return
 	["GameRule_AskForGeneralShow"] = "明置武将",
 	["GameRule:TurnStart"] = "选择需要明置的武将",
 	["@generalshow-choose"] = "请选择要明置的武将",
+	["@generalshow-choose-lord"] = "请选择要明置的武将（仅本次明置主将可变身君主）",
 	["show_head_general"] = "明置主将",
 	["show_deputy_general"] = "明置副将",
 	["show_both_generals"] = "全部明置",
@@ -68,6 +69,10 @@ return
 	["#FirstShowReward"] = "%from 全场第一个亮将，选择摸两张牌或回复1点体力",
 	["#ShowingRewardOfCareerist"] = "%from 亮将成为野心家，选择摸两张牌或回复1点体力",
 	["#ShowingRewardOfKingdom"] = "%from 是 %arg势力 第一个亮将的角色，摸一张牌",
+	
+	["@changetolord"] = "是否将主将变更为对应的君主武将",
+	["changetolord:yes"] = "变身君主",
+	["changetolord:no"] = "取消",
 
 	["GameRule_AskForGeneralShowHead"] = "明置主将" ,
 	["GameRule_AskForGeneralShowDeputy"] = "明置副将" ,
