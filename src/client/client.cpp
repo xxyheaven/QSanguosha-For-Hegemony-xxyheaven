@@ -572,12 +572,23 @@ void Client::getCards(const QVariant &arg)
             ClientPlayer *to = qobject_cast<ClientPlayer *>(move.to);
             if (to != NULL)
                 to->changePile(move.to_pile_name, true, move.card_ids);
-            const QString &pile_name = move.to_pile_name;
-            if ((pile_name.startsWith("&") || pile_name == "wooden_ox") && move.to && Self == move.to)
-                emit handpile_changed(pile_name, true, move.card_ids);
 
-            if (move.is_open_pile && move.from_place != Player::PlaceTable && move.from_place != Player::PlaceJudge)
-                emit pile_shown(move.to_player_name, move.card_ids, pile_name);
+            const QString &pile_name = move.to_pile_name;
+
+            if (move.to && move.to->getHandPileList(false).contains(pile_name)) {
+                if (Self == move.to)
+                    emit handpile_changed(pile_name, true, move.card_ids);
+            } else if (move.from_place != Player::PlaceTable && move.from_place != Player::PlaceJudge) {
+                QList<int> card_ids;
+                foreach(int card_id, move.card_ids) {
+                    if (card_id != Card::S_UNKNOWN_CARD_ID)
+                    card_ids << card_id;
+                }
+                if (!card_ids.isEmpty())
+                    emit pile_shown(move.to_player_name, card_ids, pile_name);
+
+            }
+
             if (move.from_place == Player::PlaceSpecial)
                 continue;
         } else {
@@ -716,7 +727,7 @@ void Client::onPlayerResponseCard(const Card *card, const QList<const Player *> 
             notifyServer(S_COMMAND_PINDIAN, JsonArray() << S_GUANXING_MOVE << QVariant::fromValue(Self->objectName()) << card->getEffectiveId());
         }
 
-        if (card->isVirtualCard() && !card->parent() && !card->isKindOf("CompanionCard") && !card->isKindOf("HalfMaxHpCard") && !card->isKindOf("FirstShowCard"))
+        if (card->isVirtualCard() && !card->parent() && !card->isKindOf("CompanionCard") && !card->isKindOf("HalfMaxHpCard") && !card->isKindOf("FirstShowCard") && !card->isKindOf("CareermanCard"))
             delete card;
     }
 
@@ -1789,15 +1800,22 @@ void Client::setMark(const QVariant &mark_var)
 {
     JsonArray mark_str = mark_var.value<JsonArray>();
     if (mark_str.size() != 3) return;
-    if (!JsonUtils::isString(mark_str[0]) || !JsonUtils::isString(mark_str[1]) || !JsonUtils::isNumber(mark_str[2])) return;
+    if (!JsonUtils::isString(mark_str[0]) || !JsonUtils::isString(mark_str[1])) return;
 
     QString who = mark_str[0].toString();
     QString mark = mark_str[1].toString();
-    int value = mark_str[2].toInt();
-
     ClientPlayer *player = getPlayer(who);
-    if (player)
-        player->setMark(mark, value);
+
+    if (JsonUtils::isNumber(mark_str[2])) {
+
+        int value = mark_str[2].toInt();
+
+        if (player)
+            player->setMark(mark, value);
+    } else if (JsonUtils::isBool(mark_str[2])) {
+        player->setMark(mark, mark_str[2].toBool() ? 1 : 0, true);
+    }
+
 }
 
 void Client::onPlayerChooseSuit(const QString &suit)

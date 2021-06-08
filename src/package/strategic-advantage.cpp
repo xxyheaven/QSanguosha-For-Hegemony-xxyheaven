@@ -101,7 +101,7 @@ Halberd::Halberd(Card::Suit suit, int number)
          }
      }
 
-     return !Self->isProhibited(to_select, slash) && slash->targetFilter(QList<const Player *>(), to_select, Self);
+     return Self->canSlash(to_select, slash);
  }
 
  void HalberdCard::use(Room *room, ServerPlayer *source, QList<ServerPlayer *> &targets) const
@@ -155,7 +155,12 @@ public:
                         break;
                     }
                 }
-                if (has_kingdom || room->isProhibited(player, p, use.card)) continue;
+
+                if (!has_kingdom && player->canSlash(p, use.card)) {
+                    has_target = true;
+                    break;
+                }
+
                 if (use.card->targetFilter(QList<const Player *>(), p, player)) {
                     has_target = true;
                     break;
@@ -285,6 +290,7 @@ public:
     virtual QStringList triggerable(TriggerEvent, Room *, ServerPlayer *player, QVariant &data, ServerPlayer* &) const
     {
         DamageStruct damage = data.value<DamageStruct>();
+        if (damage.from && damage.from->ingoreArmor(player)) return QStringList();
         if (ArmorSkill::triggerable(player) && damage.damage >= player->getHp() && player->getArmor())
             return QStringList(objectName());
         return QStringList();
@@ -337,6 +343,7 @@ public:
         if (!ArmorSkill::triggerable(player)) return QStringList();
         CardUseStruct use = data.value<CardUseStruct>();
         if (!use.card) return QStringList();
+        if (use.from && use.from->ingoreArmor(player)) return QStringList();
         if (!use.to.contains(player) || player->getMark("Equips_of_Others_Nullified_to_You") > 0) return QStringList();
         if (use.card->isKindOf("FireAttack") || use.card->isKindOf("FireSlash") || use.card->isKindOf("BurningCamps"))
             return QStringList(objectName());
@@ -432,49 +439,52 @@ public:
 
     virtual bool effect(TriggerEvent, Room *room, ServerPlayer *, QVariant &data, ServerPlayer *) const
     {
-        CardsMoveOneTimeStruct move = data.value<CardsMoveOneTimeStruct>();
-        for (int i = 0; i < move.card_ids.size(); i++) {
-            const Card *card = Sanguosha->getEngineCard(move.card_ids[i]);
-            if (card->objectName() == "WoodenOx") {
-                if (move.from_places[i] == Player::PlaceEquip) {
-                    ServerPlayer *player = (ServerPlayer *)move.from;
-                    if (!player || player->getPile("wooden_ox").isEmpty()) return false;
-                    ServerPlayer *to = (ServerPlayer *)move.to;
-                    if (to && move.to_place == Player::PlaceEquip) {
-                        QList<ServerPlayer *> p_list;
-                        p_list << to;
-                        to->addToPile("wooden_ox", player->getPile("wooden_ox"), false, p_list);
-                    } else if (move.to_place == Player::PlaceTable && move.reason.m_reason == CardMoveReason::S_REASON_SWAP) {
-                        room->setTag("wooden_ox_temp", IntList2VariantList(player->getPile("wooden_ox")));
-                        CardsMoveStruct move(player->getPile("wooden_ox"), NULL, Player::PlaceTable,
-                            CardMoveReason(CardMoveReason::S_REASON_SWAP, player->objectName(), "WoodenOx", QString()));
-                        room->moveCardsAtomic(move, false);
-                    } else {
-                        player->clearOnePrivatePile("wooden_ox");
+        QVariantList move_datas = data.toList();
+            foreach (QVariant move_data, move_datas) {
+            CardsMoveOneTimeStruct move = move_data.value<CardsMoveOneTimeStruct>();
+            for (int i = 0; i < move.card_ids.size(); i++) {
+                const Card *card = Sanguosha->getEngineCard(move.card_ids[i]);
+                if (card->objectName() == "WoodenOx") {
+                    if (move.from_places[i] == Player::PlaceEquip) {
+                        ServerPlayer *player = (ServerPlayer *)move.from;
+                        if (!player || player->getPile("wooden_ox").isEmpty()) return false;
+                        ServerPlayer *to = (ServerPlayer *)move.to;
+                        if (to && move.to_place == Player::PlaceEquip) {
+                            QList<ServerPlayer *> p_list;
+                            p_list << to;
+                            to->addToPile("wooden_ox", player->getPile("wooden_ox"), false, p_list);
+                        } else if (move.to_place == Player::PlaceTable && move.reason.m_reason == CardMoveReason::S_REASON_SWAP) {
+                            room->setTag("wooden_ox_temp", IntList2VariantList(player->getPile("wooden_ox")));
+                            CardsMoveStruct move(player->getPile("wooden_ox"), NULL, Player::PlaceTable,
+                                CardMoveReason(CardMoveReason::S_REASON_SWAP, player->objectName(), "WoodenOx", QString()));
+                            room->moveCardsAtomic(move, false);
+                        } else {
+                            player->clearOnePrivatePile("wooden_ox");
+                        }
+                    } else if (move.from_places[i] == Player::PlaceTable) {
+                        QVariantList record = room->getTag("wooden_ox_temp").toList();
+                        QList<int> cardsToGet;
+                        foreach (QVariant card_data, record) {
+                            int card_id = card_data.toInt();
+                            if (room->getCardPlace(card_id) == Player::PlaceTable)
+                                cardsToGet << card_id;
+                        }
+                        if (cardsToGet.isEmpty()) return false;
+                        ServerPlayer *to = (ServerPlayer *)move.to;
+                        if (to && move.to_place == Player::PlaceEquip) {
+                            QList<ServerPlayer *> p_list;
+                            p_list << to;
+                            to->addToPile("wooden_ox", cardsToGet, false, p_list,
+                                          CardMoveReason(CardMoveReason::S_REASON_SWAP, to->objectName(), "WoodenOx", QString()));
+                        } else {
+                            DummyCard *dummy = new DummyCard(cardsToGet);
+                            dummy->deleteLater();
+                            CardMoveReason reason(CardMoveReason::S_REASON_NATURAL_ENTER, QString());
+                            room->throwCard(dummy, reason, NULL);
+                        }
                     }
-                } else if (move.from_places[i] == Player::PlaceTable) {
-                    QVariantList record = room->getTag("wooden_ox_temp").toList();
-                    QList<int> cardsToGet;
-                    foreach (QVariant card_data, record) {
-                        int card_id = card_data.toInt();
-                        if (room->getCardPlace(card_id) == Player::PlaceTable)
-                            cardsToGet << card_id;
-                    }
-                    if (cardsToGet.isEmpty()) return false;
-                    ServerPlayer *to = (ServerPlayer *)move.to;
-                    if (to && move.to_place == Player::PlaceEquip) {
-                        QList<ServerPlayer *> p_list;
-                        p_list << to;
-                        to->addToPile("wooden_ox", cardsToGet, false, p_list,
-                                      CardMoveReason(CardMoveReason::S_REASON_SWAP, to->objectName(), "WoodenOx", QString()));
-                    } else {
-                        DummyCard *dummy = new DummyCard(cardsToGet);
-                        dummy->deleteLater();
-                        CardMoveReason reason(CardMoveReason::S_REASON_NATURAL_ENTER, QString());
-                        room->throwCard(dummy, reason, NULL);
-                    }
+                    return false;
                 }
-                return false;
             }
         }
         return false;
@@ -559,7 +569,7 @@ public:
             data = data.toInt() + 1;
         else if (triggerEvent == EventPhaseStart) {
             KnownBoth *kb = new KnownBoth(Card::NoSuit, 0);
-            kb->setSkillName(objectName());
+            kb->setSkillName("_"+objectName());
             QList<ServerPlayer *> targets;
             foreach (ServerPlayer *p, room->getOtherPlayers(player)) {
                 if (!player->isProhibited(p, kb) && (!p->isKongcheng() || !p->hasShownAllGenerals()))
@@ -699,7 +709,7 @@ bool BurningCamps::isAvailable(const Player *player) const
 void BurningCamps::onUse(Room *room, const CardUseStruct &card_use) const
 {
     CardUseStruct new_use = card_use;
-    if (card_use.from->getNextAlive() != card_use.from) {
+    if (card_use.to.isEmpty() && card_use.from->getNextAlive() != card_use.from) {
         QList<const Player *> targets = card_use.from->getNextAlive()->getFormation();
         foreach (const Player *player, targets) {
             const Skill *skill = room->isProhibited(card_use.from, player, this);
@@ -784,7 +794,6 @@ void LureTiger::onEffect(const CardEffectStruct &effect) const
 {
     Room *room = effect.to->getRoom();
 
-    room->setPlayerCardLimitation(effect.to, "use", ".", true);
     room->setPlayerProperty(effect.to, "removed", true);
     effect.to->setFlags("LureTigerEffected");
 }
@@ -845,6 +854,49 @@ FightTogether::FightTogether(Card::Suit suit, int number)
 {
     setObjectName("fight_together");
     can_recast = true;
+    target_fixed = false;
+}
+
+bool FightTogether::targetFilter(const QList<const Player *> &targets, const Player *, const Player *Self) const
+{
+    QList<const Player *> all_players = Self->getAliveSiblings();
+    all_players << Self;
+
+    bool has_bigkingdoms = false;
+
+    foreach (const Player *p, all_players) {
+        if (p->isBigKingdomPlayer()) {
+            has_bigkingdoms = true;
+            break;
+        }
+    }
+
+    return has_bigkingdoms && targets.isEmpty();
+}
+
+bool FightTogether::targetsFeasible(const QList<const Player *> &targets, const Player *Self) const
+{
+    bool rec = (Sanguosha->currentRoomState()->getCurrentCardUseReason() == CardUseStruct::CARD_USE_REASON_PLAY) && can_recast;
+    QList<int> sub;
+    if (isVirtualCard())
+        sub = subcards;
+    else
+        sub << getEffectiveId();
+    foreach (int id, sub) {
+        if (Self->getHandPile().contains(id)) {
+            rec = false;
+            break;
+        }
+
+    }
+
+    if (rec && Self->isCardLimited(this, Card::MethodUse))
+        return targets.length() == 0;
+
+    if (targets.length() > 1)
+        return false;
+
+    return rec || targets.length() > 0;
 }
 
 bool FightTogether::isAvailable(const Player *player) const
@@ -866,7 +918,7 @@ bool FightTogether::isAvailable(const Player *player) const
 
     if (rec && !player->isCardLimited(this, Card::MethodRecast))
         return true;
-    bool has_bigkingdoms = false;
+    bool has_bigkingdoms = player->isBigKingdomPlayer();
     QList<const Player *> siblings = player->getAliveSiblings();
     foreach (const Player *p, siblings) {
         if (p->isBigKingdomPlayer()) {
@@ -881,50 +933,8 @@ bool FightTogether::isAvailable(const Player *player) const
 void FightTogether::onUse(Room *room, const CardUseStruct &card_use) const
 {
     ServerPlayer *source = card_use.from;
-    QStringList choices;
-    QList<ServerPlayer *> bigs, smalls, bigs_void, smalls_void, all = room->getAllPlayers();
-    if (!source->isCardLimited(this, handling_method)) {
-        foreach (ServerPlayer *p, all) {
-            if (p->isBigKingdomPlayer()) {
-                if (room->isProhibited(source, p, this))
-                    bigs_void << p;
-                else
-                    bigs << p;
-            } else {
-                if (room->isProhibited(source, p, this))
-                    smalls_void << p;
-                else
-                    smalls << p;
-            }
-            if (!bigs.isEmpty() || !bigs_void.isEmpty()) {
-                if (this->getSkillName(true) == "qice") {
-                    if (!bigs.isEmpty() && bigs.length() > this->getSubcards().length())
-                        bigs.clear();
-                    if (!smalls.isEmpty() && smalls.length() > this->getSubcards().length())
-                        smalls.clear();
-                }
-                if (!bigs.isEmpty())
-                    choices << "big";
-                if (!smalls.isEmpty())
-                    choices << "small";
-            }
-        }
-    }
 
-    if (!source->isCardLimited(this, Card::MethodRecast) && can_recast)
-        choices << "recast";
-
-    if (choices.isEmpty()) {
-        room->setPlayerFlag(source, "Global_FightTogetherFailed");
-        return;
-    }
-
-    QString choice = room->askForChoice(source, objectName(), choices.join("+"), QVariant(), "@fight_together-choice", "big+small+recast");
-    if (choice == "recast") {
-        CardMoveReason reason(CardMoveReason::S_REASON_RECAST, card_use.from->objectName());
-        reason.m_skillName = getSkillName();
-        room->moveCardTo(this, card_use.from, NULL, Player::PlaceTable, reason, true);
-
+    if (card_use.to.isEmpty()) {
         LogMessage log;
         log.type = "#Card_Recast";
         log.from = card_use.from;
@@ -940,29 +950,40 @@ void FightTogether::onUse(Room *room, const CardUseStruct &card_use) const
             room->setPlayerFlag(card_use.from, "-HuanshenSkillChecking");
         }
 
+        CardMoveReason reason(CardMoveReason::S_REASON_RECAST, card_use.from->objectName());
+        reason.m_skillName = getSkillName();
+        room->moveCardTo(this, card_use.from, NULL, Player::DiscardPile, reason, true);
+
         QString skill_name = card_use.card->showSkill();
         if (!skill_name.isNull())
             card_use.from->showSkill(skill_name, card_use.card->getSkillPosition());
-
-        QList<int> table_cardids = room->getCardIdsOnTable(this);
-        if (!table_cardids.isEmpty()) {
-            DummyCard dummy(table_cardids);
-            room->moveCardTo(&dummy, card_use.from, NULL, Player::DiscardPile, reason, true);
-        }
 
         card_use.from->drawCards(1);
         room->addPlayerHistory(NULL, "pushPile");
         return;
     }
+    ServerPlayer *target = card_use.to.first();
+
+
+    QList<ServerPlayer *> targets, voids, all = room->getAllPlayers();
+    if (!source->isCardLimited(this, handling_method)) {
+        foreach (ServerPlayer *p, all) {
+            if (p->isBigKingdomPlayer() == target->isBigKingdomPlayer()) {
+                if (room->isProhibited(source, p, this))
+                    voids << p;
+                else
+                    targets << p;
+            }
+        }
+    }
 
     CardUseStruct use = card_use;
-    if (choice == "big")
-        use.to = bigs;
-    else if (choice == "small")
-        use.to = smalls;
+
+    use.to = targets;
+
     Q_ASSERT(!use.to.isEmpty());
 
-    foreach (ServerPlayer *p, choice == "big" ? bigs_void : smalls_void) {
+    foreach (ServerPlayer *p, voids) {
         const Skill *skill = room->isProhibited(source, p, this);
         if (!skill->isVisible())
             skill = Sanguosha->getMainSkill(skill->objectName());
@@ -1054,6 +1075,7 @@ void AllianceFeast::use(Room *room, ServerPlayer *source, QList<ServerPlayer *> 
 {
     QStringList nullified_list = room->getTag("CardUseNullifiedList").toStringList();
     bool all_nullified = nullified_list.contains("_ALL_TARGETS");
+
     foreach (ServerPlayer *target, targets) {
         CardEffectStruct effect;
         effect.card = this;
@@ -1079,6 +1101,7 @@ void AllianceFeast::use(Room *room, ServerPlayer *source, QList<ServerPlayer *> 
             target->setMark(objectName(), n);
         }
         room->cardEffect(effect);
+
         target->setMark(objectName(), 0);
     }
 
@@ -1101,7 +1124,7 @@ void AllianceFeast::onEffect(const CardEffectStruct &effect) const
             }
             int num = room->askForChoice(effect.to, "alliancefeast_draw", draw_num.join("+"), QVariant(), "@alliancefeast-choose").toInt();
 
-            if(x > num)
+            if (x > num)
                 effect.to->drawCards(x - num, objectName());
 
             if (num > 0 && effect.to->canRecover()) {
@@ -1111,9 +1134,6 @@ void AllianceFeast::onEffect(const CardEffectStruct &effect) const
                 room->recover(effect.to, rec);
             }
         }
-
-
-
     } else {
         effect.to->drawCards(1, objectName());
         if (effect.to->isChained()) {
@@ -1233,27 +1253,30 @@ void ImperialOrder::onUse(Room *room, const CardUseStruct &card_use) const
 {
     ServerPlayer *source = card_use.from;
     QList<ServerPlayer *> targets;
-    foreach (ServerPlayer *p, room->getAllPlayers()) {
-        if (p->hasShownOneGeneral())
-            continue;
-        const Skill *skill = room->isProhibited(source, p, this);
-        if (skill) {
-            if (!skill->isVisible())
-                skill = Sanguosha->getMainSkill(skill->objectName());
-            if (skill && skill->isVisible()) {
-                LogMessage log;
-                log.type = "#SkillAvoid";
-                log.from = p;
-                log.arg = skill->objectName();
-                log.arg2 = objectName();
-                room->sendLog(log);
+    if (card_use.to.isEmpty()) {
+        foreach (ServerPlayer *p, room->getAllPlayers()) {
+            if (p->hasShownOneGeneral())
+                continue;
+            const Skill *skill = room->isProhibited(source, p, this);
+            if (skill) {
+                if (!skill->isVisible())
+                    skill = Sanguosha->getMainSkill(skill->objectName());
+                if (skill && skill->isVisible()) {
+                    LogMessage log;
+                    log.type = "#SkillAvoid";
+                    log.from = p;
+                    log.arg = skill->objectName();
+                    log.arg2 = objectName();
+                    room->sendLog(log);
 
-                room->broadcastSkillInvoke(skill->objectName());
+                    room->broadcastSkillInvoke(skill->objectName());
+                }
+                continue;
             }
-            continue;
+            targets << p;
         }
-        targets << p;
-    }
+    } else
+        targets = card_use.to;
 
     CardUseStruct use = card_use;
     use.to = targets;
@@ -1264,19 +1287,34 @@ void ImperialOrder::onUse(Room *room, const CardUseStruct &card_use) const
 void ImperialOrder::onEffect(const CardEffectStruct &effect) const
 {
     Room *room = effect.to->getRoom();
-    if (room->askForCard(effect.to, "EquipCard", "@imperial_order-equip"))
-        return;
+   // if (room->askForCard(effect.to, "EquipCard", "@imperial_order-equip"))
+   //     return;
     QStringList choices;
-    if (!effect.to->hasShownAllGenerals()
-        && ((!effect.to->hasShownGeneral1() && effect.to->disableShow(true).isEmpty())
-        || (effect.to->getGeneral2() && !effect.to->hasShownGeneral2() && effect.to->disableShow(false).isEmpty())))
-        choices << "show";
+
+    if (!effect.to->hasShownGeneral1() && effect.to->disableShow(true).isEmpty())
+        choices << "show_head";
+    if (effect.to->getGeneral2() && !effect.to->hasShownGeneral2() && effect.to->disableShow(false).isEmpty())
+        choices << "show_deputy";
+
+    QList<int> to_discard = effect.to->forceToDiscard(1, "EquipCard", QString(), true);
+    if (!to_discard.isEmpty())
+        choices << "dis_equip";
+
     choices << "losehp";
-    QString choice = room->askForChoice(effect.to, objectName(), choices.join("+"));
-    if (choice == "show") {
-        effect.to->askForGeneralShow("ImperialOrder", true, true, false, false);
+
+    QString all_choices = "show_head+show_deputy+dis_equip+losehp";
+
+    QString choice = room->askForChoice(effect.to, objectName(), choices.join("+"), QVariant(), "@imperial_order-choose", all_choices);
+    if (choice.contains("show")) {
+        effect.to->showGeneral(choice == "show_head");
         effect.to->drawCards(1, objectName());
-    } else {
+    } else if (choice == "dis_equip"){
+        if (!room->askForCard(effect.to, "EquipCard!", "@imperial_order-equip")) {
+            const Card *card = Sanguosha->getCard(to_discard.first());
+            CardMoveReason reason(CardMoveReason::S_REASON_THROW, effect.to->objectName());
+            room->moveCardTo(card, effect.to, NULL, Player::DiscardPile, reason, true);
+        }
+    } else if (choice == "losehp"){
         room->loseHp(effect.to);
     }
 }

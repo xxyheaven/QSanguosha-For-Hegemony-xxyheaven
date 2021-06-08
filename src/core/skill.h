@@ -74,6 +74,8 @@ public:
 
     virtual bool isEquipskill() const;
 
+    virtual bool buttonEnabled(const QString &button_name = QString(), const QList<const Card *> &selected = QList<const Card *>(), const QList<const Player *> &targets = QList<const Player *>()) const;
+
     //for LUA
     inline void setRelateToPlace(const char *rtp)
     {
@@ -368,8 +370,8 @@ public:
     TargetModSkill(const QString &name);
     virtual QString getPattern() const;
 
-    virtual int getResidueNum(const Player *from, const Card *card) const;
-    virtual int getDistanceLimit(const Player *from, const Card *card) const;
+    virtual int getResidueNum(const Player *from, const Card *card, const Player *to) const;
+    virtual int getDistanceLimit(const Player *from, const Card *card, const Player *to) const;
     virtual int getExtraTargetNum(const Player *from, const Card *card) const;
 
 protected:
@@ -383,10 +385,20 @@ class SlashNoDistanceLimitSkill : public TargetModSkill
 public:
     SlashNoDistanceLimitSkill(const QString &skill_name);
 
-    virtual int getDistanceLimit(const Player *from, const Card *card) const;
+    virtual int getDistanceLimit(const Player *from, const Card *card, const Player *to) const;
 
 protected:
     QString name;
+};
+
+class InvaliditySkill : public Skill
+{
+    Q_OBJECT
+
+public:
+    InvaliditySkill(const QString &skill_name);
+
+    virtual bool isSkillValid(const Player *player, const Skill *skill) const = 0;
 };
 
 class AttackRangeSkill : public Skill

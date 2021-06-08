@@ -38,6 +38,7 @@ void RoleComboBox::mousePressEvent(QGraphicsSceneMouseEvent *event)
     }
     QStringList kingdoms = Sanguosha->getKingdoms();
     kingdoms.removeAll("god");
+    kingdoms.removeAll("careerist");
     foreach (const QString &kingdom, kingdoms) {
         if (G_COMMON_LAYOUT.m_rolesRect.value(kingdom, QRect()).contains(point)) {
             kingdoms_excluded[kingdom] = !kingdoms_excluded.value(kingdom);
@@ -76,6 +77,7 @@ void RoleComboBox::paint(QPainter *painter, const QStyleOptionGraphicsItem *, QW
     }
     QStringList kingdoms = Sanguosha->getKingdoms();
     kingdoms.removeAll("god");
+    kingdoms.removeAll("careerist");
     if (!expanding) {
         if (circle) {
             QPixmap pix;
@@ -117,6 +119,7 @@ RoleComboBox::RoleComboBox(QGraphicsItem *photo, ClientPlayer *player, bool circ
 {
     QStringList kingdoms = Sanguosha->getKingdoms();
     kingdoms.removeAll("god");
+    kingdoms.removeAll("careerist");
     foreach(const QString &kingdom, kingdoms)
         kingdoms_excluded[kingdom] = false;
     connect(RoomSceneInstance, &RoomScene::cancel_role_box_expanding, this, &RoleComboBox::mouseClickedOutside);

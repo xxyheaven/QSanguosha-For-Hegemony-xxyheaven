@@ -642,7 +642,7 @@ function SmartAI:useCardFightTogether(card, use)
 
 	local choices = {}
 	if #bigs > 0 then table.insert(choices, "big") end
-	if #smalls > 0 then table.insert(choices, "small") end
+	if #bigs > 0 and #smalls > 0 then table.insert(choices, "small") end
 
 	if #choices > 0 then
 		local v_big, v_small = 0, 0
@@ -682,25 +682,25 @@ function SmartAI:useCardFightTogether(card, use)
 		local win = math.max(v_small, v_big)
 		if win > 1 then
 			if win == v_big then
-				self.FightTogether_choice = "big"
+				use.card = card
+				if use.to and #bigs > 0 then use.to:append(bigs[1]) end
+				return
 			elseif win == v_small then
-				self.FightTogether_choice = "small"
-			else
-				self.FightTogether_choice = nil
+				use.card = card
+				if use.to and #smalls > 0 then use.to:append(smalls[1]) end
+				return
 			end
-		else
-			self.FightTogether_choice = nil
+		
 		end
 	end
 
 	if not self.FightTogether_choice and not self.player:isCardLimited(card, sgs.Card_MethodRecast) then
-		self.FightTogether_choice = "recast"
-	end
-	if self.FightTogether_choice then
 		use.card = card
+		return
 	end
 end
 
+--[[
 sgs.ai_skill_choice["fight_together"] = function(self, choices)
 	choices = choices:split("+")
 	if self.FightTogether_choice and table.contains(choices, self.FightTogether_choice) then
@@ -708,6 +708,7 @@ sgs.ai_skill_choice["fight_together"] = function(self, choices)
 	end
 	return choices[#choices]
 end
+]]
 
 sgs.ai_nullification.FightTogether = function(self, card, from, to, positive, keep)
 	local targets = sgs.SPlayerList()
@@ -862,12 +863,10 @@ function SmartAI:useCardAllianceFeast(card, use)
 end
 
 sgs.ai_skill_choice["alliance_feast"] = function(self, choices)
-	if self.player:isWounded() then
-		return "recover"
-	else
-		return "draw"
-	end
+	choices = choices:split("+")
+	return choices[#choices]
 end
+
 sgs.ai_use_value.AllianceFeast = 7.5
 sgs.ai_use_priority.AllianceFeast = 8.8
 sgs.ai_keep_value.AllianceFeast = 3.26
@@ -977,8 +976,8 @@ sgs.ai_nullification.ThreatenEmperor = function(self, card, from, to, positive, 
 end
 
 sgs.ai_skill_cardask["@threaten_emperor"] = function(self)
-	if self.player:isNude() then return "." end
-	local cards = sgs.QList2Table(self.player:getCards("he"))
+	if self.player:isKongcheng() then return "." end
+	local cards = sgs.QList2Table(self.player:getCards("h"))
 	self:sortByKeepValue(cards)
 	for _, card in ipairs(cards) do
 		if not card:isKindOf("JadeSeal") then
@@ -1027,10 +1026,16 @@ sgs.ai_skill_cardask["@imperial_order-equip"] = function(self)
 end
 
 sgs.ai_skill_choice.imperial_order = function(self)
-	if self.player:getPhase() ~= sgs.Player_NotActive then return "show" end
+	local callback = sgs.ai_skill_cardask["@imperial_order-equip"]
+	if type(callback) == "function" then
+		local ret = callback(self)
+		if ret ~= "." then return "dis_equip" end
+	end
+	
+	if self.player:getPhase() ~= sgs.Player_NotActive then return "show_head" end
 	if self:needToLoseHp() then return "losehp" end
 	if not self.player:isWounded() and self.player:getCards("he"):length() > 6 then return "losehp" end
-	return "show"
+	return "show_head"
 end
 
 

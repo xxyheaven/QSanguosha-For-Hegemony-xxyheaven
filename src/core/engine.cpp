@@ -204,6 +204,8 @@ void Engine::addSkills(const QList<const Skill *> &all_skills)
             maxcards_skills << qobject_cast<const MaxCardsSkill *>(skill);
         else if (skill->inherits("TargetModSkill"))
             targetmod_skills << qobject_cast<const TargetModSkill *>(skill);
+        else if (skill->inherits("InvaliditySkill"))
+            invalidity_skills << qobject_cast<const InvaliditySkill *>(skill);
         else if (skill->inherits("AttackRangeSkill"))
             attackrange_skills << qobject_cast<const AttackRangeSkill *>(skill);
         else if (skill->inherits("TriggerSkill")) {
@@ -227,6 +229,11 @@ QList<const MaxCardsSkill *> Engine::getMaxCardsSkills() const
 QList<const TargetModSkill *> Engine::getTargetModSkills() const
 {
     return targetmod_skills;
+}
+
+QList<const InvaliditySkill *> Engine::getInvaliditySkills() const
+{
+    return invalidity_skills;
 }
 
 QList<const AttackRangeSkill *> Engine::getAttackRangeSkills() const
@@ -290,7 +297,7 @@ void Engine::addPackage(Package *package)
         } else {
             QString class_name = card->metaObject()->className();
             metaobjects.insert(class_name, card->metaObject());
-            className2objectName.insert(class_name, card->objectName());
+            className2objectName.insert(card->objectName(), class_name);
         }
     }
 
@@ -630,10 +637,10 @@ Card *Engine::cloneCard(const QString &name, Card::Suit suit, int number, const 
     } else {
         const QMetaObject *meta = metaobjects.value(name, NULL);
         if (meta == NULL)
-            meta = metaobjects.value(className2objectName.key(name, QString()), NULL);
+            meta = metaobjects.value(className2objectName.value(name, name), NULL);
         if (meta) {
             QObject *card_obj = meta->newInstance(Q_ARG(Card::Suit, suit), Q_ARG(int, number));
-            card_obj->setObjectName(className2objectName.value(name, name));
+            card_obj->setObjectName(name);
             card = qobject_cast<Card *>(card_obj);
         }
     }
@@ -661,7 +668,7 @@ SkillCard *Engine::cloneSkillCard(const QString &name) const
 #ifndef USE_BUILDBOT
 QSanVersionNumber Engine::getVersionNumber() const
 {
-    return QSanVersionNumber(2, 2, 9);
+    return QSanVersionNumber(2, 3, 10);
 }
 #endif
 
@@ -1116,7 +1123,7 @@ int Engine::correctMaxCards(const Player *target, bool fixed) const
 }
 
 
-int Engine::correctCardTarget(const TargetModSkill::ModType type, const Player *from, const Card *card) const
+int Engine::correctCardTarget(const TargetModSkill::ModType type, const Player *from, const Card *card, const Player *to) const
 {
     int x = 0;
 
@@ -1124,7 +1131,7 @@ int Engine::correctCardTarget(const TargetModSkill::ModType type, const Player *
         foreach (const TargetModSkill *skill, targetmod_skills) {
             ExpPattern p(skill->getPattern());
             if (p.match(from, card)) {
-                int residue = skill->getResidueNum(from, card);
+                int residue = skill->getResidueNum(from, card, to);
                 if (residue >= 998) return residue;
                 x += residue;
             }
@@ -1133,7 +1140,7 @@ int Engine::correctCardTarget(const TargetModSkill::ModType type, const Player *
         foreach (const TargetModSkill *skill, targetmod_skills) {
             ExpPattern p(skill->getPattern());
             if (p.match(from, card)) {
-                int distance_limit = skill->getDistanceLimit(from, card);
+                int distance_limit = skill->getDistanceLimit(from, card, to);
                 if (distance_limit >= 998) return distance_limit;
                 x += distance_limit;
             }
@@ -1150,6 +1157,14 @@ int Engine::correctCardTarget(const TargetModSkill::ModType type, const Player *
     return x;
 }
 
+bool Engine::correctSkillValidity(const Player *player, const Skill *skill) const
+{
+    foreach (const InvaliditySkill *is, invalidity_skills) {
+        if (!is->isSkillValid(player, skill))
+            return false;
+    }
+    return true;
+}
 
 int Engine::correctAttackRange(const Player *target, bool include_weapon, bool fixed) const
 {

@@ -862,7 +862,7 @@ sgs.ai_use_priority.XiongyiCard = 9.31
 
 sgs.ai_skill_invoke.mingshi = true
 
---[[
+
 sgs.ai_skill_invoke.lirang = function(self, data)
 	if not self:willShowForAttack() then
 		return false
@@ -872,8 +872,8 @@ sgs.ai_skill_invoke.lirang = function(self, data)
 	end
 	return false
 end
-]]
-sgs.ai_skill_use["@@lirang"] = function(self, prompt)
+
+sgs.ai_skill_use["@@liranggive"] = function(self, prompt)
 	--self.player:speak("开始判断礼让")
 	if not self:willShowForAttack() or #self.friends_noself == 0 then return "." end
 	--local card_ids = self.player:property("lirang_this_time"):toString() ~= "" and self.player:property("lirang_this_time"):toString():split("+") or {}
@@ -1127,6 +1127,7 @@ sgs.ai_use_value.QingchengCard = 6
 sgs.ai_use_priority.QingchengCard = sgs.ai_use_priority.Slash + 0.1
 sgs.ai_card_intention.QingchengCard = 100
 
+--[[
 local huoshui_skill = {}
 huoshui_skill.name = "huoshui"
 table.insert(sgs.ai_skills, huoshui_skill)
@@ -1141,3 +1142,4 @@ function sgs.ai_skill_use_func.HuoshuiCard(card, use, self)
 end
 
 sgs.ai_use_priority.HuoshuiCard = 10
+]]

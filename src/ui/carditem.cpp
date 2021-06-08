@@ -196,7 +196,7 @@ QAbstractAnimation *CardItem::getGoBackAnimation(bool doFade, bool smoothTransit
         if (!smoothTransition) {
             disappear->setKeyValueAt(0.2, middleOpacity);
             disappear->setKeyValueAt(0.8, middleOpacity);
-            disappear->setDuration(duration);
+            disappear->setDuration(duration+200);
         }
 
         group->addAnimation(goback);

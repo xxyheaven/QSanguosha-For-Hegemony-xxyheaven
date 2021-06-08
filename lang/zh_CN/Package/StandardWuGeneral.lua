@@ -33,6 +33,7 @@ return {
 	[":qixi"] = "你可将一张黑色牌当【过河拆桥】使用。",
 
 	["#lvmeng"] = "白衣渡江",
+	["illustrator:lvmeng"] = "樱花闪乱",
 	["lvmeng"] = "吕蒙",
 	["keji"] = "克己",
 	[":keji"] = "锁定技，弃牌阶段开始时，若你于出牌阶段内未使用过有颜色的牌或于出牌阶段内使用过的所有的牌的颜色均相同，你的手牌上限于此回合内+4。",
@@ -41,13 +42,14 @@ return {
 	["@mouduan-move"] = "谋断：你可以移动场上的一张牌",
 
 	["#huanggai"] = "轻身为国",
+	["illustrator:huanggai"] = "G.G.G.",
 	["huanggai"] = "黄盖",
 	["kurou"] = "苦肉",
 	[":kurou"] = "出牌阶段限一次，你可弃置一张牌▶你失去1点体力。你摸三张牌。你于此回合内使用【杀】的次数上限+1。",
 
 	["#zhouyu"] = "大都督",
 	["zhouyu"] = "周瑜",
-	["illustrator:zhouyu"] = "苍月白龙",
+	["illustrator:zhouyu"] = "绘聚艺堂",
 	["yingzi_zhouyu"] = "英姿",
 	[":yingzi"] = "锁定技，①摸牌阶段，你令额定摸牌数+1。②你的手牌上限为X（X为你的体力上限）。",
 	["fanjian"] = "反间",
@@ -91,7 +93,7 @@ return {
 
 	["#xiaoqiao"] = "矫情之花",
 	["xiaoqiao"] = "小乔",
-	["illustrator:xiaoqiao"] = "苍月白龙",
+	["illustrator:xiaoqiao"] = "绘聚艺堂",
 	["hongyan"] = "红颜",
 	[":hongyan"] = "锁定技，你的黑桃牌或你的黑桃判定牌的花色视为红桃。",
 	["tianxiang"] = "天香",
@@ -99,8 +101,8 @@ return {
 		"（X=min{其已损失的体力值,5}）；2.令其失去1点体力▷若牌堆/弃牌堆里有你以此法弃置的牌，其获得牌堆/弃牌堆里的你以此法弃置的牌。",
 	["@tianxiang-card"] = "你可以弃置一张红桃牌对一名其他角色发动“天香”",
 	["@tianxiang-choose"] = "天香：请选择令%dest受到伤害并摸牌，或令%dest失去体力并获得【%arg】",
-	["tianxiang:damage"] = "受到伤害",
-	["tianxiang:losehp"] = "失去体力",
+	["tianxiang:damage"] = "令 %from 对 %to 造成1点伤害",
+	["tianxiang:losehp"] = "令 %to 失去1体力并获得卡牌【%log】",
 
 	["#taishici"] = "笃烈之士",
 	["taishici"] = "太史慈",
@@ -110,6 +112,7 @@ return {
 
 	["#zhoutai"] = "历战之躯",
 	["zhoutai"] = "周泰",
+	["illustrator:zhoutai"] = "Thinking",
 	["buqu"] = "不屈",
 	[":buqu"] = "锁定技，当你处于濒死状态时，你将牌堆顶的一张牌置于武将牌上（称为“创”）。若：没有与此“创”点数相同的其他“创”，你将体力回复至1点；有与此“创”点数相同的其他“创”，你将此“创”置入弃牌堆。",
 	["scars"] = "创",

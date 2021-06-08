@@ -27,6 +27,7 @@
 #include "client.h"
 #include "clientplayer.h"
 #include "cardcontainer.h"
+#include "roomscene.h"
 
 #include <QApplication>
 #include <QGraphicsSceneMouseEvent>
@@ -238,19 +239,41 @@ static bool sortByKingdom(const QString &gen1, const QString &gen2)
     const General *g1 = Sanguosha->getGeneral(gen1);
     const General *g2 = Sanguosha->getGeneral(gen2);
 
-    if (g1 != NULL && g2 != NULL)
+    if (g1 != NULL && g2 != NULL) {
+        if (g1->isDoubleKingdoms() && !g2->isDoubleKingdoms())
+            return false;
+        if (!g1->isDoubleKingdoms() && g2->isDoubleKingdoms())
+            return true;
         return kingdom_priority_map[g1->getKingdom()] < kingdom_priority_map[g2->getKingdom()];
-    else
+    } else
         return false;
 
 }
 
+static bool matchKingdom(const QString &gen1, const QString &gen2)
+{
+    const General *g1 = Sanguosha->getGeneral(gen1);
+    const General *g2 = Sanguosha->getGeneral(gen2);
+
+    if (g1 != NULL && g2 != NULL && !g1->isDoubleKingdoms() && !g2->isLord() && g2->getKingdom() != "careerist") {
+        if (g1->getKingdom() == "careerist") return true;
+        foreach (QString kingdom, g2->getKingdoms()) {
+            if (kingdom == g1->getKingdom())
+                return true;
+        }
+    }
+
+    return false;
+}
+
 void ChooseGeneralBox::chooseGeneral(const QStringList &_generals, bool view_only, bool single_result, const QString &reason, const Player *player, const bool can_convert, const bool same_kingdom)
 {
+    clear();
     //repaint background
     QStringList generals = _generals;
     this->single_result = single_result;
     this->same_kingdom = same_kingdom;
+    this->reason = reason;
     if (view_only)
         title = reason;
     if (this->m_viewOnly != view_only) {
@@ -266,9 +289,9 @@ void ChooseGeneralBox::chooseGeneral(const QStringList &_generals, bool view_onl
     if (!view_only) {
         title = single_result ? tr("Please select one general")
             : tr("Please select the same nationality generals");
-        if (!single_result && Self->getSeat() > 0)
-            title.prepend(Sanguosha->translate(QString("SEAT(%1)").arg(Self->getSeat()))
-            + " ");
+//        if (!single_result && Self->getSeat() > 0)
+//            title.prepend(Sanguosha->translate(QString("SEAT(%1)").arg(Self->getSeat()))
+//            + " ");
     }
 
     prepareGeometryChange();
@@ -376,7 +399,7 @@ void ChooseGeneralBox::chooseGeneral(const QStringList &_generals, bool view_onl
     if (!view_only && !single_result)
         _initializeItems();
 
-    if (view_only || ServerInfo.OperationTimeout != 0) {
+    if ((view_only || ServerInfo.OperationTimeout != 0) && reason != "yigui_use") {
         if (!progress_bar) {
             progress_bar = new QSanCommandProgressBar();
             progress_bar->setMaximumWidth(boundingRect().width() - 10);
@@ -414,13 +437,40 @@ void ChooseGeneralBox::_adjust()
         items << item;
         item->setHomePos(item->data(S_DATA_INITIAL_HOME_POS).toPointF());
         item->goBack(true);
+
+        if (!selected.isEmpty()) {
+            GeneralCardItem *item2 = selected.first();
+            bool cheak = true;
+            foreach (GeneralCardItem *item3, items) {
+                if (matchKingdom(item2->objectName(), item3->objectName())) {
+                    cheak = false;
+                    break;
+                }
+            }
+            if (cheak) {
+                selected.removeOne(item2);
+                items << item2;
+                item2->setHomePos(item2->data(S_DATA_INITIAL_HOME_POS).toPointF());
+                item2->goBack(true);
+            }
+        }
+
         //the item is on the way
-    } else if (selected.length() == 2
-        && ((!Sanguosha->getGeneral(selected.first()->objectName())->isLord()
-        && selected.first() == item && item->x() > boundingRect().center().x())
-        || (selected.last() == item && item->x() < boundingRect().center().x())))
+    } else if (selected.length() == 2 && matchKingdom(selected[1]->objectName(), selected[0]->objectName())
+        && ((selected.first() == item && item->x() > boundingRect().center().x())
+            || (selected.last() == item && item->x() < boundingRect().center().x())))
         qSwap(selected[0], selected[1]);
     else if (items.contains(item) && item->y() > middle_y) {
+        if (selected.isEmpty()) {
+            bool cheak = true;
+            foreach (GeneralCardItem *item2, items) {
+                if (item != item2 && matchKingdom(item->objectName(), item2->objectName())) {
+                    cheak = false;
+                    break;
+                }
+            }
+            if (cheak) return;
+        }
         if (selected.length() > 1) return;
         items.removeOne(item);
         selected << item;
@@ -455,15 +505,16 @@ void ChooseGeneralBox::adjustItems()
     if (selected.length() == 2) {
         foreach(GeneralCardItem *card, items)
             card->setFrozen(true);
-        confirm->setEnabled(same_kingdom?(Sanguosha->getGeneral(selected.first()->objectName())->getKingdom()
-            == Sanguosha->getGeneral(selected.last()->objectName())->getKingdom()):true);
+        confirm->setEnabled(same_kingdom? matchKingdom(selected.first()->objectName(), selected.last()->objectName()) : true);
+
     } else if (selected.length() == 1) {
         selected.first()->hideCompanion();
         const General *seleted_general = Sanguosha->getGeneral(selected.first()->objectName());
         foreach (GeneralCardItem *card, items) {
             const General *general = Sanguosha->getGeneral(card->objectName());
             if (BanPair::isBanned(seleted_general->objectName(), general->objectName())
-                || ((same_kingdom && general->getKingdom() != seleted_general->getKingdom()) || general->isLord())) {
+                || ((same_kingdom && !matchKingdom(selected.first()->objectName(), card->objectName())) || general->isLord())) {
+
                 if (!card->isFrozen())
                     card->setFrozen(true);
                 card->hideCompanion();
@@ -505,17 +556,16 @@ void ChooseGeneralBox::_initializeItems()
 
     int index = 0;
     foreach (const General *general, generals) {
-        int party = 0;
-        bool has_lord = false;
+        bool can_match = false;
         foreach (const General *other, generals) {
-            if (other->getKingdom() == general->getKingdom()) {
-                party++;
-                if (other != general && other->isLord())
-                    has_lord = true;
+            if (general == other) continue;
+            if (matchKingdom(general->objectName(), other->objectName()) || matchKingdom(other->objectName(), general->objectName())) {
+                can_match = true;
+                break;
             }
         }
         GeneralCardItem *item = items.at(index);
-        if (same_kingdom && (party < 2 || (selected.isEmpty() && has_lord && party == 2))) {
+        if (same_kingdom && !can_match) {
             if (!item->isFrozen())
                 item->setFrozen(true);
         } else if (item->isFrozen()) {
@@ -546,7 +596,15 @@ void ChooseGeneralBox::reply()
         if (selected.length() == 2)
             generals += ("+" + selected.last()->objectName());
     }
-    ClientInstance->onPlayerChooseGeneral(generals);
+
+    if (reason == "yigui_use") {
+        Self->tag["yigui_general"] = selected.first()->objectName();
+
+        RoomSceneInstance->onYiguiPopup();
+
+        clear();
+    } else
+        ClientInstance->onPlayerChooseGeneral(generals);
 }
 
 void ChooseGeneralBox::clear()
@@ -585,7 +643,35 @@ void ChooseGeneralBox::_onItemClicked()
         items << item;
         item->setHomePos(item->data(S_DATA_INITIAL_HOME_POS).toPointF());
         item->goBack(true);
+
+        if (!selected.isEmpty()) {
+            GeneralCardItem *item2 = selected.first();
+            bool cheak = true;
+            foreach (GeneralCardItem *item3, items) {
+                if (matchKingdom(item2->objectName(), item3->objectName())) {
+                    cheak = false;
+                    break;
+                }
+            }
+            if (cheak) {
+                selected.removeOne(item2);
+                items << item2;
+                item2->setHomePos(item2->data(S_DATA_INITIAL_HOME_POS).toPointF());
+                item2->goBack(true);
+            }
+        }
+
     } else if (items.contains(item)) {
+        if (selected.isEmpty()) {
+            bool cheak = true;
+            foreach (GeneralCardItem *item2, items) {
+                if (item != item2 && matchKingdom(item->objectName(), item2->objectName())) {
+                    cheak = false;
+                    break;
+                }
+            }
+            if (cheak) return;
+        }
         if (selected.length() > 1) return;
         items.removeOne(item);
         selected << item;

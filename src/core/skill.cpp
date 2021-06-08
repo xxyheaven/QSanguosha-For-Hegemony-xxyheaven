@@ -276,6 +276,36 @@ bool Skill::isEquipskill() const
     return (inherits("WeaponSkill") || inherits("ArmorSkill") || inherits("TreasureSkill"));
 }
 
+bool Skill::buttonEnabled(const QString &button_name, const QList<const Card *> &, const QList<const Player *> &) const
+{
+    if (button_name.isEmpty()) {
+        if (Sanguosha->currentRoomState()->getCurrentCardUseReason() != CardUseStruct::CARD_USE_REASON_PLAY) {
+            QString pattern = Sanguosha->currentRoomState()->getCurrentCardUsePattern();
+            if (pattern.startsWith(".") || pattern.startsWith("@"))
+                return false;
+        }
+        return true;
+    }
+
+    const Card *card = Sanguosha->cloneCard(button_name, Card::NoSuit, 0);
+    if (card == NULL)
+        return true;
+    if (Sanguosha->currentRoomState()->getCurrentCardUseReason() == CardUseStruct::CARD_USE_REASON_PLAY)
+        return !Self->isCardLimited(card, Card::MethodUse, false) && card->isAvailable(Self);
+    else {
+        QString pattern = Sanguosha->currentRoomState()->getCurrentCardUsePattern();
+        if (pattern.startsWith(".") || pattern.startsWith("@"))
+            return false;
+        if (pattern == "slash") {
+            return card->isKindOf("Slash");
+        } else if (pattern == "nullification") {
+            return card->isKindOf("Nullification");
+        } else
+            return pattern.contains(button_name);
+    }
+    return false;
+}
+
 ViewAsSkill::ViewAsSkill(const QString &name)
     : Skill(name), response_pattern(QString()), response_or_use(false), expand_pile(QString())
 {
@@ -739,12 +769,12 @@ QString TargetModSkill::getPattern() const
     return pattern;
 }
 
-int TargetModSkill::getResidueNum(const Player *, const Card *) const
+int TargetModSkill::getResidueNum(const Player *, const Card *, const Player *) const
 {
     return 0;
 }
 
-int TargetModSkill::getDistanceLimit(const Player *, const Card *) const
+int TargetModSkill::getDistanceLimit(const Player *, const Card *, const Player *) const
 {
     return 0;
 }
@@ -759,12 +789,17 @@ SlashNoDistanceLimitSkill::SlashNoDistanceLimitSkill(const QString &skill_name)
 {
 }
 
-int SlashNoDistanceLimitSkill::getDistanceLimit(const Player *from, const Card *card) const
+int SlashNoDistanceLimitSkill::getDistanceLimit(const Player *from, const Card *card, const Player *) const
 {
     if (from->hasSkill(name) && card->getSkillName() == name)
         return 1000;
     else
         return 0;
+}
+
+InvaliditySkill::InvaliditySkill(const QString &name)
+    : Skill(name)
+{
 }
 
 AttackRangeSkill::AttackRangeSkill(const QString &name) : Skill(name, Skill::Compulsory)
@@ -889,8 +924,8 @@ bool ArmorSkill::cost(Room *room, ServerPlayer *target, QVariant &data) const
         } else if (target->askForSkillInvoke(objectName(), data)) {
             return true;
         }
-        return false;
     }
+    return false;
 }
 
 TreasureSkill::TreasureSkill(const QString &name)

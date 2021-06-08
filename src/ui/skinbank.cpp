@@ -478,10 +478,12 @@ QString QSanRoomSkin::getPlayerAudioEffectPath(const QString &eventName, const Q
                 bool head = postion == "left";
                 general = head ? player->getActualGeneral1Name() : player->getActualGeneral2Name();
                 skinId = head ? player->getHeadSkinId() : player->getDeputySkinId();
-            } else if ((player->inHeadSkills(eventName) || player->getActualGeneral1()->hasSkill(eventName)) && player->canShowGeneral("h")) {
+            } else if ((player->inHeadSkills(eventName) || player->getActualGeneral1()->hasSkill(eventName)
+                        || player->getActualGeneral1()->getRelatedSkillNames().contains(eventName)) && player->canShowGeneral("h")) {
                 general = player->getActualGeneral1Name();
                 skinId = player->getHeadSkinId();
-            } else if ((player->inDeputySkills(eventName) || player->getActualGeneral2()->hasSkill(eventName)) && player->canShowGeneral("d")) {
+            } else if ((player->inDeputySkills(eventName) || player->getActualGeneral2()->hasSkill(eventName)
+                        || player->getActualGeneral2()->getRelatedSkillNames().contains(eventName)) && player->canShowGeneral("d")) {
                 general = player->getActualGeneral2Name();
                 skinId = player->getDeputySkinId();
             }
@@ -1002,6 +1004,7 @@ bool QSanRoomSkin::_loadLayoutConfig(const QVariant &layout)
     tryParse(config["roleNormalBgSize"], _m_commonLayout.m_roleNormalBgSize);
     QStringList kingdoms = Sanguosha->getKingdoms();
     kingdoms.removeAll("god");
+    kingdoms.removeAll("careerist");
     foreach (const QString &kingdom, kingdoms) {
         tryParse(config[QString(S_SKIN_KEY_ROLE_BOX_RECT).arg(kingdom)], _m_commonLayout.m_rolesRect[kingdom]);
         tryParse(config[QString(S_SKIN_KEY_ROLE_BOX_COLOR).arg(kingdom)], _m_commonLayout.m_rolesColor[kingdom]);

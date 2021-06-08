@@ -218,6 +218,9 @@ sgs.ai_suit_priority.wusheng= "club|spade|diamond|heart"
 
 function sgs.ai_cardneed.paoxiao(to, card, self)
 	local cards = to:getHandcards()
+	for _, id in sgs.qlist(to:getHandPile()) do
+		cards:prepend(sgs.Sanguosha:getCard(id))
+	end
 	local has_weapon = to:getWeapon() and not to:getWeapon():isKindOf("Crossbow")
 	local slash_num = 0
 	for _, c in sgs.qlist(cards) do
@@ -254,6 +257,9 @@ longdan_skill.name = "longdan"
 table.insert(sgs.ai_skills, longdan_skill)
 longdan_skill.getTurnUseCard = function(self)
 	local cards = sgs.QList2Table(self.player:getHandcards())
+	for _, id in sgs.qlist(self.player:getHandPile()) do
+		table.insert(cards, sgs.Sanguosha:getCard(id))
+	end
 	local jink_card
 
 	self:sortByUseValue(cards,true)
@@ -351,11 +357,15 @@ function SmartAI:canLiegong(to, from)
 end
 
 sgs.ai_skill_invoke.kuanggu = function(self, data)
-	return true
+	return (self:willShowForAttack() or self:willShowForDefence())
 end
 
 function sgs.ai_cardneed.kuanggu(to, card, self)
 	return card:isKindOf("OffensiveHorse") and not (to:getOffensiveHorse() or getKnownCard(to, self.player, "OffensiveHorse", false) > 0)
+end
+
+sgs.ai_skill_choice.kuanggu = function(self, choices)
+	return "recover"
 end
 
 local lianhuan_skill = {}
@@ -583,7 +593,6 @@ sgs.ai_skill_invoke.fangquan = function(self, data)
 		return false
 	end
 
-
 	-- First we'll judge whether it's worth skipping the Play Phase
 	local cards = sgs.QList2Table(self.player:getHandcards())
 	local shouldUse, range_fix = 0, 0
@@ -679,7 +688,7 @@ sgs.ai_skill_invoke.fangquan = function(self, data)
 	return false
 end
 
-sgs.ai_skill_use["@@fangquan"] = function(self, prompt)
+sgs.ai_skill_use["@@fangquan_ask"] = function(self, prompt)
 	local fangquan_card = sgs.Card_Parse(self.fangquan_card_str)
 	local in_handcard = true
 	for _, id in sgs.qlist(fangquan_card:getSubcards()) do

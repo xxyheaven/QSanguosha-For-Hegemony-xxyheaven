@@ -44,6 +44,16 @@ public:
     virtual void extraCost(Room *room, const CardUseStruct &card_use) const;
 };
 
+class Tieqi : public TriggerSkill
+{
+public:
+    explicit Tieqi(const QString &owner = QString());
+
+    virtual QStringList triggerable(TriggerEvent triggerEvent, Room *room, ServerPlayer *player, QVariant &data, ServerPlayer * &ask_who) const;
+    virtual bool cost(TriggerEvent triggerEvent, Room *room, ServerPlayer *player, QVariant &data, ServerPlayer *ask_who = NULL) const;
+    virtual bool effect(TriggerEvent triggerEvent, Room *room, ServerPlayer *player, QVariant &data, ServerPlayer *ask_who) const;
+};
+
 class SavageAssaultAvoid : public TriggerSkill
 {
 public:

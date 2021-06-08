@@ -128,6 +128,11 @@ public:
     void updateMarkCard();
     void retractAllSkillPileCards();
 
+    inline QStringList getPileExpanded() const
+    {
+        return _m_pile_expanded.keys();
+    }
+
     void selectCard(CardItem *item, bool isSelected);
 
     int getButtonWidgetWidth() const;
@@ -187,6 +192,8 @@ public slots:
 
     virtual void updateAvatar();
     virtual void updateSmallAvatar();
+    void updateKingdom(const QString &kingdom);
+
     void updateLeftHiddenMark();
     void updateRightHiddenMark();
 
@@ -251,7 +258,7 @@ protected:
     bool _addCardItems(QList<CardItem *> &card_items, const CardsMoveStruct &moveInfo);
     virtual void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget);
     virtual void mouseReleaseEvent(QGraphicsSceneMouseEvent *mouseEvent);
-    void _addHandCard(CardItem *card_item, bool prepend = false, const QString &footnote = QString());
+    void _addHandCard(CardItem *card_item, int index = 0, const QString &footnote = QString());
     void _adjustCards();
     void _adjustCards(const QList<CardItem *> &list, int y);
 
@@ -272,7 +279,7 @@ protected:
     QGraphicsItem *buttonWidget;
 
     CardItem *selected;
-    QList<CardItem *> m_handCards;
+    QList<CardItem *> m_handCards, m_leftCards, m_middleCards, m_rightCards;
     QList<CardItem *> m_markCards;
 
     QGraphicsRectItem *trusting_item;
@@ -299,7 +306,7 @@ protected:
     const Card *pendingCard;
     const ViewAsSkill *viewAsSkill;
     const FilterSkill *filter;
-    QStringList _m_pile_expanded;
+    QMap<QString, QList<int> > _m_pile_expanded;
 
     // for transfer
     QList<TransferButton *> _transferButtons;

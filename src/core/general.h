@@ -61,6 +61,12 @@ public:
     int getMaxHpHead() const;
     int getMaxHpDeputy() const;
 
+    bool isDoubleKingdoms() const;
+
+    QString getSubordinateKingdom() const;
+
+    QStringList getKingdoms() const;
+
     enum Gender
     {
         Sexless, Male, Female, Neuter
@@ -94,6 +100,8 @@ public:
     void setHeadMaxHpAdjustedValue(int adjusted_value = -1);
     void setDeputyMaxHpAdjustedValue(int adjusted_value = -1);
 
+    void setSubordinateKingdom(const QString &kingdom);
+
     int skinCount() const;
     QString getSkinNameById(const int skinId);
     void tryLoadingSkinTranslation(const int skinId) const;
@@ -103,7 +111,7 @@ public slots:
     void lastWord(const int skinId) const;
 
 private:
-    QString kingdom;
+    QString kingdom, subordinate_kingdom;
     int double_max_hp;
     Gender gender;
     bool lord;

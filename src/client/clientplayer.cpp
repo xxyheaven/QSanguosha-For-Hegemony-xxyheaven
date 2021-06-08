@@ -225,7 +225,7 @@ void ClientPlayer::setFlags(const QString &flag)
     //emit skill_state_changed(flag);
 }
 
-void ClientPlayer::setMark(const QString &mark, int value)
+void ClientPlayer::setMark(const QString &mark, int value, bool is_tip)
 {
     if (marks[mark] == value)
         return;
@@ -233,6 +233,15 @@ void ClientPlayer::setMark(const QString &mark, int value)
 
     if (mark == "drank")
         emit drank_changed();
+
+    if (mark.startsWith("#")) {
+        QString new_mark = mark.mid(1);
+        if (is_tip)
+            emit tip_changed(new_mark, value > 0 ? true : false);
+        else
+            emit count_changed(new_mark, value);
+
+    }
 
     if (!mark.startsWith("@"))
         return;
@@ -258,7 +267,7 @@ void ClientPlayer::setMark(const QString &mark, int value)
         emit duanchang_invoked();
 
 
-    if (mark == "@companion" || mark == "@halfmaxhp" || mark == "@firstshow")
+    if (mark == "@companion" || mark == "@halfmaxhp" || mark == "@firstshow" || mark == "@careerist")
         emit update_markcard();
 
 }

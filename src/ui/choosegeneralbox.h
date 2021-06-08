@@ -74,6 +74,7 @@ private:
     bool single_result;
     bool same_kingdom;
     bool m_viewOnly;
+    QString reason;
     QList<GeneralCardItem *> items, selected;
     static const int top_dark_bar = 27;
     static const int top_blank_width = 42;

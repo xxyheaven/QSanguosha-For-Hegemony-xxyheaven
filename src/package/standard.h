@@ -202,6 +202,7 @@ public:
     /*virtual void onInstall(ServerPlayer *player) const;
     virtual void onUninstall(ServerPlayer *player) const;*/
 
+    virtual bool isAvailable(const Player *player) const;
     virtual QString getCommonEffectName() const;
 
 private:

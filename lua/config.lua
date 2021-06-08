@@ -22,12 +22,13 @@
 -- and it is a little different from config.ini
 
 config = {
-	kingdoms = { "wei", "qun", "shu", "wu", "god" },
+	kingdoms = { "wei", "qun", "shu", "wu", "careerist", "god" },
 	kingdom_colors = {
 		wei = "#547998",
 		shu = "#D0796C",
 		wu = "#4DB873",
 		qun = "#8A807A",
+		careerist = "#A500CC",
 		god = "#96943D",
 	},
 
@@ -54,12 +55,16 @@ config = {
 		"MomentumEquip",
 		"TransformationEquip",
 		"PowerEquip",
+		"LordEXCard",
 
 		"Standard",
 		"Formation",
 		"Momentum",
 		"Transformation",
 		"Power",
+		"Manoeuvre",
+		"MOL",
+		"LordEX",
 		"Test",
 		"JiangeDefense"
 	},

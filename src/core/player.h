@@ -203,6 +203,9 @@ public:
     void removeEquip(WrappedCard *equip);
     bool hasEquip(const Card *card) const;
     bool hasEquip() const;
+    bool hasSameEquipKind(const Card *card) const;
+    bool canSetEquip(int index) const;
+    bool canSetEquip(const Card *card) const;
 
     QList<const Card *> getJudgingArea() const;
     QList<int> getJudgingAreaID() const; //for marshal
@@ -227,6 +230,7 @@ public:
 
     bool hasWeapon(const QString &weapon_name) const;
     bool hasArmorEffect(const QString &armor_name) const;
+    bool ingoreArmor(const Player *to) const;
     bool hasTreasure(const QString &treasure_name) const;
 
     bool isKongcheng() const;

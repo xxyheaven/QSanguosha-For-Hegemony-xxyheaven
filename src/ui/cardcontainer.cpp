@@ -50,12 +50,13 @@ void CardContainer::paint(QPainter *painter, const QStyleOptionGraphicsItem *, Q
 
     const int card_width = G_COMMON_LAYOUT.m_cardNormalWidth;
     const int card_height = G_COMMON_LAYOUT.m_cardNormalHeight;
-    bool one_row = true;
-    int width = (card_width + cardInterval) * items.length() - cardInterval + 50;
-    if (width * 1.5 > RoomSceneInstance->sceneRect().width()) {
-        width = (card_width + cardInterval) * ((items.length() + 1) / 2) - cardInterval + 50;
-        one_row = false;
-    }
+//    bool one_row = true;
+//    int width = (card_width + cardInterval) * items.length() - cardInterval + 50;
+//    if (width * 1.5 > RoomSceneInstance->sceneRect().width()) {
+//        width = (card_width + cardInterval) * ((items.length() + 1) / 2) - cardInterval + 50;
+//        one_row = false;
+//    }
+    bool one_row = items.length() < 5;
 
     int first_row = one_row ? items.length() : (items.length() + 1) / 2;
 
@@ -80,12 +81,21 @@ QRectF CardContainer::boundingRect() const
 {
     const int card_width = G_COMMON_LAYOUT.m_cardNormalWidth;
     const int card_height = G_COMMON_LAYOUT.m_cardNormalHeight;
-    bool one_row = true;
     int width = (card_width + cardInterval) * itemCount - cardInterval + 50;
-    if (width * 1.5 > (scene_width ? scene_width : 800)) {
+
+//    bool one_row = true;
+//    if (width * 1.5 > (scene_width ? scene_width : 800)) {
+//        width = (card_width + cardInterval) * ((itemCount + 1) / 2) - cardInterval + 50;
+//        one_row = false;
+//    }
+
+    bool one_row = true;
+    if (itemCount > 4) {
         width = (card_width + cardInterval) * ((itemCount + 1) / 2) - cardInterval + 50;
         one_row = false;
     }
+
+
     int height = (one_row ? 1 : 2) * card_height + 90 + (one_row ? 0 : cardInterval) + 20;
 
     return QRectF(0, 0, width, height);
@@ -122,12 +132,13 @@ void CardContainer::fillCards(const QList<int> &card_ids, const QList<int> &disa
 
     int card_width = G_COMMON_LAYOUT.m_cardNormalWidth;
     int card_height = G_COMMON_LAYOUT.m_cardNormalHeight;
-    bool one_row = true;
-    int width = (card_width + cardInterval) * itemCount - cardInterval + 50;
-    if (width * 1.5 > scene_width) {
-        width = (card_width + cardInterval) * ((itemCount + 1) / 2) - cardInterval + 50;
-        one_row = false;
-    }
+//    bool one_row = true;
+//    int width = (card_width + cardInterval) * itemCount - cardInterval + 50;
+//    if (width * 1.5 > scene_width) {
+//        width = (card_width + cardInterval) * ((itemCount + 1) / 2) - cardInterval + 50;
+//        one_row = false;
+//    }
+    bool one_row = itemCount < 5;
     int first_row = one_row ? itemCount : (itemCount + 1) / 2;
 
     for (int i = 0; i < itemCount; i++) {
@@ -187,12 +198,13 @@ void CardContainer::fillGeneralCards(const QList<CardItem *> &card_item, const Q
 
     int card_width = G_COMMON_LAYOUT.m_cardNormalWidth;
     int card_height = G_COMMON_LAYOUT.m_cardNormalHeight;
-    bool one_row = true;
-    int width = (card_width + cardInterval) * itemCount - cardInterval + 50;
-    if (width * 1.5 > scene_width) {
-        width = (card_width + cardInterval) * ((itemCount + 1) / 2) - cardInterval + 50;
-        one_row = false;
-    }
+//    bool one_row = true;
+//    int width = (card_width + cardInterval) * itemCount - cardInterval + 50;
+//    if (width * 1.5 > scene_width) {
+//        width = (card_width + cardInterval) * ((itemCount + 1) / 2) - cardInterval + 50;
+//        one_row = false;
+//    }
+    bool one_row = itemCount < 5;
     int first_row = one_row ? itemCount : (itemCount + 1) / 2;
 
     for (int i = 0; i < itemCount; i++) {

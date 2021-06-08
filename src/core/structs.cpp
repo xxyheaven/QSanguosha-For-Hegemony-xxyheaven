@@ -29,7 +29,7 @@ bool CardsMoveStruct::tryParse(const QVariant &arg)
     if (args.size() != 9) return false;
 
     if ((!JsonUtils::isNumber(args[0]) && !args[0].canConvert<JsonArray>()) ||
-        !JsonUtils::isNumberArray(args, 1, 2) || !JsonUtils::isStringArray(args, 3, 6) || !JsonUtils::isBool(args[7])) return false;
+        !JsonUtils::isNumberArray(args, 1, 2) || !JsonUtils::isStringArray(args, 3, 6)) return false;
 
     if (JsonUtils::isNumber(args[0])) {
         int size = args[0].toInt();
@@ -45,7 +45,6 @@ bool CardsMoveStruct::tryParse(const QVariant &arg)
     to_player_name = args[4].toString();
     from_pile_name = args[5].toString();
     to_pile_name = args[6].toString();
-    is_open_pile = args[7].toBool();
     reason.tryParse(args[8]);
     return true;
 }
@@ -65,7 +64,7 @@ QVariant CardsMoveStruct::toVariant() const
     arg << to_player_name;
     arg << from_pile_name;
     arg << to_pile_name;
-    arg << is_open_pile;
+    arg << false;
     arg << reason.toVariant();
     return arg;
 }

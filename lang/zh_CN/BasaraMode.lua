@@ -108,6 +108,16 @@ return
 	["FirstShowCard"] = "先驱",
 	[":FirstShowCard"] = "标记牌\n\n出牌阶段，若你的手牌数小于4或场上有有暗置的武将牌的其他角色，你可弃1枚“先驱”，将手牌补至4张，观看一名其他角色的一张暗置的武将牌。",
 	
+	["careerman"] = "野心家",
+	["CareermanCard"] = "野心家",
+	[":CareermanCard"] = "标记牌\n\n使用方法Ⅰ：\n出牌阶段，你可弃1枚“野心家”，选择：1.摸两张牌；2.摸一张牌；3.将手牌补至四张，观看一名其他角色的一张暗置的武将牌。\n\n使用方法Ⅱ：\n当你需要使用【桃】时，你可弃1枚“野心家”，你使用无对应的实体牌的【桃】。\n\n使用方法Ⅲ：\n弃牌阶段开始时，若你的手牌数大于你的手牌上限，你可弃1枚“野心家”，你的手牌上限于此回合内+2。",
+	["careerman:draw1card"] = "摸一张牌",
+	["careerman:draw2cards"] = "摸两张牌",
+	["careerman:peach"] = "视为使用【桃】",
+	["careerman:firstshow"] = "将手牌补至四张，观看一张暗置武将牌",
+	["@careerman-target"] = "野心家：选择一名角色发动“先驱”的效果",
+	["@careerman-use"] = "是否弃置野心家标记，令你本回合的手牌上限+2",
+	["@careerman-choose"] = "野心家发动，请选择要执行的效果",
 	
 	["canshowinplay"] = "出牌阶段可明置",
 	
@@ -116,4 +126,20 @@ return
 	
 	["showdeputy"] = "亮将",
 	[":showdeputy"] = "明置副将的武将牌。",
+
+	["@careerist-show"] = "暴露野心：是否明置野心家武将",
+	["GameRule:CareeristShow:yes"] = "明置主将",
+	["GameRule:CareeristShow:no"] = "取消",
+	
+	["#GameRule_CareeristShow"] = "%from 暴露野心，明置主将",
+	
+	["@careerist-summon"] = "是否发动 拉拢人心",
+	["GameRule:CareeristSummon:yes"] = "发动拉拢人心",
+	["GameRule:CareeristSummon:no"] = "取消",
+
+	["#GameRule_CareeristSummon"] = "%from 发动了“拉拢人心”",
+
+	["@careerist-add"] = "是否加入 %src 的阵营",
+
+	["#GameRule_CareeristAdd"] = "%from 响应，加入 %to 的阵营",
 }

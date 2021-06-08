@@ -125,7 +125,10 @@ SOURCES += \
     src/ui/lightboxanimation.cpp \
     src/ui/pindianbox.cpp \
     src/package/power.cpp \
-    src/ui/choosehuashenskillbox.cpp
+    src/ui/choosehuashenskillbox.cpp \
+    src/package/lord-ex.cpp \
+    src/package/newsgs.cpp \
+    src/package/mol.cpp
 
 HEADERS += \
     src/client/aux-skills.h \
@@ -242,7 +245,10 @@ HEADERS += \
     src/ui/lightboxanimation.h \
     src/ui/pindianbox.h \
     src/package/power.h \
-    src/ui/choosehuashenskillbox.h
+    src/ui/choosehuashenskillbox.h \
+    src/package/lord-ex.h \
+    src/package/newsgs.h \
+    src/package/mol.h
 
 FORMS += \
     src/dialog/cardoverview.ui \

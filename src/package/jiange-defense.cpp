@@ -556,28 +556,31 @@ public:
 
     virtual QStringList triggerable(TriggerEvent, Room *room, ServerPlayer *player, QVariant &data, ServerPlayer* &) const
     {
-        if (!TriggerSkill::triggerable(player))
-            return QStringList();
+        if (!TriggerSkill::triggerable(player)) return QStringList();
 
-        CardsMoveOneTimeStruct move = data.value<CardsMoveOneTimeStruct>();
-        if (move.from == player && (move.reason.m_reason & CardMoveReason::S_MASK_BASIC_REASON) == CardMoveReason::S_REASON_DISCARD) {
-            bool cardok = false;
-            for (int i = 0; i < move.card_ids.length(); ++i) {
-                if (Sanguosha->getCard(move.card_ids.at(i))->getSuit() == Card::Club && (move.from_places.at(i) == Player::PlaceHand || move.from_places.at(i) == Player::PlaceEquip)) {
-                    cardok = true;
-                    break;
+        QVariantList move_datas = data.toList();
+
+        bool cardok = false;
+        foreach (QVariant move_data, move_datas) {
+            CardsMoveOneTimeStruct move = move_data.value<CardsMoveOneTimeStruct>();
+            if (move.from == player && (move.reason.m_reason & CardMoveReason::S_MASK_BASIC_REASON) == CardMoveReason::S_REASON_DISCARD) {
+                for (int i = 0; i < move.card_ids.length(); ++i) {
+                    if (Sanguosha->getCard(move.card_ids.at(i))->getSuit() == Card::Club && (move.from_places.at(i) == Player::PlaceHand || move.from_places.at(i) == Player::PlaceEquip)) {
+                        cardok = true;
+                        break;
+                    }
                 }
-            }
+                if (cardok) break;
 
-            if (!cardok)
-                return QStringList();
-
-            foreach (ServerPlayer *p, room->getOtherPlayers(player)) {
-                if (p->isFriendWith(player) && p->isWounded())
-                    return QStringList(objectName());
             }
         }
 
+        if (!cardok) return QStringList();
+
+        foreach (ServerPlayer *p, room->getOtherPlayers(player)) {
+            if (p->isFriendWith(player) && p->isWounded())
+                return QStringList(objectName());
+        }
         return QStringList();
     }
 

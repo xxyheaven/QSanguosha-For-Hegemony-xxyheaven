@@ -302,10 +302,23 @@ public:
         events << CardAsked;
     }
 
-    virtual QStringList triggerable(TriggerEvent, Room *, ServerPlayer *player, QVariant &data, ServerPlayer* &) const
+    virtual QStringList triggerable(TriggerEvent, Room *room, ServerPlayer *player, QVariant &data, ServerPlayer* &) const
     {
         if (!ArmorSkill::triggerable(player)) return QStringList();
-        QString asked = data.toStringList().first();
+
+        QStringList data_list = data.toStringList();
+
+        if (data_list.length() != 2) return QStringList();
+
+        QString asked = data_list.first();
+        QString prompt = data_list.last();
+
+        QStringList prompt_list = prompt.split(":");
+        if (prompt_list.length() > 1) {
+            ServerPlayer *source = room->findPlayerbyobjectName(prompt_list[1]);
+            if (source && source->ingoreArmor(player)) return QStringList();
+        }
+
         if (asked == "jink") return QStringList(objectName());
 
         return QStringList();
@@ -408,6 +421,7 @@ public:
     {
         if (!ArmorSkill::triggerable(player)) return QStringList();
         SlashEffectStruct effect = data.value<SlashEffectStruct>();
+        if (effect.from && effect.from->ingoreArmor(player)) return QStringList();
         if (effect.slash->isBlack()) return QStringList(objectName());
 
         return QStringList();
@@ -603,14 +617,17 @@ public:
         if (!ArmorSkill::triggerable(player)) return QStringList();
         if (triggerEvent == SlashEffected) {
             SlashEffectStruct effect = data.value<SlashEffectStruct>();
+            if (effect.from && effect.from->ingoreArmor(player)) return QStringList();
             if (effect.nature == DamageStruct::Normal)
                 return QStringList(objectName());
         } else if (triggerEvent == CardEffected) {
             CardEffectStruct effect = data.value<CardEffectStruct>();
+            if (effect.from && effect.from->ingoreArmor(player)) return QStringList();
             if (effect.card->isKindOf("SavageAssault") || effect.card->isKindOf("ArcheryAttack"))
                 return QStringList(objectName());
         } else if (triggerEvent == DamageInflicted) {
             DamageStruct damage = data.value<DamageStruct>();
+            if (damage.from && damage.from->ingoreArmor(player)) return QStringList();
             if (damage.nature == DamageStruct::Fire)
                 return QStringList(objectName());
         }
@@ -680,27 +697,38 @@ public:
         frequency = Compulsory;
     }
 
-    virtual QStringList triggerable(TriggerEvent triggerEvent, Room *, ServerPlayer *player, QVariant &data, ServerPlayer* &) const
+    virtual QStringList triggerable(TriggerEvent triggerEvent, Room *room, ServerPlayer *player, QVariant &data, ServerPlayer* &) const
     {
         if (triggerEvent == DamageInflicted) {
             DamageStruct damage = data.value<DamageStruct>();
+            if (damage.from && damage.from->ingoreArmor(player)) return QStringList();
             if (ArmorSkill::triggerable(player) && damage.damage > 1)
                 return QStringList(objectName());
-        } else if (player->hasFlag("SilverLionRecover")) {
-            CardsMoveOneTimeStruct move = data.value<CardsMoveOneTimeStruct>();
-            if (move.from != player || !move.from_places.contains(Player::PlaceEquip))
+        } else if (triggerEvent == CardsMoveOneTime && player->isWounded()) {
+
+            if (!player->tag["Qinggang"].toStringList().isEmpty() || player->getMark("Armor_Nullified") > 0
+                || player->getMark("Equips_Nullified_to_Yourself") > 0)
                 return QStringList();
-            for (int i = 0; i < move.card_ids.size(); i++) {
-                if (move.from_places[i] != Player::PlaceEquip) continue;
-                const Card *card = Sanguosha->getEngineCard(move.card_ids[i]);
-                if (card->objectName() == objectName()) {
-                    if (!player->isWounded()) {
-                        player->setFlags("-SilverLionRecover");
-                        return QStringList();
+
+            QVariantList move_datas = data.toList();
+            foreach (QVariant move_data, move_datas) {
+                CardsMoveOneTimeStruct move = move_data.value<CardsMoveOneTimeStruct>();
+                if (move.from != player || !move.from_places.contains(Player::PlaceEquip)) continue;
+
+                QString source_name = move.reason.m_playerId;
+                ServerPlayer *source = room->findPlayerbyobjectName(source_name);
+                if (source && source->ingoreArmor(player)) continue;
+
+                for (int i = 0; i < move.card_ids.size(); i++) {
+                    if (move.from_places[i] != Player::PlaceEquip) continue;
+
+                    const Card *card = Sanguosha->getEngineCard(move.card_ids[i]);
+                    if (card->objectName() == objectName()) {
+                        return QStringList(objectName());
                     }
-                    return QStringList(objectName());
                 }
             }
+
         }
         return QStringList();
     }
@@ -726,22 +754,16 @@ public:
             damage.damage = 1;
             data = QVariant::fromValue(damage);
         } else {
-            CardsMoveOneTimeStruct move = data.value<CardsMoveOneTimeStruct>();
 
-            for (int i = 0; i < move.card_ids.size(); i++) {
-                if (move.from_places[i] != Player::PlaceEquip) continue;
-                const Card *card = Sanguosha->getEngineCard(move.card_ids[i]);
-                if (card->objectName() == objectName()) {
-                    player->setFlags("-SilverLionRecover");
+            room->notifySkillInvoked(player, objectName());
 
-                    room->setEmotion(player, "armor/silver_lion");
-                    RecoverStruct recover;
-                    recover.card = card;
-                    room->recover(player, recover);
+            room->setEmotion(player, "armor/silver_lion");
+            RecoverStruct recover;
+            room->recover(player, recover);
 
-                    return false;
-                }
-            }
+            return false;
+
+
 
         }
         return false;
@@ -752,12 +774,6 @@ SilverLion::SilverLion(Suit suit, int number)
     : Armor(suit, number)
 {
     setObjectName("SilverLion");
-}
-
-void SilverLion::onUninstall(ServerPlayer *player) const
-{
-    if (player->isAlive() && player->hasArmorEffect(objectName()))
-        player->setFlags("SilverLionRecover");
 }
 
 class HorseSkill : public DistanceSkill

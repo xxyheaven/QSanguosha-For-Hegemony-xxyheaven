@@ -160,6 +160,9 @@ public slots:
     // March 14 2014
     //************************************
     void updatePile(const QString &pile_name);
+    void updateCount(const QString &pile_name, int value);
+    void updateTip(const QString &tag_name, bool add_in);
+
     void updateKingdom(const QString &kingdom);
     void updateMarks();
     void updateVotes(bool need_select = true, bool display_1 = false);

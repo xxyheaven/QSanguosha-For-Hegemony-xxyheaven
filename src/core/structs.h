@@ -225,6 +225,7 @@ public:
 struct CardsMoveOneTimeStruct
 {
     QList<int> card_ids;
+    QStringList cards;
     QList<Player::Place> from_places;
     Player::Place to_place;
     CardMoveReason reason;
@@ -324,7 +325,6 @@ struct CardsMoveStruct
     Player *from, *to;
     CardMoveReason reason;
     bool open; // helper to prevent sending card_id to unrelevant clients
-    bool is_open_pile;
     bool is_last_handcard;
 
     Player::Place origin_from_place, origin_to_place;
@@ -394,6 +394,7 @@ struct JudgeStruct
     ServerPlayer *who;
     const Card *card;
     QString pattern;
+    QStringList patterns;
     bool good;
     QString reason;
     bool time_consuming;
@@ -588,7 +589,9 @@ enum TriggerEvent
 
     CardAsked,
     CardResponded,
-    BeforeCardsMove, // sometimes we need to record cards before the move
+
+    ConfirmMoveCards,
+    BeforeCardsMove,
     PreCardsMoveOneTime,
     CardsMoveOneTime,
 
@@ -615,6 +618,7 @@ enum TriggerEvent
     GeneralShown, // For Official Hegemony mode
     GeneralHidden, // For Official Hegemony mode
     GeneralRemoved, // For Official Hegemony mode
+    GeneralTransforming, // For Official Hegemony mode
 
     DFDebut, // for Dragon Phoenix Debut
 

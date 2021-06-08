@@ -80,6 +80,7 @@ public:
     void throwAllMarks(bool visible_only = true);
     void clearOnePrivatePile(const QString &pile_name);
     void clearPrivatePiles();
+    void fillHandCards(int n, const QString &reason = QString());
     void drawCards(int n, const QString &reason = QString());
     bool askForSkillInvoke(const QString &skill_name, const QVariant &data = QVariant(), bool notify_skill = true);
     bool askForSkillInvoke(const Skill *skill, const QVariant &data = QVariant(), bool notify_skill = true);
@@ -160,6 +161,7 @@ public:
     void addToPile(const QString &pile_name, QList<int> card_ids, bool open = true, QList<ServerPlayer *> open_players = QList<ServerPlayer *>());
     void addToPile(const QString &pile_name, QList<int> card_ids, bool open, QList<ServerPlayer *> open_players, CardMoveReason reason);
     void pileAdd(const QString &pile_name, QList<int> card_ids);
+    void pileClear(const QString &pile_name);
     void gainAnExtraTurn();
 
     void copyFrom(ServerPlayer *sp);

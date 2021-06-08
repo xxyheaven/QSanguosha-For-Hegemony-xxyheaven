@@ -201,6 +201,12 @@ void ServerPlayer::throwAllCards()
     }
 }
 
+void ServerPlayer::fillHandCards(int n, const QString &reason)
+{
+    if (isAlive() && n > getHandcardNum())
+        drawCards(n - getHandcardNum(), reason);
+}
+
 void ServerPlayer::drawCards(int n, const QString &reason)
 {
     room->drawCards(this, n, reason);
@@ -829,7 +835,7 @@ bool ServerPlayer::pindian(ServerPlayer *target, const QString &reason, const Ca
 bool ServerPlayer::askCommandto(const QString &reason, ServerPlayer *target)
 {
     int index = startCommand(reason, target);
-    ServerPlayer *dest;
+    ServerPlayer *dest = NULL;
     if (index == 0) {
         dest = room->askForPlayerChosen(this, room->getAlivePlayers(), "command_"+reason, "@command-damage");
         room->doAnimate(QSanProtocol::S_ANIMATE_INDICATE, objectName(), dest->objectName());
@@ -1017,7 +1023,7 @@ bool ServerPlayer::changePhase(Player::Phase from, Player::Phase to)
         if (getPhase() != NotActive)
             thread->trigger(EventPhaseProceeding, room, this);
     }
-    if (getPhase() != NotActive)
+    if (isAlive() && getPhase() != NotActive)
         thread->trigger(EventPhaseEnd, room, this);
 
     return false;
@@ -1071,8 +1077,10 @@ void ServerPlayer::play(QList<Player::Phase> set_phases)
             if (getPhase() != NotActive)
                 thread->trigger(EventPhaseProceeding, room, this);
         }
-        if (getPhase() != NotActive)
-            thread->trigger(EventPhaseEnd, room, this);
+        if (getPhase() != NotActive) {
+            if (isAlive())
+                thread->trigger(EventPhaseEnd, room, this);
+        }
         else
             break;
     }
@@ -1145,7 +1153,10 @@ void ServerPlayer::gainMark(const QString &mark, int n)
     LogMessage log;
     log.type = "#GetMark";
     log.from = this;
-    log.arg = mark;
+    if (mark.startsWith("#"))
+        log.arg = mark.mid(1);
+    else
+        log.arg = mark;
     log.arg2 = QString::number(n);
 
     room->sendLog(log);
@@ -1163,7 +1174,10 @@ void ServerPlayer::loseMark(const QString &mark, int n)
     LogMessage log;
     log.type = "#LoseMark";
     log.from = this;
-    log.arg = mark;
+    if (mark.startsWith("#"))
+        log.arg = mark.mid(1);
+    else
+        log.arg = mark;
     log.arg2 = QString::number(n);
 
     room->sendLog(log);
@@ -1573,13 +1587,17 @@ void ServerPlayer::addToPile(const QString &pile_name, QList<int> card_ids,
     move.to = this;
     move.to_place = Player::PlaceSpecial;
     move.reason = reason;
-    move.is_open_pile = open;
     room->moveCardsAtomic(move, open);
 }
 
 void ServerPlayer::pileAdd(const QString &pile_name, QList<int> card_ids)
 {
     piles[pile_name].append(card_ids);
+}
+
+void ServerPlayer::pileClear(const QString &pile_name)
+{
+    piles[pile_name].clear();
 }
 
 void ServerPlayer::gainAnExtraTurn()
@@ -1700,7 +1718,6 @@ void ServerPlayer::showGeneral(bool head_general, bool trigger_event, bool sendL
         room->doBroadcastNotify(S_COMMAND_LOG_EVENT, arg);
         room->changePlayerGeneral(this, general_name);
 
-
         if (!property("Duanchang").toString().split(",").contains("head")) {
             sendSkillsToOthers();
             foreach (const Skill *skill, getHeadSkillList()) {
@@ -1717,7 +1734,12 @@ void ServerPlayer::showGeneral(bool head_general, bool trigger_event, bool sendL
         foreach(ServerPlayer *p, room->getOtherPlayers(this, true))
             room->notifyProperty(p, this, "head_skin_id");
 
-        if (!hasShownGeneral2()) {
+        if (getGeneral()->getKingdom() == "careerist" || getRole() == "careerist") {
+            if (getGeneral()->getKingdom() == "careerist" && property("CareeristFriend").toString().isEmpty())
+                setKingdom("careerist");
+            room->setPlayerProperty(this, "role", "careerist");
+        }
+        else if (!hasShownGeneral2()) {
             QString kingdom = getKingdom() != getGeneral()->getKingdom() ? getKingdom() : getGeneral()->getKingdom();
             room->setPlayerProperty(this, "kingdom", kingdom);
 
@@ -1746,7 +1768,7 @@ void ServerPlayer::showGeneral(bool head_general, bool trigger_event, bool sendL
         if (isLord()) {
             QString kingdom = getKingdom();
             foreach (ServerPlayer *p, room->getPlayers()) {
-                if (p->getKingdom() == kingdom && p->getRole() == "careerist") {
+                if (p->getKingdom() == kingdom && p->getRole() == "careerist" && p->property("CareeristFriend").toString().isEmpty()) {
                     room->setPlayerProperty(p, "role", HegemonyMode::GetMappedRole(kingdom));
                     room->broadcastProperty(p, "kingdom");
                 }
@@ -1786,8 +1808,17 @@ void ServerPlayer::showGeneral(bool head_general, bool trigger_event, bool sendL
         foreach(ServerPlayer *p, room->getOtherPlayers(this, true))
             room->notifyProperty(p, this, "deputy_skin_id");
 
-        if (!hasShownGeneral1()) {
-            QString kingdom = getKingdom() != getGeneral()->getKingdom() ? getKingdom() : getGeneral()->getKingdom();
+        if (getRole() == "careerist") {
+            room->setPlayerProperty(this, "role", "careerist");
+        } else if (!hasShownGeneral1()) {
+            QString kingdom = getKingdom();
+            if (kingdom.isEmpty()) {
+                if (getGeneral2()->isDoubleKingdoms())
+                    kingdom = getGeneral()->getKingdom();
+                else
+                    kingdom = getGeneral2()->getKingdom();
+            }
+
             room->setPlayerProperty(this, "kingdom", kingdom);
 
             QString role = HegemonyMode::GetMappedRole(kingdom);
@@ -2095,7 +2126,8 @@ bool ServerPlayer::askForGeneralShow(const QString &reason, bool head, bool depu
     if ((choice == "show_head_general" || choice == "show_both_generals") && !hasShownGeneral1()) {
         show_head = true;
 
-        if (change_to_lord && room->askForChoice(this, "changetolord", "yes+no", QVariant(), "@changetolord") == "yes")
+        if (change_to_lord && property("CareeristFriend").toString().isEmpty()
+                && room->askForChoice(this, "changetolord", "yes+no", QVariant(), "@changetolord") == "yes")
             changeToLord();
 
         showGeneral(true, false, false);
@@ -2149,8 +2181,8 @@ bool ServerPlayer::inSiegeRelation(const ServerPlayer *skill_owner, const Server
 {
     if (isFriendWith(victim) || !isFriendWith(skill_owner) || !victim->hasShownOneGeneral()) return false;
     if (this == skill_owner)
-        return (getNextAlive() == victim && getNextAlive(2)->isFriendWith(this))
-        || (getLastAlive() == victim && getLastAlive(2)->isFriendWith(this));
+        return (getNextAlive() == victim && getNextAlive(2) != this && getNextAlive(2)->isFriendWith(this))
+        || (getLastAlive() == victim && getLastAlive(2) != this && getLastAlive(2)->isFriendWith(this));
     else
         return (getNextAlive() == victim && getNextAlive(2) == skill_owner)
         || (getLastAlive() == victim && getLastAlive(2) == skill_owner);
@@ -2295,7 +2327,7 @@ QStringList ServerPlayer::getBigKingdoms(const QString &reason, MaxCardsType::Ma
     QMap<QString, int> kingdom_map;
     QStringList kingdoms = Sanguosha->getKingdoms();
     foreach (const QString &kingdom, kingdoms) {
-        if (kingdom == "god") continue;
+        if (kingdom == "god" || kingdom == "careerist") continue;
         kingdom_map.insert(kingdom, getPlayerNumWithSameKingdom(reason, kingdom, type));
     }
     QStringList big_kingdoms;
@@ -2347,6 +2379,9 @@ void ServerPlayer::changeToLord()
 
     QStringList real_generals = room->getTag(objectName()).toStringList();
     QString name = real_generals.takeFirst();
+
+    const General *head = Sanguosha->getGeneral(name);
+
     name.prepend("lord_");
     real_generals.prepend(name);
     room->setTag(objectName(), real_generals);
@@ -2355,13 +2390,16 @@ void ServerPlayer::changeToLord()
 
     const General *lord = Sanguosha->getGeneral(name);
     const General *deputy = Sanguosha->getGeneral(real_generals.last());
-    Q_ASSERT(lord != NULL && deputy != NULL);
+    Q_ASSERT(head != NULL && lord != NULL && deputy != NULL);
     int doubleMaxHp = lord->getMaxHpHead() + deputy->getMaxHpDeputy();
     room->setPlayerMark(this, "HalfMaxHpLeft", doubleMaxHp % 2);
 
     int x = getMaxHp();
-    setMaxHp(doubleMaxHp / 2);
-    setHp(getHp() - x + doubleMaxHp / 2);
+    int y = x + doubleMaxHp / 2 - (head->getMaxHpHead() + deputy->getMaxHpDeputy()) / 2;
+    setMaxHp(y);
+
+    if (y > x)
+        setHp(getHp() - x + y);
 
     room->broadcastProperty(this, "maxhp");
 

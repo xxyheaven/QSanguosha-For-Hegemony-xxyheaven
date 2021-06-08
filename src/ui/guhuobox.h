@@ -25,6 +25,7 @@ private:
     CardButton(QGraphicsObject *parent, const QString &card, int scale);
     QString cardName;
     int Scale;
+    bool generalCard;
 };
 
 class GuhuoBox : public GraphicsBox

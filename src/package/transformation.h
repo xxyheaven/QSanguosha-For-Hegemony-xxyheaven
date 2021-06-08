@@ -27,6 +27,18 @@
 #include "standard.h"
 #include "generaloverview.h"
 
+class YongjinMoveCard : public SkillCard
+{
+    Q_OBJECT
+
+public:
+    Q_INVOKABLE YongjinMoveCard();
+
+    virtual bool targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const;
+    virtual bool targetsFeasible(const QList<const Player *> &targets, const Player *Self) const;
+    virtual void onUse(Room *room, const CardUseStruct &card_use) const;
+};
+
 class YongjinCard : public SkillCard
 {
     Q_OBJECT
@@ -34,8 +46,6 @@ class YongjinCard : public SkillCard
 public:
     Q_INVOKABLE YongjinCard();
 
-    virtual bool targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const;
-    virtual bool targetsFeasible(const QList<const Player *> &targets, const Player *Self) const;
     virtual void onUse(Room *room, const CardUseStruct &card_use) const;
     virtual void use(Room *room, ServerPlayer *source, QList<ServerPlayer *> &targets) const;
 };
@@ -50,7 +60,21 @@ public:
     virtual bool targetFixed() const;
     virtual bool targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const;
     virtual bool targetsFeasible(const QList<const Player *> &targets, const Player *Self) const;
+    virtual void onUse(Room *room, const CardUseStruct &card_use) const;
+};
+
+class YiguiCard : public SkillCard
+{
+    Q_OBJECT
+
+public:
+    Q_INVOKABLE YiguiCard();
+
+    virtual bool targetFixed() const;
+    virtual bool targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const;
+    virtual bool targetsFeasible(const QList<const Player *> &targets, const Player *Self) const;
     virtual const Card *validate(CardUseStruct &card_use) const;
+    virtual const Card *validateInResponse(ServerPlayer *user) const;
 };
 
 class XiongsuanCard : public SkillCard

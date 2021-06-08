@@ -224,6 +224,24 @@
 "playerGeneralIcon-cuiyanmaojie-default-8": "hero-skin/cuiyanmaojie/%1/kof.png",
 "playerGeneralIcon-cuiyanmaojie-default-9": "hero-skin/cuiyanmaojie/%1/full.png",
 
+"playerGeneralIcon-mifangfushiren-0-0": ["image/generals/big/mifangfushiren.png", [0, 0, 213, 213], [40, 40]],
+"playerGeneralIcon-mifangfushiren-0-2": ["image/generals/big/mifangfushiren.png", [0, 0, 213, 255]],
+"playerGeneralIcon-mifangfushiren-0-4": ["image/fullskin/generals/fulldual/mifangfushiren.png", [0, 0, 124, 289], [77, 179]],
+"playerGeneralIcon-mifangfushiren-0-5": ["image/generals/big/mifangfushiren.png", [0, 0, 134, 134], [70, 70]],
+"playerGeneralIcon-mifangfushiren-0-6": ["image/fullskin/generals/fulldual/mifangfushiren.png", [0, 0, 250, 289], [155, 179]],
+"playerGeneralIcon-mifangfushiren-0-7": "image/generals/big/mifangfushiren.png",
+"playerGeneralIcon-mifangfushiren-0-8": "image/generals/kof/mifangfushiren.png",
+"playerGeneralIcon-mifangfushiren-0-9": "image/fullskin/generals/fulldual/mifangfushiren.png",
+
+"playerGeneralIcon-mifangfushiren-default-0": ["hero-skin/mifangfushiren/%1/avatar.png", [0, 0, 213, 213], [40, 40]],
+"playerGeneralIcon-mifangfushiren-default-2": ["hero-skin/mifangfushiren/%1/avatar.png", [0, 0, 213, 255]],
+"playerGeneralIcon-mifangfushiren-default-4": ["hero-skin/mifangfushiren/%1/full.png", [0, 0, 124, 289], [77, 179]],
+"playerGeneralIcon-mifangfushiren-default-5": ["hero-skin/mifangfushiren/%1/avatar.png", [0, 0, 134, 134], [70, 70]],
+"playerGeneralIcon-mifangfushiren-default-6": ["hero-skin/mifangfushiren/%1/full.png", [0, 0, 250, 289], [155, 179]],
+"playerGeneralIcon-mifangfushiren-default-7": "hero-skin/mifangfushiren/%1/avatar.png",
+"playerGeneralIcon-mifangfushiren-default-8": "hero-skin/mifangfushiren/%1/kof.png",
+"playerGeneralIcon-mifangfushiren-default-9": "hero-skin/mifangfushiren/%1/full.png",
+
 // buttons
 "dashboardButtonSetBg": "image/system/button/platter/bg.png",
 "button-platter": "image/system/button/platter/%1/%2.png",

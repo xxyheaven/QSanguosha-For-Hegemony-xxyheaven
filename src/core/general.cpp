@@ -109,6 +109,25 @@ int General::getMaxHpDeputy() const
     return double_max_hp + deputy_max_hp_adjusted_value;
 }
 
+bool General::isDoubleKingdoms() const
+{
+    return !subordinate_kingdom.isEmpty();
+}
+
+QString General::getSubordinateKingdom() const
+{
+    return subordinate_kingdom;
+}
+
+QStringList General::getKingdoms() const
+{
+    QStringList kindoms;
+    kindoms << kingdom;
+    if (isDoubleKingdoms())
+        kindoms << subordinate_kingdom;
+    return kindoms;
+}
+
 void General::addSkill(Skill *skill)
 {
     skill->setParent(this);
@@ -232,6 +251,8 @@ QString General::getSkillDescription(bool include_name, bool inToolTip, bool inc
     if (include_name) {
         QString color_str = Sanguosha->getKingdomColor(kingdom).name();
         QString name = QString("<font color=%1><b>%2</b></font>     ").arg(color_str).arg(Sanguosha->translate(objectName()));
+        if (isDoubleKingdoms())
+            name.prepend(QString("<img src='image/kingdom/icon/%1.png'/>    ").arg(subordinate_kingdom));
         name.prepend(QString("<img src='image/kingdom/icon/%1.png'/>    ").arg(kingdom));
         int region = double_max_hp;
         int waken = 0;
@@ -332,9 +353,7 @@ bool General::isCompanionWith(const QString &name) const
 {
     const General *other = Sanguosha->getGeneral(name);
     Q_ASSERT(other);
-    if (kingdom != other->kingdom)
-        return false;
-    return lord || other->lord || companions.contains(name)
+    return ((lord || other->lord) && kingdom == other->kingdom) || companions.contains(name)
         || other->companions.contains(objectName());
 }
 
@@ -346,6 +365,11 @@ void General::setHeadMaxHpAdjustedValue(int adjusted_value /* = -1 */)
 void General::setDeputyMaxHpAdjustedValue(int adjusted_value /* = -1 */)
 {
     deputy_max_hp_adjusted_value = adjusted_value;
+}
+
+void General::setSubordinateKingdom(const QString &kingdom)
+{
+    subordinate_kingdom = kingdom;
 }
 
 int General::skinCount() const

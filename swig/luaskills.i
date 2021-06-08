@@ -118,8 +118,8 @@ public:
     TargetModSkill(const QString &name);
     virtual QString getPattern() const;
 
-    virtual int getResidueNum(const Player *from, const Card *card) const;
-    virtual int getDistanceLimit(const Player *from, const Card *card) const;
+    virtual int getResidueNum(const Player *from, const Card *card, const Player *to) const;
+    virtual int getDistanceLimit(const Player *from, const Card *card, const Player *to) const;
     virtual int getExtraTargetNum(const Player *from, const Card *card) const;
 
 protected:

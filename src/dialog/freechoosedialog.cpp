@@ -54,6 +54,8 @@ FreeChooseDialog::FreeChooseDialog(QWidget *parent, ButtonGroupType type)
             continue;
 
         map[general->getKingdom()] << general;
+        if (general->isDoubleKingdoms())
+            map[general->getSubordinateKingdom()] << general;
     }
 
     QStringList kingdoms = Sanguosha->getKingdoms();

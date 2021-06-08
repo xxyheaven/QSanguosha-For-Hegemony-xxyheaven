@@ -24,11 +24,9 @@ sgs.ai_skill_invoke.tuntian = function(self, data)
 	end
 	return true
 end
-sgs.ai_skill_invoke._tuntian = function(self, data)
-	if not (self:willShowForAttack() or self:willShowForDefence()) then
-		return false
-	end
-	return true
+
+sgs.ai_skill_choice["tuntian"] = function(self, choices)
+	return "yes"
 end
 
 local jixi_skill = {}
@@ -291,14 +289,21 @@ sgs.ai_card_intention.TiaoxinCard = 80
 sgs.ai_use_priority.TiaoxinCard = 4
 
 sgs.ai_skill_invoke.shoucheng = function(self, data)
-	local move = data:toMoveOneTime()
-	if move and move.from then
-		local from = findPlayerByObjectName(move.from:objectName())
-		if from and self:isFriend(from) and not self:needKongcheng(move.from, true) then
-			return true
-		end
+	local target = data:toPlayer()
+	if target and self:isFriend(target) and not self:needKongcheng(target, true) then
+		return true
 	end
 	return false
+end
+
+sgs.ai_skill_playerchosen.shoucheng = function(self, targets)
+	local result = {}
+	for _, target in sgs.qlist(targets) do
+		if target and self:isFriend(target) and not self:needKongcheng(target, true) then
+			table.insert(result, target)
+		end
+	end
+	return result
 end
 
 local shangyi_skill = {}
@@ -333,7 +338,7 @@ sgs.ai_skill_use_func.ShangyiCard = function(card, use, self)
 				use.card = card
 				self.shangyi = "hidden_general"
 				if use.to then
-					use.to:append(self.enemies[index])
+					use.to:append(p)
 				end
 				return
 			end

@@ -108,6 +108,8 @@ public:
     void setPlayerMark(ServerPlayer *player, const QString &mark, int value);
     void addPlayerMark(ServerPlayer *player, const QString &mark, int add_num = 1);
     void removePlayerMark(ServerPlayer *player, const QString &mark, int remove_num = 1);
+    void addPlayerTip(ServerPlayer *player, const QString &mark);
+    void removePlayerTip(ServerPlayer *player, const QString &mark);
     void setPlayerCardLimitation(ServerPlayer *player, const QString &limit_list, const QString &pattern, bool single_turn);
     void removePlayerCardLimitation(ServerPlayer *player, const QString &limit_list, const QString &pattern);
     void clearPlayerCardLimitation(ServerPlayer *player, bool single_turn);
@@ -342,6 +344,7 @@ public:
     void setCardEmotion(ServerPlayer *target, const Card *card);
 
     Player::Place getCardPlace(int card_id) const;
+    bool canFindCardPlace(int card_id) const;
     bool isAllOnPlace(const Card *virtual_card, Player::Place place) const;
     bool isAllOnPlace(const QList<int> &card_ids, Player::Place place) const;
     QList<int> getCardIdsOnTable(const Card *) const;
@@ -371,6 +374,13 @@ public:
     void moveCardsAtomic(CardsMoveStruct cards_move, bool forceMoveVisible);
     void moveCards(CardsMoveStruct cards_move, bool forceMoveVisible, bool ignoreChanges = true);
     void moveCards(QList<CardsMoveStruct> cards_moves, bool forceMoveVisible, bool ignoreChanges = true);
+
+    QList<CardsMoveOneTimeStruct> moveCardsSub(CardsMoveStruct cards_move, bool forceMoveVisible);
+    QList<CardsMoveOneTimeStruct> moveCardsSub(QList<CardsMoveStruct> cards_moves, bool forceMoveVisible);
+
+    QVariant changeMoveData(QVariant data, CardsMoveStruct cards_move);
+    QVariant changeMoveData(QVariant data, QList<CardsMoveStruct> cards_move);
+    QVariant cheakMoveData(QVariant data);
 
     // interactive methods
     void activate(ServerPlayer *player, CardUseStruct &card_use);

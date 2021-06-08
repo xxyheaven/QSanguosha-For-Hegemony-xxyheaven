@@ -56,8 +56,14 @@
 "playerGeneralIcon-chenwudongxi-4": ["image/fullskin/generals/fulldual/chenwudongxi.png", [0, 0, 124, 291], [64, 150]],
 "playerGeneralIcon-chenwudongxi-6": ["image/fullskin/generals/fulldual/chenwudongxi.png", [0, 0, 250, 291], [129, 150]],
 
-"playerGeneralIcon-liguo-4": ["image/fullskin/generals/fulldual/liguo.png", [0, 0, 124, 291], [64, 150]],
-"playerGeneralIcon-liguo-6": ["image/fullskin/generals/fulldual/liguo.png", [0, 0, 250, 291], [129, 150]],
+"playerGeneralIcon-lijueguosi-4": ["image/fullskin/generals/fulldual/lijueguosi.png", [0, 0, 124, 291], [64, 150]],
+"playerGeneralIcon-lijueguosi-6": ["image/fullskin/generals/fulldual/lijueguosi.png", [0, 0, 250, 291], [129, 150]],
+
+"playerGeneralIcon-cuiyanmaojie-4": ["image/fullskin/generals/fulldual/cuiyanmaojie.png", [0, 0, 124, 291], [64, 150]],
+"playerGeneralIcon-cuiyanmaojie-6": ["image/fullskin/generals/fulldual/cuiyanmaojie.png", [0, 0, 250, 291], [129, 150]],
+
+"playerGeneralIcon-mifangfushiren-4": ["image/fullskin/generals/fulldual/mifangfushiren.png", [0, 0, 124, 291], [64, 150]],
+"playerGeneralIcon-mifangfushiren-6": ["image/fullskin/generals/fulldual/mifangfushiren.png", [0, 0, 250, 291], [129, 150]],
 
 "photoEquip-default": ["image/fullskin/small-equips/%1.png", [0, 0, 114, 19]],
 "photoEquip-ChiTu": ["image/fullskin/small-equips/offensivehorse.png", [0, 0, 57, 19]],

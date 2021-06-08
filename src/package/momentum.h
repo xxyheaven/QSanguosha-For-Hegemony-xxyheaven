@@ -26,6 +26,17 @@
 #include "skill.h"
 #include "standard.h"
 
+class Xunxun : public PhaseChangeSkill
+{
+public:
+    explicit Xunxun(const QString &owner = QString());
+
+    virtual QStringList triggerable(TriggerEvent, Room *, ServerPlayer *lidian, QVariant &, ServerPlayer* &) const;
+    virtual bool cost(TriggerEvent triggerEvent, Room *room, ServerPlayer *player, QVariant &data, ServerPlayer *ask_who = NULL) const;
+    virtual bool onPhaseChange(ServerPlayer *target) const;
+
+};
+
 class CunsiCard : public SkillCard
 {
     Q_OBJECT
@@ -83,7 +94,6 @@ class PeaceSpell : public Armor
 
 public:
     Q_INVOKABLE PeaceSpell(Card::Suit suit = Heart, int number = 3);
-    virtual void onUninstall(ServerPlayer *player) const;
 };
 
 class MomentumEquipPackage : public Package

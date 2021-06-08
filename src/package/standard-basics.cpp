@@ -41,7 +41,7 @@ void Slash::setNature(DamageStruct::Nature nature)
 bool Slash::IsAvailable(const Player *player, const Card *slash, bool considerSpecificAssignee)
 {
     Slash *newslash = new Slash(Card::NoSuit, 0);
-    newslash->setFlags("Global_SlashAvailabilityChecker");
+    newslash->setFlags("Global_AvailabilityChecker");
     newslash->deleteLater();
 #define THIS_SLASH (slash == NULL ? newslash : slash)
     if (player->isCardLimited(THIS_SLASH, Card::MethodUse))
@@ -61,20 +61,15 @@ bool Slash::IsAvailable(const Player *player, const Card *slash, bool considerSp
         if ((!has_weapon && player->hasWeapon("Crossbow")) || player->canSlashWithoutCrossbow(THIS_SLASH))
             return true;
 
+        int used = player->getSlashCount();
+        int valid = 1 + Sanguosha->correctCardTarget(TargetModSkill::Residue, player, THIS_SLASH, NULL);
+        if (used < valid) return true;
+
         if (considerSpecificAssignee) {
-            QStringList assignee_list = player->property("extra_slash_specific_assignee").toString().split("+");
-            if (!assignee_list.isEmpty()) {
-                foreach (const Player *p, player->getAliveSiblings()) {
-                    if (assignee_list.contains(p->objectName()) && player->canSlash(p, THIS_SLASH))
-                        return true;
-                }
-            }
-            QStringList assignee_list2 = player->property("zhengbi_specific_assignee").toString().split("+");
-            if (!assignee_list2.isEmpty()) {
-                foreach (const Player *p, player->getAliveSiblings()) {
-                    if (assignee_list2.contains(p->objectName()) && !p->hasShownOneGeneral() && player->canSlash(p, THIS_SLASH, false))
-                        return true;
-                }
+            QList<const Player *> all_players = player->getSiblings();
+            foreach (const Player *p, all_players) {
+                if (used < 1 + Sanguosha->correctCardTarget(TargetModSkill::Residue, player, THIS_SLASH, p))
+                    return true;
             }
         }
         return false;
@@ -90,10 +85,7 @@ bool Slash::IsSpecificAssignee(const Player *player, const Player *from, const C
         return true;
     else if (from->getPhase() == Player::Play && Sanguosha->getCurrentCardUseReason() == CardUseStruct::CARD_USE_REASON_PLAY
         && !Slash::IsAvailable(from, slash, false)) {
-        QStringList assignee_list = from->property("extra_slash_specific_assignee").toString().split("+");
-        if (assignee_list.contains(player->objectName())) return true;
-        QStringList assignee_list2 = from->property("zhengbi_specific_assignee").toString().split("+");
-        if (assignee_list2.contains(player->objectName()) && !player->hasShownOneGeneral()) return true;
+        return from->getSlashCount() < 1 + Sanguosha->correctCardTarget(TargetModSkill::Residue, from, slash, player);
     }
     return false;
 }
@@ -176,7 +168,14 @@ void Slash::onEffect(const CardEffectStruct &card_effect) const
     effect.nullified = card_effect.nullified;
 
     QVariantList jink_list = effect.from->tag["Jink_" + toString()].toList();
-    effect.jink_num = jink_list.takeFirst().toInt();
+
+    int x = jink_list.takeFirst().toInt();
+
+    if (tag["NoResponse"].toStringList().contains(effect.to->objectName()) || tag["NoResponse"].toStringList().contains("_ALL_PLAYERS"))
+        x = 0;
+
+    effect.jink_num = x;
+
     if (jink_list.isEmpty())
         effect.from->tag.remove("Jink_" + toString());
     else
@@ -187,14 +186,9 @@ void Slash::onEffect(const CardEffectStruct &card_effect) const
 
 bool Slash::targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
 {
-    int slash_targets = 1 + Sanguosha->correctCardTarget(TargetModSkill::ExtraTarget, Self, this);
-    bool distance_limit = ((1 + Sanguosha->correctCardTarget(TargetModSkill::DistanceLimit, Self, this)) < 500);
+    int slash_targets = 1 + Sanguosha->correctCardTarget(TargetModSkill::ExtraTarget, Self, this, to_select);
+    bool distance_limit = ((1 + Sanguosha->correctCardTarget(TargetModSkill::DistanceLimit, Self, this, to_select)) < 500);
     if (Self->hasFlag("slashNoDistanceLimit"))
-        distance_limit = false;
-
-    QStringList assignee_list = Self->property("zhengbi_specific_assignee").toString().split("+");
-
-    if (assignee_list.contains(to_select->objectName()) && !to_select->hasShownOneGeneral())
         distance_limit = false;
 
     int rangefix = 0;
@@ -332,6 +326,7 @@ QString Analeptic::getSubtype() const
 bool Analeptic::IsAvailable(const Player *player, const Card *analeptic)
 {
     Analeptic *newanal = new Analeptic(Card::NoSuit, 0);
+    newanal->setFlags("Global_AvailabilityChecker");
     newanal->deleteLater();
 #define THIS_ANAL (analeptic == NULL ? newanal : analeptic)
     if (player->isCardLimited(THIS_ANAL, Card::MethodUse) || player->isProhibited(player, THIS_ANAL))
@@ -394,7 +389,7 @@ QStringList Analeptic::checkTargetModSkillShow(const CardUseStruct &use) const
         QList<const TargetModSkill *> tarmods_copy = tarmods;
 
         foreach (const TargetModSkill *tarmod, tarmods_copy) {
-            if (tarmod->getResidueNum(from, use.card) == 0) {
+            if (tarmod->getResidueNum(from, use.card, NULL) == 0) {
                 tarmods.removeOne(tarmod);
                 continue;
             }
@@ -402,7 +397,7 @@ QStringList Analeptic::checkTargetModSkillShow(const CardUseStruct &use) const
             const Skill *main_skill = Sanguosha->getMainSkill(tarmod->objectName());
             if (from->hasShownSkill(main_skill)) {
                 tarmods.removeOne(tarmod);
-                n -= tarmod->getResidueNum(from, use.card);
+                n -= tarmod->getResidueNum(from, use.card, NULL);
             }
         }
 

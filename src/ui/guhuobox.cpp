@@ -40,18 +40,11 @@ QRectF GuhuoBox::boundingRect() const
     return QRectF(0, 0, width, height);
 }
 
-bool GuhuoBox::isButtonEnable(const QString &card) const
+bool GuhuoBox::isButtonEnable(const QString &card_name) const
 {
-    QString allowed_list = Self->property("guhuo_box_allowed_elemet").toString();
-    if (!allowed_list.isEmpty() && !allowed_list.split("+").contains(card))
-        return false;
-
-    Card *ca = Sanguosha->cloneCard(card);
-    ca->setCanRecast(false);
-    ca->deleteLater();
-    ca->setSkillName(skill_name);
-    return ca->isAvailable(Self);
-
+    const Skill *skill = Sanguosha->getSkill(skill_name);
+    if (skill == NULL) return false;
+    return skill->buttonEnabled(card_name);
 }
 
 void GuhuoBox::popup()
@@ -59,14 +52,17 @@ void GuhuoBox::popup()
     if (RoomSceneInstance->current_guhuo_box != NULL) {
         RoomSceneInstance->current_guhuo_box->clear();
     }
-    RoomSceneInstance->getDasboard()->unselectAll();
-    RoomSceneInstance->getDasboard()->stopPending();
-    if (play_only && Sanguosha->currentRoomState()->getCurrentCardUseReason() != CardUseStruct::CARD_USE_REASON_PLAY) {
-        emit onButtonClick();
-        return;
-    }
+    //if (Sanguosha->currentRoomState()->getCurrentCardUseReason() == CardUseStruct::CARD_USE_REASON_PLAY) {
+        RoomSceneInstance->getDasboard()->unselectAll();
+        RoomSceneInstance->getDasboard()->stopPending();
+        RoomSceneInstance->getDasboard()->disableAllCards();
+    //}
+    //if (play_only && Sanguosha->currentRoomState()->getCurrentCardUseReason() != CardUseStruct::CARD_USE_REASON_PLAY) {
+        //emit onButtonClick();
+        //return;
+    //}
 
-    RoomSceneInstance->getDasboard()->disableAllCards();
+    Self->tag.remove(skill_name);
     RoomSceneInstance->current_guhuo_box = this;
 
     maxcardcount = 0;
@@ -247,8 +243,10 @@ void GuhuoBox::clear()
 
     if (sender() != NULL && Self->tag[skill_name] == sender()->objectName() && Sanguosha->getViewAsSkill(skill_name) != NULL)
         RoomSceneInstance->getDasboard()->updatePending();
-    else if (Self->getPhase() == Player::Play)
+    else if (Sanguosha->currentRoomState()->getCurrentCardUseReason() == CardUseStruct::CARD_USE_REASON_PLAY) {
+        RoomSceneInstance->getDasboard()->stopPending();
         RoomSceneInstance->getDasboard()->enableCards();
+    }
 
     if (!isVisible())
         return;
@@ -294,7 +292,9 @@ CardButton::CardButton(QGraphicsObject *parent, const QString &card, int scale)
 void CardButton::paint(QPainter *painter, const QStyleOptionGraphicsItem *, QWidget *)
 {
     painter->setRenderHint(QPainter::HighQualityAntialiasing);
+
     QPixmap generalImage = G_ROOM_SKIN.getCardMainPixmap(cardName);
+
     generalImage = generalImage.scaled(cardButtonSize * Scale / 10, Qt::KeepAspectRatio, Qt::SmoothTransformation);
     painter->setBrush(generalImage);
     painter->drawRoundedRect(boundingRect(), 5, 5, Qt::RelativeSize);

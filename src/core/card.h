@@ -166,6 +166,8 @@ public:
     }
     virtual const Card *validate(CardUseStruct &cardUse) const;
     virtual const Card *validateInResponse(ServerPlayer *user) const;
+    virtual void validateAfter(CardUseStruct &cardUse) const;
+    virtual void validateInResponseAfter(ServerPlayer *user) const;
 
     virtual void doPreAction(Room *room, const CardUseStruct &card_use) const;
     virtual void onUse(Room *room, const CardUseStruct &card_use) const;
@@ -209,6 +211,7 @@ public:
 
     static const Card *Parse(const QString &card_str);
     virtual QString toString(bool hidden = false) const;
+    virtual QString toRealString() const;
 
     virtual QString getEffectName() const;
 

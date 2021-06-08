@@ -103,7 +103,8 @@ sgs.shown_kingdom =         {
 	wei = 0,
 	shu = 0,
 	wu = 0,
-	qun = 0
+	qun = 0,
+	careerist = 0
 }
 sgs.ai_damage_effect =      {}
 sgs.ai_explicit =           {}
@@ -111,7 +112,8 @@ sgs.ai_loyalty =            {
 	wei = {},
 	shu = {},
 	wu = {},
-	qun = {}
+	qun = {},
+	careerist = {}
 }
 sgs.RolesTable =            {
 	"lord",
@@ -124,13 +126,15 @@ sgs.KingdomsTable =         {
 	"wei",
 	"shu",
 	"wu",
-	"qun"
+	"qun",
+	"careerist"
 }
 sgs.current_mode_players = {
 	wei = 0,
 	shu = 0,
 	wu = 0,
-	qun = 0
+	qun = 0,
+	careerist = 0
 }
 sgs.general_shown = {}
 sgs.Slash_Natures = {
@@ -175,6 +179,8 @@ function setInitialTables()
 	sgs.use_lion_skill =		 "duanliang|qixi|guidao|lijian|zhiheng|fenxun|qingcheng"
 	sgs.need_equip_skill = 		"shensu|beige|huyuan|qingcheng|xiaoji|zhijian"
 	sgs.judge_reason =		"bazhen|EightDiagram|supply_shortage|tuntian|qianxi|indulgence|lightning|leiji|tieqi|luoshen|ganglie"
+	
+	sgs.rule_skill = "transfer|aozhan|companion|halfmaxhp|firstshow|showhead|showdeputy"
 
 	sgs.Friend_All = 0
 	sgs.Friend_Draw = 1
@@ -3937,21 +3943,23 @@ function SmartAI:damageIsEffective(to, nature, from)
 end
 
 function SmartAI:damageIsEffective_(damageStruct)
-	if type(damageStruct) ~= "table" and type(damageStruct) ~= "DamageStruct" and type(damageStruct) ~= "userdata" then self.room:writeToConsole(debug.traceback()) return end
-	if not damageStruct.to then self.room:writeToConsole(debug.traceback()) return end
+	if type(damageStruct) ~= "table" and type(damageStruct) ~= "DamageStruct" and type(damageStruct) ~= "userdata" then self.room:writeToConsole(debug.traceback()) return false end
+	if not damageStruct.to then self.room:writeToConsole(debug.traceback()) return false end
 	local to = damageStruct.to
 	local nature = damageStruct.nature or sgs.DamageStruct_Normal
 	local damage = damageStruct.damage or 1
 	local from = damageStruct.from
 
-	if type(to) == "table" then self.room:writeToConsole(debug.traceback()) return end
+	if type(to) == "table" then self.room:writeToConsole(debug.traceback()) return false end
 
 	if to:hasShownSkill("mingshi") and from and not from:hasShownAllGenerals() then
 		damage = damage - 1
 		if damage < 1 then return false end
 	end
 
-	if to:hasArmorEffect("PeaceSpell") and not from:hasWeapon("IceSword") and not from:hasShownSkill("zhiman") and nature ~= sgs.DamageStruct_Normal then return false end
+	if to:hasShownSkill("yuanyu") and from and not to:isAdjacentTo(from) then return false end
+	
+	if to:hasArmorEffect("PeaceSpell") and nature ~= sgs.DamageStruct_Normal then return false end
 	if to:hasShownSkills("jgyuhuo_pangtong|jgyuhuo_zhuque") and nature == sgs.DamageStruct_Fire then return false end
 	if to:getMark("@fog") > 0 and nature ~= sgs.DamageStruct_Thunder then return false end
 	if to:hasArmorEffect("Breastplate") and (damage > to:getHp() or (to:getHp() > 1 and damage == to:getHp())) then return false end
@@ -3995,14 +4003,39 @@ end
 
 local function getPlayerSkillList(player)
 	local skills = sgs.QList2Table(player:getVisibleSkillList(true))
+	local rule_skills = sgs.rule_skill:split("|")
+	for _, name in ipairs(rule_skills) do
+		local skill = sgs.Sanguosha:getSkill("aozhan")
+		if skill and hasRuleSkill(name, player) then
+			table.insert(skills, skill)
+		end
+	end
 	return skills
+end
+
+function hasRuleSkill(skill_name, player)
+	local rule_skills = sgs.rule_skill:split("|")
+	if table.contains(rule_skills, skill_name) then
+		if skill_name == "aozhan" then
+			return player:getMark("GlobalBattleRoyalMode") > 0
+		elseif skill_name == "companion" then
+			return player:getMark("@companion") > 0
+		elseif skill_name == "halfmaxhp" then
+			return player:getMark("@halfmaxhp") > 0
+		elseif skill_name == "firstshow" then
+			return player:getMark("@firstshow") > 0
+		else
+			return true
+		end
+	end
+	return false
 end
 
 local function cardsView(self, class_name, player, cards)
 	local returnList = {}
 	for _, skill in ipairs(getPlayerSkillList(player)) do
 		local askill = skill:objectName()
-		if player:hasSkill(askill) or player:hasLordSkill(askill) then
+		if player:hasSkill(askill) or player:hasLordSkill(askill) or hasRuleSkill(askill, player) then
 			local callback = sgs.ai_cardsview[askill]
 			if type(callback) == "function" then
 				local ret = callback(self, class_name, player, cards)
@@ -4023,7 +4056,7 @@ local function cardsViewValue(self, class_name, player,reason) -- 优先权最�
 	local returnList = {}
 	for _, skill in ipairs(getPlayerSkillList(player)) do
 		local askill = skill:objectName()
-		if player:hasSkill(askill) or player:hasLordSkill(askill) then
+		if player:hasSkill(askill) or player:hasLordSkill(askill) or hasRuleSkill(askill, player) then
 			local callback = sgs.ai_cardsview_value[askill]
 			if type(callback) == "function" then
 				local ret = callback(self, class_name, player,reason)
@@ -4043,7 +4076,7 @@ end
 local function getSkillViewCard(card, class_name, player, card_place)
 	for _, skill in ipairs(getPlayerSkillList(player)) do
 		local askill = skill:objectName()
-		if player:hasSkill(askill) or player:hasLordSkill(askill) then
+		if player:hasSkill(askill) or player:hasLordSkill(askill)or hasRuleSkill(askill, player) then
 			local callback = sgs.ai_view_as[askill]
 			if type(callback) == "function" then
 				local skill_card_str = callback(card, player, card_place, class_name)
@@ -4632,7 +4665,7 @@ function SmartAI:fillSkillCards(cards)
 		end
 	end
 	for _, skill in ipairs(sgs.ai_skills) do
-		if self:hasSkill(skill) or skill.name == "transfer" or (skill.name == "shuangxiong" and self.player:hasFlag("shuangxiong")) then
+		if self:hasSkill(skill) or hasRuleSkill(skill.name, self.player) or (skill.name == "shuangxiong" and self.player:hasFlag("shuangxiong")) then
 			local skill_card = skill.getTurnUseCard(self, #cards == 0)
 			if skill_card then table.insert(cards, skill_card) end
 		end

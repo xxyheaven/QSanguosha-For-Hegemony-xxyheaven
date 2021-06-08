@@ -198,6 +198,8 @@ void GeneralSelector::calculatePairValues(const ServerPlayer *player, const QStr
         }
     }
     foreach (const QString &first, candidates) {
+        const General *general = Sanguosha->getGeneral(first);
+        if (general->isDoubleKingdoms()) continue;
         calculateDeputyValue(player, first, candidates, kingdoms);
     }
 }
@@ -221,7 +223,8 @@ void GeneralSelector::calculateDeputyValue(const ServerPlayer *player, const QSt
             const General *general2 = Sanguosha->getGeneral(second);
             Q_ASSERT(general1 && general2);
             QString kingdom = general1->getKingdom();
-            if (general2->getKingdom() != kingdom || general2->isLord()) continue;
+
+            if ((kingdom != "careerist" && !general2->getKingdoms().contains(kingdom)) || general2->isLord()) continue;
             const int general2_value = m_singleGeneralTable.value(second, 0);
             int v = m_singleGeneralTable.value(first, 0) + general2_value;
 

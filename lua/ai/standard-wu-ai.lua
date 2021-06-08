@@ -499,6 +499,18 @@ sgs.ai_skill_invoke.yingzi_zhouyu = function(self, data)
 	return true
 end
 
+local function getPlayerSkillList(player)
+	local skills = sgs.QList2Table(player:getVisibleSkillList(true))
+	local rule_skills = sgs.rule_skill:split("|")
+	for _, name in ipairs(rule_skills) do
+		local skill = sgs.Sanguosha:getSkill("aozhan")
+		if skill and hasRuleSkill(name, player) then
+			table.insert(skills, skill)
+		end
+	end
+	return skills
+end
+
 local fanjian_skill = {}
 fanjian_skill.name = "fanjian"
 table.insert(sgs.ai_skills, fanjian_skill)
@@ -576,7 +588,7 @@ local cards = sgs.QList2Table(self.player:getHandcards())
             if max_suit_num == 0 then
                 max_suit = {}
                 local suit_value = { 1, 1, 1.3, 1.5 }
-                for _, skill in ipairs(sgs.getPlayerSkillList(enemy)) do
+                for _, skill in ipairs(getPlayerSkillList(enemy)) do
                     if sgs[skill:objectName() .. "_suit_value"] then
                         for i = 1, 4, 1 do
                             local v = sgs[skill:objectName() .. "_suit_value"][suit_table[i]]
@@ -637,7 +649,7 @@ end
 
 sgs.ai_card_intention.FanjianCard = 70
 
-sgs.ai_skill_invoke.fanjian_discard = function(self, data)
+sgs.ai_skill_invoke.fanjian_show = function(self, data)
     if self:getCardsNum("Peach") >= 1 and not self:willSkipPlayPhase() then return false end
     if self.player:getHandcardNum() <= 3 or self:isWeak() then return true end
     local suit = self.player:getMark("FanjianSuit")

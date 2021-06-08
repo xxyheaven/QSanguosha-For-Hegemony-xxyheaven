@@ -52,7 +52,7 @@ public:
         pattern = "^SkillCard";
     }
 
-    virtual int getDistanceLimit(const Player *from, const Card *card) const
+    virtual int getDistanceLimit(const Player *from, const Card *card, const Player *) const
     {
         if (!Sanguosha->matchExpPattern(pattern, from, card))
             return 0;
@@ -81,10 +81,22 @@ public:
     virtual void record(TriggerEvent triggerEvent, Room *room, ServerPlayer *player, QVariant &data) const
     {
         if (triggerEvent == CardsMoveOneTime) {
-            CardsMoveOneTimeStruct move = data.value<CardsMoveOneTimeStruct>();
-            if (move.from != player || player->getPhase() != Player::Discard) return;
-            if ((move.reason.m_reason & CardMoveReason::S_MASK_BASIC_REASON) == CardMoveReason::S_REASON_DISCARD)
-                room->addPlayerMark(player, "GlobalDiscardCount", move.card_ids.length());
+            QVariantList move_datas = data.toList();
+            foreach (QVariant move_data, move_datas) {
+                CardsMoveOneTimeStruct move = move_data.value<CardsMoveOneTimeStruct>();
+//                if (move.from == player && player->getPhase() == Player::Discard
+//                        && (move.reason.m_reason & CardMoveReason::S_MASK_BASIC_REASON) == CardMoveReason::S_REASON_DISCARD)
+//                    room->addPlayerMark(player, "GlobalDiscardCount", move.card_ids.length());
+
+                if (move.from == player && !(move.to == player && (move.to_place == Player::PlaceHand || move.to_place == Player::PlaceEquip))) {
+                    for (int i = 0; i < move.card_ids.length(); ++i) {
+                        if ((move.from_places.at(i) == Player::PlaceHand || move.from_places.at(i) == Player::PlaceEquip)) {
+                            room->addPlayerMark(player, "GlobalLoseCardCount");
+                        }
+                    }
+                }
+            }
+
         } else if (triggerEvent == Death) {
             DeathStruct death = data.value<DeathStruct>();
             if (death.who != player) return;
@@ -101,13 +113,34 @@ public:
                 damaged_tag << player->objectName();
                 damage.card->setTag("GlobalCardDamagedTag", damaged_tag);
             }
+
             if (damage.from && (damage.from->distanceTo(player) == 0 || damage.from->distanceTo(player) == 1))
                 damage.flags << "kuanggu";
+
             ServerPlayer *current = room->getCurrent();
             if (current && current->getPhase() != Player::NotActive) {
+                if (damage.from) {
+                    room->addPlayerMark(damage.from, "Global_DamagePiont_Round", damage.damage);
 
+
+                    QStringList player_list = damage.from->property("Global_DamagePlayers_Phase").toString().split("+");
+                    if (!player_list.contains(player->objectName())) {
+                        player_list << player->objectName();
+                        damage.flags << "zhidao";
+                    }
+                    room->setPlayerProperty(damage.from, "Global_DamagePlayers_Phase", player_list.join("+"));
+
+
+
+                }
+
+                room->addPlayerMark(player, "Global_InjuredPiont_Round", damage.damage);
+
+                room->addPlayerMark(player, "Global_InjuredTimes_Phase");
             }
+
             data = QVariant::fromValue(damage);
+
         } else if (triggerEvent == CardUsed || triggerEvent == CardResponded) {
             //to record used/responded cards
             const Card *card = NULL;
@@ -148,7 +181,6 @@ public:
                             room->setCardFlag(card, "GlobalFirstUsedCardinPlay");
                         }
 
-
                     }
 
                 }
@@ -175,10 +207,19 @@ public:
                     player->tag[tag2_name] = card_list;
 
                     if (current->getPhase() == Player::Play) {
-
-
-
                         QVariantList card_list = player->tag[tag3_name].toList();
+
+                        bool xibing = true;
+                        foreach (QVariant card_data, card_list) {
+                            const Card *card = card_data.value<const Card *>();
+                            if (card && card->isBlack() && (card->isNDTrick() || card->isKindOf("Slash"))) {
+                                xibing = false;
+                                break;
+                            }
+                        }
+                        if (xibing && card->isBlack() && (card->isNDTrick() || card->isKindOf("Slash")))
+                            room->setCardFlag(card, "GlobalXiBing");
+
                         card_list << QVariant::fromValue(card);
                         player->tag[tag3_name] = card_list;
                     }
@@ -188,6 +229,14 @@ public:
         } else if (triggerEvent == TargetChosen) {
             CardUseStruct use = data.value<CardUseStruct>();
             if (use.card == NULL || use.card->getTypeId() == Card::TypeSkill) return;
+
+            QStringList use_to_list;
+
+            foreach (ServerPlayer *to, use.to)
+                use_to_list << to->objectName();
+
+            use.card->setTag("UseCardTarget", use_to_list);
+
             if (player->getPhase() != Player::NotActive) {
 
                 QStringList assignee_list = player->property("usecard_targets").toString().split("+");
@@ -196,6 +245,15 @@ public:
                     assignee_list << to->objectName();
 
                 room->setPlayerProperty(player, "usecard_targets", assignee_list.join("+"));
+
+                if (player->getPhase() == Player::Play) {
+                    foreach (ServerPlayer *to, use.to) {
+                        if (to != player) {
+                            room->setPlayerFlag(player, "TunjiangDisabled");
+                            break;
+                        }
+                    }
+                }
 
             }
         }
@@ -208,7 +266,7 @@ class GlobalClear : public TriggerSkill
 public:
     GlobalClear() : TriggerSkill("#global-clear")
     {
-        events << EventPhaseStart;
+        events << EventPhaseStart << EventPhaseChanging;
         global = true;
     }
 
@@ -222,9 +280,11 @@ public:
         if (triggerEvent == EventPhaseStart) {
             if (player->getPhase() == Player::NotActive) {
                 foreach (ServerPlayer *p, room->getAlivePlayers()) {
-                    room->setPlayerMark(p, "GlobalDiscardCount", 0);
+                    //room->setPlayerMark(p, "GlobalDiscardCount", 0);
                     room->setPlayerMark(p, "GlobalKilledCount", 0);
                     room->setPlayerMark(p, "GlobalInjuredCount", 0);
+                    room->setPlayerMark(p, "Global_MaxcardsIncrease", 0);
+                    room->setPlayerMark(p, "Global_MaxcardsDecrease", 0);
                     p->tag.remove("RoundUsedCards");
                     p->tag.remove("RoundRespondedCards");
                     p->tag.remove("PhaseUsedCards");
@@ -234,7 +294,18 @@ public:
                     room->setPlayerMark(p, "skill_invalidity_head", 0);
                     room->setPlayerMark(p, "skill_invalidity_deputy", 0);
                     room->setPlayerProperty(p, "usecard_targets", QVariant());
+
+                    room->setPlayerMark(p, "Global_DamagePiont_Round", 0);
+                    room->setPlayerMark(p, "Global_InjuredPiont_Round", 0);
+
+
                 }
+            }
+        } else if (triggerEvent == EventPhaseChanging) {
+            foreach (ServerPlayer *p, room->getAlivePlayers()) {
+                room->setPlayerMark(p, "GlobalLoseCardCount", 0);
+                room->setPlayerMark(p, "Global_InjuredTimes_Phase", 0);
+                room->setPlayerProperty(p, "Global_DamagePlayers_Phase", QVariant());
             }
         }
     }
@@ -246,11 +317,15 @@ CompanionCard::CompanionCard()
     m_skillName = "companion";
 }
 
+void CompanionCard::extraCost(Room *room, const CardUseStruct &card_use) const
+{
+    room->removePlayerMark(card_use.from, "@companion");
+}
+
 void CompanionCard::use(Room *room, ServerPlayer *player, QList<ServerPlayer *> &) const
 {
-    room->removePlayerMark(player, "@companion");
     Peach *peach = new Peach(Card::NoSuit, 0);
-    peach->setSkillName("companion");
+    peach->setSkillName("_companion");
 
     ServerPlayer *dying = room->getCurrentDyingPlayer();
     if (dying && dying->hasFlag("Global_Dying") && !player->isLocked(peach) && !player->isProhibited(dying, peach)) {
@@ -300,9 +375,13 @@ HalfMaxHpCard::HalfMaxHpCard()
     m_skillName = "halfmaxhp";
 }
 
+void HalfMaxHpCard::extraCost(Room *room, const CardUseStruct &card_use) const
+{
+    room->removePlayerMark(card_use.from, "@halfmaxhp");
+}
+
 void HalfMaxHpCard::use(Room *room, ServerPlayer *player, QList<ServerPlayer *> &) const
 {
-    room->removePlayerMark(player, "@halfmaxhp");
     player->drawCards(1, "halfmaxhp");
 }
 
@@ -326,18 +405,16 @@ public:
     }
 };
 
-class HalfMaxHpMaxCards : public MaxCardsSkill
+class GlobalMaxCards : public MaxCardsSkill
 {
 public:
-    HalfMaxHpMaxCards() : MaxCardsSkill("halfmaxhp-maxcards")
+    GlobalMaxCards() : MaxCardsSkill("global-maxcards")
     {
     }
 
     virtual int getExtra(const Player *target) const
     {
-        if (target->hasFlag("HalfMaxHpEffect"))
-            return 2;
-        return 0;
+        return target->getMark("Global_MaxcardsIncrease") - target->getMark("Global_MaxcardsDecrease");
     }
 };
 
@@ -360,11 +437,14 @@ bool FirstShowCard::targetsFeasible(const QList<const Player *> &targets, const 
     return targets.length() == 0;
 }
 
+void FirstShowCard::extraCost(Room *room, const CardUseStruct &card_use) const
+{
+    room->removePlayerMark(card_use.from, "@firstshow");
+}
+
 void FirstShowCard::use(Room *room, ServerPlayer *player, QList<ServerPlayer *> &targets) const
 {
-    room->removePlayerMark(player, "@firstshow");
-    if (player->getHandcardNum() < 4)
-        player->drawCards(4-player->getHandcardNum(), "firstshow");
+    player->fillHandCards(4, "firstshow");
 
     if (targets.isEmpty()) return;
 
@@ -434,6 +514,107 @@ public:
     virtual const Card *viewAs() const
     {
         return new FirstShowCard;
+    }
+};
+
+CareermanCard::CareermanCard()
+{
+    target_fixed = true;
+    m_skillName = "careerman";
+}
+
+void CareermanCard::extraCost(Room *room, const CardUseStruct &card_use) const
+{
+    room->removePlayerMark(card_use.from, "@careerist");
+}
+
+void CareermanCard::use(Room *room, ServerPlayer *player, QList<ServerPlayer *> &) const
+{
+    Peach *peach = new Peach(Card::NoSuit, 0);
+    peach->setSkillName("_careerman");
+
+    ServerPlayer *dying = room->getCurrentDyingPlayer();
+    if (dying && dying->hasFlag("Global_Dying") && !player->isLocked(peach) && !player->isProhibited(dying, peach)) {
+        room->useCard(CardUseStruct(peach, player, dying));
+        return;
+    }
+
+    QStringList choices, all_choices;
+    all_choices << "draw1card" << "draw2cards" << "peach" << "firstshow";
+    choices << "draw1card" << "draw2cards";
+    if (peach->isAvailable(player))
+        choices << "peach";
+    if (player->getHandcardNum() < 4)
+        choices << "firstshow";
+    else {
+        QList<ServerPlayer *> allplayers = room->getAlivePlayers();
+        foreach (ServerPlayer *p, allplayers) {
+            if (!p->hasShownAllGenerals()) {
+                choices << "firstshow";
+                break;
+            }
+        }
+    }
+
+    QString choice = room->askForChoice(player, "careerman", choices.join("+"), QVariant(), "@careerman-choose", all_choices.join("+"));
+
+    if (choice == "draw1card") {
+        player->drawCards(1, "careerman");
+    }
+    if (choice == "draw2cards") {
+        player->drawCards(2, "careerman");
+    }
+    if (choice == "peach") {
+        room->useCard(CardUseStruct(peach, player, player));
+    }
+    if (choice == "firstshow") {
+        QList<ServerPlayer *> targets, tos;
+
+        QList<ServerPlayer *> allplayers = room->getAlivePlayers();
+        foreach (ServerPlayer *p, allplayers) {
+            if (!p->hasShownAllGenerals()) {
+                targets << p;
+            }
+        }
+
+        if (!targets.isEmpty()) {
+            ServerPlayer *victim = room->askForPlayerChosen(player, targets, "careerman", "@careerman-target");
+            room->doAnimate(QSanProtocol::S_ANIMATE_INDICATE, player->objectName(), victim->objectName());
+            tos << victim;
+        }
+
+        FirstShowCard firstshow_card;
+        firstshow_card.use(room, player, tos);
+    }
+}
+
+class Careerman : public ZeroCardViewAsSkill
+{
+public:
+    Careerman() : ZeroCardViewAsSkill("careerman")
+    {
+        frequency = Limited;
+        limit_mark = "@careerist";
+    }
+
+    virtual bool isEnabledAtPlay(const Player *player) const
+    {
+        return player->getMark("@careerist") > 0;
+    }
+
+    virtual bool isEnabledAtResponse(const Player *player, const QString &pattern) const
+    {
+        return pattern.contains("peach") && !player->hasFlag("Global_PreventPeach") && player->getMark("@careerist") > 0;
+    }
+
+    virtual const Card *viewAs() const
+    {
+        return new CareermanCard;
+    }
+
+    virtual int getEffectIndex(const ServerPlayer *, const Card *card) const
+    {
+        return card->isKindOf("Peach") ? 0 : -1;
     }
 };
 
@@ -508,11 +689,13 @@ StandardPackage::StandardPackage()
     addMetaObject<CompanionCard>();
     addMetaObject<HalfMaxHpCard>();
     addMetaObject<FirstShowCard>();
+    addMetaObject<CareermanCard>();
     addMetaObject<ShowHeadCard>();
     addMetaObject<ShowDeputyCard>();
 
     skills << new GlobalProhibit << new NoDistanceTargetMod << new GlobalRecord << new GlobalClear
-           << new Skill("aozhan") << new Companion << new HalfMaxHp << new HalfMaxHpMaxCards << new FirstShow << new ShowHead << new ShowDeputy;
+           << new Skill("aozhan") << new Companion << new HalfMaxHp << new GlobalMaxCards << new FirstShow << new Careerman
+           << new ShowHead << new ShowDeputy;
 
     patterns["."] = new ExpPattern(".|.|.|hand");
     patterns[".S"] = new ExpPattern(".|spade|.|hand");

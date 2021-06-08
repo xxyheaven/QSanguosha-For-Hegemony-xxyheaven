@@ -87,17 +87,14 @@ void EquipCard::onUse(Room *room, const CardUseStruct &card_use) const
     Card::onUse(room, use);
 }
 
-void EquipCard::use(Room *room, ServerPlayer *source, QList<ServerPlayer *> &targets) const
+void EquipCard::use(Room *room, ServerPlayer *, QList<ServerPlayer *> &targets) const
 {
-    if (room->getCardPlace(getEffectiveId()) != Player::PlaceTable) return;
-    if (targets.isEmpty()) {
-        CardMoveReason reason(CardMoveReason::S_REASON_USE, source->objectName(), QString(), this->getSkillName(), QString());
-        room->moveCardTo(this, source, NULL, Player::DiscardPile, reason, true);
-        return;
-    }
+    if (room->getCardPlace(getEffectiveId()) != Player::PlaceTable || targets.isEmpty()) return;
+
+    ServerPlayer *target = targets.first();
+    if (target->isDead()) return;
 
     int equipped_id = Card::S_UNKNOWN_CARD_ID;
-    ServerPlayer *target = targets.first();
     if (target->getEquip(location()))
         equipped_id = target->getEquip(location())->getEffectiveId();
 
@@ -110,11 +107,6 @@ void EquipCard::use(Room *room, ServerPlayer *source, QList<ServerPlayer *> &tar
             CardMoveReason(CardMoveReason::S_REASON_CHANGE_EQUIP, target->objectName()));
         exchangeMove.push_back(move2);
     }
-    LogMessage log;
-    log.from = target;
-    log.type = "$Install";
-    log.card_str = QString::number(getEffectiveId());
-    room->sendLog(log);
 
     room->moveCardsAtomic(exchangeMove, true);
 }
@@ -287,15 +279,16 @@ void DelayedTrick::onUse(Room *room, const CardUseStruct &card_use) const
 
 void DelayedTrick::use(Room *room, ServerPlayer *source, QList<ServerPlayer *> &targets) const
 {
-    if (room->getCardPlace(getEffectiveId()) != Player::PlaceTable) return;
+    if (room->getCardPlace(getEffectiveId()) != Player::PlaceTable || targets.isEmpty()) return;
+
+    ServerPlayer *target = targets.first();
+    if (target->isDead()) return;
+
     QStringList nullified_list = room->getTag("CardUseNullifiedList").toStringList();
     bool all_nullified = nullified_list.contains("_ALL_TARGETS");
-    if (all_nullified || targets.isEmpty()) {
-        CardMoveReason reason(CardMoveReason::S_REASON_NATURAL_ENTER, QString());
-        room->throwCard(this, reason, NULL);
-    } else {
-        CardMoveReason reason(CardMoveReason::S_REASON_USE, source->objectName(), targets.first()->objectName(), getSkillName(), QString());
-        room->moveCardTo(this, NULL, targets.first(), Player::PlaceDelayedTrick, reason, true);
+    if (!all_nullified) {
+        CardMoveReason reason(CardMoveReason::S_REASON_USE, source->objectName(), target->objectName(), getSkillName(), QString());
+        room->moveCardTo(this, NULL, target, Player::PlaceDelayedTrick, reason, true);
     }
 }
 
@@ -340,7 +333,6 @@ void DelayedTrick::onEffect(const CardEffectStruct &effect) const
 void DelayedTrick::onNullified(ServerPlayer *target) const
 {
     Room *room = target->getRoom();
-    RoomThread *thread = room->getThread();
     if (movable) {
         QList<ServerPlayer *> players;
         QList<ServerPlayer *> count_players = room->getPlayers();
@@ -372,24 +364,17 @@ void DelayedTrick::onNullified(ServerPlayer *target) const
                 continue;
             }
 
-            if (target == player) break;
-
-            CardUseStruct use(this, NULL, player);
-            QVariant data = QVariant::fromValue(use);
-            thread->trigger(TargetConfirming, room, player, data);
-            CardUseStruct new_use = data.value<CardUseStruct>();
-            if (new_use.to.isEmpty()) {
-                CardMoveReason reason(CardMoveReason::S_REASON_NATURAL_ENTER, QString());
-                room->throwCard(this, reason, NULL);
-                break;
-            }
             CardMoveReason reason(CardMoveReason::S_REASON_TRANSFER, target->objectName(), QString(), this->getSkillName(), QString());
             room->moveCardTo(this, player, Player::PlaceDelayedTrick, reason, true);
             break;
         }
-    } else {
+
+    }
+    QList<int> table_cardids = room->getCardIdsOnTable(this);
+    if (!table_cardids.isEmpty()) {
+        DummyCard dummy(table_cardids);
         CardMoveReason reason(CardMoveReason::S_REASON_NATURAL_ENTER, target->objectName());
-        room->throwCard(this, reason, NULL);
+        room->moveCardTo(&dummy, NULL, Player::DiscardPile, reason);
     }
 }
 
@@ -449,6 +434,13 @@ void Horse::onInstall(ServerPlayer *) const{
 void Horse::onUninstall(ServerPlayer *) const{
 }
 */
+
+bool Horse::isAvailable(const Player *player) const
+{
+    if (player->getEquip((int) EquipCard::SpecialHorseLocation) != NULL) return false;
+    return EquipCard::isAvailable(player);
+}
+
 QString Horse::getCommonEffectName() const
 {
     return "horse";

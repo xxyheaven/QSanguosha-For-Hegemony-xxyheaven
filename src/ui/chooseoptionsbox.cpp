@@ -128,7 +128,7 @@ QString ChooseOptionsBox::translate(const QString &option) const
             QStringList logs = element.split(":");
             if (!logs.at(1).isEmpty()) {
                 QString log = logs.at(1);
-                text.replace("%log", log);
+                text.replace("%log", Sanguosha->translate(log));
             }
         }
     }

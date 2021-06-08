@@ -211,7 +211,7 @@ end
 sgs.ai_chat_func[sgs.TargetConfirmed].gounannv = function(self, player, data)
 	if player:getState() ~= "robot" then return end
 	local use = data:toCardUse()
-	if use.card:isKindOf("Peach") then
+	if use.card:isKindOf("Peach") and not use.to:isEmpty() then
 		local to = use.to:first()
 		if to:objectName() ~= use.from:objectName() and use.from:isFemale() and to:isMale() and math.random() < 0.1
 			and to:getState() == "robot" and use.from:getState() == "robot" then
@@ -223,7 +223,7 @@ end
 
 sgs.ai_chat_func[sgs.CardFinished].analeptic = function(self, player, data)
 	local use = data:toCardUse()
-	if use.card and use.card:isKindOf("Analeptic") and use.card:getSkillName() ~= "zhendu" then
+	if use.card and use.card:isKindOf("Analeptic") and use.card:getSkillName() ~= "zhendu" and not use.to:isEmpty() then
 		local to = use.to:first()
 		if to:getMark("drank") == 0 then return end
 		local suit = { "spade", "heart", "club", "diamond" }

@@ -242,6 +242,11 @@ public slots:
     void onHuashenSkillActivated(const QString &skill_name);
     void onSkillDeactivated();
 
+    void onYiguiPopup();
+
+    void clearRemainBox();
+
+    void setPromptBoxPos();
 
     void trust();
 
@@ -435,6 +440,7 @@ private slots:
     void updateSelectedTargets();
     void onSkillActivated();
     void onHuashenActivated();
+    void onYiguiActivated();
     void startInXs();
     void hideAvatars();
     void changeHp(const QString &who, int delta, DamageStruct::Nature nature, bool losthp);

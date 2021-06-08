@@ -58,7 +58,14 @@ QVariant GeneralModel::data(const QModelIndex &index, int role) const
         switch (index.column()) {
         case TitleColumn: return general->getTitle(all_generals.value(general));
         case NameColumn: return Sanguosha->translate(general->objectName());
-        case KingdomColumn: return Sanguosha->translate(general->getKingdom());
+        case KingdomColumn: {
+            QString kingdom = Sanguosha->translate(general->getKingdom());
+            if (general->isDoubleKingdoms()) {
+                kingdom.append("/");
+                kingdom.append(Sanguosha->translate(general->getSubordinateKingdom()));
+            }
+            return kingdom;
+        }
         case GenderColumn: return general->isMale() ? tr("Male") : (general->isFemale() ? tr("Female") : tr("NoGender"));
         case MaxHpColumn: {
             QString maxHp;
@@ -86,12 +93,17 @@ QVariant GeneralModel::data(const QModelIndex &index, int role) const
         }
     }
     case Qt::DecorationRole: {
-        if (index.column() == NameColumn && general->isLord()) {
-            QIcon icon("image/system/roles/lord.png");
-            return icon;
-        } else {
-            break;
+        if (index.column() == NameColumn) {
+            if (general->isLord()) {
+                QIcon icon("image/system/roles/lord.png");
+                return icon;
+            }
+            if (general->getKingdom() == "careerist") {
+                QIcon icon("image/system/roles/renegade.png");
+                return icon;
+            }
         }
+        break;
     }
     case Qt::ToolTipRole: {
         switch (index.column()) {

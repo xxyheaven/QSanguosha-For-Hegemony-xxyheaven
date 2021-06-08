@@ -105,7 +105,7 @@ QWidget *ServerDialog::createBasicTab()
 
     hegemony_maxchoice_label = new QLabel(tr("Upperlimit for hegemony"));
     hegemony_maxchoice_spinbox = new QSpinBox;
-    hegemony_maxchoice_spinbox->setRange(5, 7); //wait for a new extension
+    hegemony_maxchoice_spinbox->setRange(5, 9); //wait for a new extension
     hegemony_maxchoice_spinbox->setValue(Config.value("HegemonyMaxChoice", 7).toInt());
 #endif
 
@@ -270,7 +270,7 @@ QWidget *ServerDialog::createAdvancedTab()
 #ifdef Q_OS_ANDROID
     hegemony_maxchoice_spinbox->setMinimumHeight(80);
 #endif
-    hegemony_maxchoice_spinbox->setRange(5, 7); //wait for a new extension
+    hegemony_maxchoice_spinbox->setRange(5, 9); //wait for a new extension
     hegemony_maxchoice_spinbox->setValue(Config.value("HegemonyMaxChoice", 7).toInt());
 #endif
     address_edit = new QLineEdit;

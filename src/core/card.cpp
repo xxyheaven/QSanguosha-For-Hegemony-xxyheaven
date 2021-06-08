@@ -100,7 +100,7 @@ int Card::getNumber() const
 {
     if (m_number > 0) return m_number;
     if (isVirtualCard()) {
-        if (subcardsLength() == 0)
+        if (subcardsLength() == 0 || subcardsLength() >= 2)
             return 0;
         else {
             int num = 0;
@@ -121,9 +121,9 @@ void Card::setNumber(int number)
 QString Card::getNumberString() const
 {
     int number = getNumber();
-    if (isVirtualCard()) {
-        if (subcardsLength() == 0 || subcardsLength() >= 2) number = 0;
-    }
+//    if (isVirtualCard()) {
+//        if (subcardsLength() == 0 || subcardsLength() >= 2) number = 0;
+//    }
     if (number == 10)
         return "10";
     else {
@@ -406,7 +406,7 @@ QString Card::getDescription(bool yellow) const
     desc.replace("\n", "<br/>");
     if (isTransferable()) {
         desc += "<br/><br/>";
-        desc += tr("This card is transferable.");
+        desc += Sanguosha->translate("is_transferable");
     }
     return tr("<font color=%1><b>[%2]</b> %3</font>").arg(yellow ? "#FFFF33" : "#FF0080").arg(getName()).arg(desc);
 }
@@ -421,6 +421,14 @@ QString Card::toString(bool hidden) const
         .arg(objectName()).arg(m_skillName)
         .arg(getSuitString()).arg(getNumberString()).arg(subcardString())
         .arg(show_skill);
+}
+
+QString Card::toRealString() const
+{
+    return QString("%1:%2[%3:%4]=%5&")
+            .arg(objectName()).arg(getSkillName())
+            .arg(getSuitString()).arg(getNumberString())
+            .arg(getEffectiveId());
 }
 
 QString Card::getEffectName() const
@@ -790,19 +798,62 @@ void Card::onUse(Room *room, const CardUseStruct &use) const
         // show general
         player->showSkill(card_use.card->showSkill(), card_use.card->getSkillPosition());                           //new function by weidouncle
 
-        if (card_use.card->willThrow()) {
-            QList<int> table_cardids = room->getCardIdsOnTable(card_use.card);
-            if (!table_cardids.isEmpty()) {
-                DummyCard dummy(table_cardids);
-                CardMoveReason reason(CardMoveReason::S_REASON_THROW, player->objectName(), QString(), card_use.card->getSkillName(), QString());
-                room->moveCardTo(&dummy, player, NULL, Player::DiscardPile, reason, true);
-            }
-        }
     }
 
     room->setPlayerFlag(card_use.from, "-HuanshenSkillChecking");
     if (!card_use.card->showSkill().isEmpty() && player->hasShownSkill("huashen"))
         room->dropHuashenCardbySkillName(player, card_use.card->showSkill());
+
+
+    QStringList card_names, kingdoms;
+    card_names << "RuleTheWorld" << "Conquering" << "ConsolidateCountry" << "Chaos";
+    kingdoms << "wei" << "shu" << "wu" << "qun";
+    QString card_name = card_use.card->getClassName();
+
+    if (card_names.contains(card_name) && player->isAlive()) {
+
+        QString kingdom = kingdoms.at(card_names.indexOf(card_name));
+
+        if (!player->hasShownOneGeneral() && (player->canShowGeneral("h") || player->canShowGeneral("d"))) {
+            QStringList choices;
+
+            if (player->getKingdom() == kingdom) {
+                ServerPlayer *lord = room->getLord(kingdom, true);
+                bool can_show = (lord && lord->isAlive());
+                if (lord == NULL) {
+                    int num = 0;
+                    QList<ServerPlayer *> all_players = room->getAllPlayers(true);
+                    foreach (ServerPlayer *p, all_players) {
+                        if (p->hasShownOneGeneral() && p->getRole() != "careerist" && p->getKingdom() == kingdom)
+                            num++;
+                    }
+                    if (num < room->getPlayers().length() / 2)
+                        can_show = true;
+                }
+                if (can_show) {
+                    if (player->canShowGeneral("h") && player->getActualGeneral1()->getKingdom() != "careerist")
+                        choices << "show_head";
+                    if (player->canShowGeneral("d"))
+                        choices << "show_deputy";
+                }
+            }
+
+            choices << "cancel";
+
+            QString choice = room->askForChoice(player, "trick_show", choices.join("+"), data,
+                    "@trick-show:::"+use.card->objectName(), "show_head+show_deputy+cancel");
+
+            if (choice == "show_head")
+                player->showGeneral();
+            else if (choice == "show_deputy")
+                player->showGeneral(false);
+        }
+
+        if (use.from->getSeemingKingdom() == kingdom) {
+            setFlags("CompleteEffect");
+        }
+    }
+
 
     thread->trigger(TargetChoosing, room, player, data);
     thread->trigger(CardUsed, room, player, data);
@@ -811,7 +862,7 @@ void Card::onUse(Room *room, const CardUseStruct &use) const
     QList<int> table_cardids = room->getCardIdsOnTable(this);
     if (!table_cardids.isEmpty()) {
         DummyCard dummy(table_cardids);
-        CardMoveReason reason(CardMoveReason::S_REASON_USE, player->objectName(), QString(), this->getSkillName(), QString());
+        CardMoveReason reason(CardMoveReason::S_REASON_USE, player->objectName(), QString(), this->getSkillName(), this->objectName());
         if (card_use.to.size() == 1) reason.m_targetId = card_use.to.first()->objectName();
         room->moveCardTo(&dummy, player, NULL, Player::DiscardPile, reason, true);
     }
@@ -829,6 +880,7 @@ void Card::use(Room *room, ServerPlayer *source, QList<ServerPlayer *> &targets)
 {
     QStringList nullified_list = room->getTag("CardUseNullifiedList").toStringList();
     bool all_nullified = nullified_list.contains("_ALL_TARGETS");
+
     foreach (ServerPlayer *target, targets) {
         CardEffectStruct effect;
         effect.card = this;
@@ -910,6 +962,16 @@ const Card *Card::validate(CardUseStruct &) const
 const Card *Card::validateInResponse(ServerPlayer *) const
 {
     return this;
+}
+
+void Card::validateAfter(CardUseStruct &) const
+{
+
+}
+
+void Card::validateInResponseAfter(ServerPlayer *) const
+{
+
 }
 
 bool Card::isMute() const
@@ -1043,7 +1105,7 @@ void SkillCard::extraCost(Room *room, const CardUseStruct &card_use) const
         if (!card_use.card->getSkillPosition().isEmpty())
             general = card_use.card->getSkillPosition() == "left" ? card_use.from->getActualGeneral1Name() : card_use.from->getActualGeneral2Name();
         CardMoveReason reason(CardMoveReason::S_REASON_THROW, card_use.from->objectName(), QString(), card_use.card->getSkillName(), general);
-        room->moveCardTo(this, card_use.from, NULL, Player::PlaceTable, reason, true);
+        room->moveCardTo(this, card_use.from, NULL, Player::DiscardPile, reason, true);
     }
 }
 

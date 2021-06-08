@@ -144,7 +144,6 @@ class SilverLion : public Armor
 public:
     Q_INVOKABLE SilverLion(Card::Suit suit = Club, int number = 1);
 
-    virtual void onUninstall(ServerPlayer *player) const;
 };
 
 

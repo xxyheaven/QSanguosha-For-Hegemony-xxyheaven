@@ -59,6 +59,7 @@ Dashboard::Dashboard(QGraphicsItem *widget)
     m_progressBarPositon(Down)
 {
     Q_ASSERT(buttonWidget);
+    _m_pile_expanded = QMap<QString, QList<int> >();
     for (int i = 0; i < S_EQUIP_AREA_LENGTH; i++) {
         _m_equipSkillBtns[i] = NULL;
         _m_isEquipsAnimOn[i] = false;
@@ -118,6 +119,7 @@ void Dashboard::repaintAll()
 
     QStringList kingdoms = Sanguosha->getKingdoms();
     kingdoms.removeAll("god");
+    kingdoms.removeAll("careerist");
     foreach (const QString &kingdom, kingdoms) {
         _m_frameBorders[kingdom]->setSize(QSize(layout->m_avatarArea.width() * 2 * 1.1, layout->m_normalHeight * 1.2));
         _m_frameBorders[kingdom]->setPos(- layout->m_avatarArea.width() * 0.1, - layout->m_normalHeight * 0.1);
@@ -407,7 +409,7 @@ void Dashboard::addHandCards(QList<CardItem *> &card_items)
     updateHandcardNum();
 }
 
-void Dashboard::_addHandCard(CardItem *card_item, bool prepend, const QString &footnote)
+void Dashboard::_addHandCard(CardItem *card_item, int index, const QString &footnote)
 {
     //card item in dashboard should never be disabled
     if (!card_item->isEnabled())
@@ -441,10 +443,14 @@ void Dashboard::_addHandCard(CardItem *card_item, bool prepend, const QString &f
         card_item->setFootnote(footnote);
         card_item->showFootnote();
     }
-    if (prepend)
-        m_handCards.prepend(card_item);
-    else
-        m_handCards.append(card_item);
+    if (index == 0)
+        m_middleCards.append(card_item);
+    else if (index > 0)
+        m_rightCards.append(card_item);
+    else if (index < 0)
+        m_leftCards.append(card_item);
+
+    m_handCards = m_leftCards + m_middleCards + m_rightCards;
 
     connect(card_item, &CardItem::clicked, this, &Dashboard::onCardItemClicked);
     connect(card_item, &CardItem::double_clicked, this, &Dashboard::onCardItemDoubleClicked);
@@ -836,8 +842,6 @@ void Dashboard::skillButtonDeactivated()
 
 void Dashboard::selectAll()
 {
-    foreach (const QString &pile, Self->getHandPileList(false))
-        retractPileCards(pile);
     selectCards(".");
 }
 
@@ -969,6 +973,7 @@ void Dashboard::_createBattleArrayAnimations()
 {
     QStringList kingdoms = Sanguosha->getKingdoms();
     kingdoms.removeAll("god");
+    kingdoms.removeAll("careerist");
     foreach (const QString &kingdom, kingdoms) {
         _m_frameBorders[kingdom] = new PixmapAnimation();
         _m_frameBorders[kingdom]->setZValue(30000);
@@ -1172,6 +1177,9 @@ QList<CardItem *> Dashboard::removeHandCards(const QList<int> &card_ids)
         Q_ASSERT(card_item);
         if (card_item) {
             m_handCards.removeOne(card_item);
+            m_leftCards.removeOne(card_item);
+            m_middleCards.removeOne(card_item);
+            m_rightCards.removeOne(card_item);
             card_item->hideFrame();
             card_item->disconnect(this);
             card_item->setOuterGlowEffectEnabled(false);
@@ -1283,12 +1291,13 @@ void Dashboard::beginSorting()
         type = (SortType)(action->data().toInt());
 
     switch (type) {
-        case ByType: qSort(m_handCards.begin(), m_handCards.end(), CompareByType); break;
-        case BySuit: qSort(m_handCards.begin(), m_handCards.end(), CompareBySuit); break;
-        case ByNumber: qSort(m_handCards.begin(), m_handCards.end(), CompareByNumber); break;
+        case ByType: qSort(m_middleCards.begin(), m_middleCards.end(), CompareByType); break;
+        case BySuit: qSort(m_middleCards.begin(), m_middleCards.end(), CompareBySuit); break;
+        case ByNumber: qSort(m_middleCards.begin(), m_middleCards.end(), CompareByNumber); break;
         default: Q_ASSERT(false);
     }
 
+    m_handCards = m_leftCards + m_middleCards + m_rightCards;
     adjustCards();
 }
 
@@ -1339,8 +1348,6 @@ void Dashboard::disableAllCards()
 void Dashboard::enableCards()
 {
     m_mutexEnableCards.lock();
-    foreach (const QString &pile, Self->getHandPileList(false))
-        expandPileCards(pile);
 
     foreach (CardItem *card_item, m_handCards) {
         bool frozen = true;
@@ -1390,25 +1397,13 @@ void Dashboard::startPending(const ViewAsSkill *skill)
     pendings.clear();
     unselectAll();
 
-    bool expand = (skill && skill->isResponseOrUse());
-    if (!expand && skill && skill->inherits("ResponseSkill")) {
-        const ResponseSkill *resp_skill = qobject_cast<const ResponseSkill *>(skill);
-        if (resp_skill && (resp_skill->getRequest() == Card::MethodResponse || resp_skill->getRequest() == Card::MethodUse))
-            expand = true;
+    retractAllSkillPileCards();
+
+    if (skill && !skill->getExpandPile().isEmpty()) {
+        foreach(const QString &pile_name, skill->getExpandPile().split(","))
+            expandPileCards(pile_name);
     }
 
-    retractAllSkillPileCards();
-    if (expand) {
-        foreach (const QString &pile, Self->getHandPileList(false))
-            expandPileCards(pile);
-    } else {
-       foreach (const QString &pile, Self->getHandPileList(false))
-            retractPileCards(pile);
-        if (skill && !skill->getExpandPile().isEmpty()) {
-            foreach(const QString &pile_name, skill->getExpandPile().split(","))
-                expandPileCards(pile_name);
-        }
-    }
 
     for (int i = 0; i < S_EQUIP_AREA_LENGTH; i++) {
         if (_m_equipCards[i] != NULL)
@@ -1430,8 +1425,6 @@ void Dashboard::stopPending()
 
     viewAsSkill = NULL;
     pendingCard = NULL;
-    foreach (const QString &pile, Self->getHandPileList())
-        retractPileCards(pile);
 
     emit card_selected(NULL);
 
@@ -1456,7 +1449,6 @@ void Dashboard::stopPending()
 void Dashboard::expandPileCards(const QString &pile_name)
 {
     if (_m_pile_expanded.contains(pile_name)) return;
-    _m_pile_expanded << pile_name;
     QString new_name = pile_name;
     QList<int> pile;
     if (new_name.startsWith("%")) {
@@ -1472,31 +1464,22 @@ void Dashboard::expandPileCards(const QString &pile_name)
         card_item->setPos(mapFromScene(card_item->scenePos()));
         card_item->setParentItem(this);
     }
-    bool prepend = true;
-    if (new_name.startsWith("#")) {
-        prepend = false;
-    }
+
     foreach(CardItem *card_item, card_items)
-        _addHandCard(card_item, prepend, Sanguosha->translate(new_name));
+        _addHandCard(card_item, 1, Sanguosha->translate(new_name));
 
     adjustCards();
     _playMoveCardsAnimation(card_items, false);
     update();
+    _m_pile_expanded[pile_name] = pile;
 }
 
 void Dashboard::retractPileCards(const QString &pile_name)
 {
     if (!_m_pile_expanded.contains(pile_name)) return;
-    _m_pile_expanded.removeOne(pile_name);
     QString new_name = pile_name;
-    QList<int> pile;
-    if (new_name.startsWith("%")) {
-        new_name = new_name.mid(1);
-        foreach(const Player *p, Self->getAliveSiblings())
-            pile += p->getPile(new_name);
-    } else {
-        pile = Self->getPile(new_name);
-    }
+    QList<int> pile = _m_pile_expanded.value(new_name);
+    _m_pile_expanded.remove(pile_name);
     if (pile.isEmpty()) return;
     CardItem *card_item;
     foreach (int card_id, pile) {
@@ -1505,6 +1488,9 @@ void Dashboard::retractPileCards(const QString &pile_name)
         Q_ASSERT(card_item);
         if (card_item) {
             m_handCards.removeOne(card_item);
+            m_leftCards.removeOne(card_item);
+            m_middleCards.removeOne(card_item);
+            m_rightCards.removeOne(card_item);
             card_item->disconnect(this);
             delete card_item;
             card_item = NULL;
@@ -1516,18 +1502,60 @@ void Dashboard::retractPileCards(const QString &pile_name)
 
 void Dashboard::updateHandPile(const QString &pile_name, bool add, QList<int> card_ids)
 {
-
+    QList<int> pile;
+    if (_m_pile_expanded.contains(pile_name))
+        pile = _m_pile_expanded.value(pile_name);
+    if (add) {
+        QList<int> to_append;
+        foreach (int card_id, card_ids) {
+            if (pile.contains(card_id)) continue;
+            pile.append(card_id);
+            to_append.append(card_id);
+        }
+        QList<CardItem *> card_items = _createCards(to_append);
+        foreach (CardItem *card_item, card_items) {
+            card_item->setPos(mapFromScene(card_item->scenePos()));
+            card_item->setParentItem(this);
+        }
+        foreach(CardItem *card_item, card_items)
+            _addHandCard(card_item, -1, Sanguosha->translate(pile_name));
+        adjustCards();
+    } else {
+        CardItem *card_item;
+        foreach (int card_id, card_ids) {
+            if (!pile.contains(card_id)) continue;
+            pile.removeOne(card_id);
+            card_item = CardItem::FindItem(m_handCards, card_id);
+            if (card_item == selected) selected = NULL;
+            Q_ASSERT(card_item);
+            if (card_item) {
+                m_leftCards.removeOne(card_item);
+                m_middleCards.removeOne(card_item);
+                m_rightCards.removeOne(card_item);
+                m_handCards.removeOne(card_item);
+                card_item->disconnect(this);
+                delete card_item;
+                card_item = NULL;
+            }
+        }
+        adjustCards();
+    }
+    update();
+    if (pile.isEmpty())
+        _m_pile_expanded.remove(pile_name);
+    else
+        _m_pile_expanded[pile_name] = pile;
 }
 
 void Dashboard::updateMarkCard()
 {
     //CompanionCard
     QStringList mark_names, mark_cards;
-    mark_names << "@companion" << "@halfmaxhp" << "@firstshow";
-    mark_cards << "CompanionCard" << "HalfMaxHpCard" << "FirstShowCard";
+    mark_names << "@companion" << "@halfmaxhp" << "@firstshow" << "@careerist";
+    mark_cards << "CompanionCard" << "HalfMaxHpCard" << "FirstShowCard" << "CareermanCard";
 
 
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < 4; i++) {
         QString mark_name = mark_names[i], mark_card = mark_cards[i];
 
         if (Self->getMark(mark_name) > 0) {
@@ -1549,7 +1577,7 @@ void Dashboard::updateMarkCard()
             card_item->setParentItem(this);
 
             m_markCards << card_item;
-            _addHandCard(card_item, true);
+            _addHandCard(card_item, 1);
 
             adjustCards();
             QList<CardItem *> card_items;
@@ -1565,6 +1593,9 @@ void Dashboard::updateMarkCard()
                     if (card_item) {
                         m_markCards.removeOne(card_item);
                         m_handCards.removeOne(card_item);
+                        m_leftCards.removeOne(card_item);
+                        m_middleCards.removeOne(card_item);
+                        m_rightCards.removeOne(card_item);
                         card_item->disconnect(this);
                         delete card_item;
                         card_item = NULL;
@@ -1580,7 +1611,7 @@ void Dashboard::updateMarkCard()
 
 void Dashboard::retractAllSkillPileCards()
 {
-    foreach (const QString &pileName, _m_pile_expanded) {
+    foreach (const QString &pileName, _m_pile_expanded.keys()) {
         if (!Self->getHandPileList(false).contains(pileName))
             retractPileCards(pileName);
     }
@@ -1633,6 +1664,13 @@ void Dashboard::updatePending()
     if (!viewAsSkill->inherits("OneCardViewAsSkill"))
         pended = cards;
 
+    bool expand = viewAsSkill->isResponseOrUse();
+    if (!expand && viewAsSkill->inherits("ResponseSkill")) {
+        const ResponseSkill *resp_skill = qobject_cast<const ResponseSkill *>(viewAsSkill);
+        if (resp_skill && (resp_skill->getRequest() == Card::MethodResponse || resp_skill->getRequest() == Card::MethodUse))
+            expand = true;
+    }
+
     foreach (CardItem *item, m_handCards) {
         if (!item->isSelected() || pendings.isEmpty()) {
             bool frozen = true;
@@ -1647,6 +1685,17 @@ void Dashboard::updatePending()
                     }
                 }
             } else {
+                bool not_handcard_pile = true;
+                foreach (const QString &pileName, _m_pile_expanded.keys()) {
+                    if (Self->getHandPileList(false).contains(pileName)) {
+                        QList<int> pile = _m_pile_expanded.value(pileName);
+                        if (pile.contains(item->getId())){
+                            not_handcard_pile = false;
+                            break;
+                        }
+                    }
+                }
+
                 if (cheak_card && cheak_card->isKindOf("Peach") && RoomSceneInstance->battle_started && viewAsSkill->inherits("ResponseSkill")) {
                     const ResponseSkill *resp_skill = qobject_cast<const ResponseSkill *>(viewAsSkill);
                     if (resp_skill && (resp_skill->getRequest() == Card::MethodResponse || resp_skill->getRequest() == Card::MethodUse)) {
@@ -1662,7 +1711,7 @@ void Dashboard::updatePending()
                         }
                     }
                 }
-                frozen = !viewAsSkill->viewFilter(pended, cheak_card);
+                frozen = !((expand || not_handcard_pile) && viewAsSkill->viewFilter(pended, cheak_card));
             }
             item->setFrozen(frozen, false);
             if (!frozen && Config.EnableSuperDrag)
@@ -1685,7 +1734,7 @@ void Dashboard::updatePending()
     const Card *new_pending_card = viewAsSkill->viewAs(cards);
     if (pendingCard != new_pending_card) {
         if (pendingCard && !pendingCard->parent() && (pendingCard->isVirtualCard())) {
-            if (!pendingCard->isKindOf("CompanionCard") && !pendingCard->isKindOf("HalfMaxHpCard") && !pendingCard->isKindOf("FirstShowCard"))
+            if (!pendingCard->isKindOf("CompanionCard") && !pendingCard->isKindOf("HalfMaxHpCard") && !pendingCard->isKindOf("FirstShowCard") && !pendingCard->isKindOf("CareermanCard"))
                 delete pendingCard;
             pendingCard = NULL;
         }
@@ -1973,6 +2022,8 @@ void Dashboard::updateAvatar()
         // this is just avatar general, perhaps game has not started yet.
         if (m_player->getGeneral() != NULL) {
             QString kingdom = m_player->getKingdom();
+            if (!m_player->hasShownOneGeneral())
+                kingdom = general->getKingdom();
             _paintPixmap(_m_kingdomColorMaskIcon, _m_layout->m_kingdomMaskArea,
                 G_ROOM_SKIN.getPixmap(QSanRoomSkin::S_SKIN_KEY_KINGDOM_COLOR_MASK, kingdom), this->_getAvatarParent());
             _paintPixmap(_m_handCardBg, _m_layout->m_handCardArea,
@@ -2022,6 +2073,8 @@ void Dashboard::updateSmallAvatar()
         area = QRect(area.left() + 2, area.top() + 1, area.width() - 2, area.height() - 3);
         _paintPixmap(smallAvatarIconTmp, area, avatarIcon, _getAvatarParent());
         QString kingdom = m_player->getKingdom();
+        if (!m_player->hasShownOneGeneral() && !general->isDoubleKingdoms())
+            kingdom = general->getKingdom();
         _paintPixmap(_m_kingdomColorMaskIcon2, _m_layout->m_kingdomMaskArea2,
             G_ROOM_SKIN.getPixmap(QSanRoomSkin::S_SKIN_KEY_KINGDOM_COLOR_MASK, kingdom), this->_getAvatarParent());
         QString show_name = Sanguosha->translate("&" + name);
@@ -2044,4 +2097,10 @@ void Dashboard::updateSmallAvatar()
     }
     _m_smallAvatarIcon->show();
     _adjustComponentZValues();
+}
+
+void Dashboard::updateKingdom(const QString &)
+{
+    updateAvatar();
+    updateSmallAvatar();
 }

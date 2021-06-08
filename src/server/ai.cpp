@@ -135,7 +135,7 @@ void TrustAI::activate(CardUseStruct &card_use)
 {
     QList<const Card *> cards = self->getHandcards();
     foreach (const Card *card, cards) {
-        if (card->targetFixed()) {
+        if (card->targetFixed() && card->isAvailable(self)) {
             if (useCard(card)) {
                 card_use.card = card;
                 card_use.from = self;
@@ -179,7 +179,7 @@ QList<int> TrustAI::askForExchange(const QString &, const QString &pattern, int 
         return self->forceToDiscard(min_num,pattern,expand_pile,false);
 }
 
-QList<ServerPlayer *> TrustAI::askForPlayersChosen(const QList<ServerPlayer *> &targets, const QString &reason, int min_num, int max_num)
+QList<ServerPlayer *> TrustAI::askForPlayersChosen(const QList<ServerPlayer *> &targets, const QString &reason, int max_num, int min_num)
 {
     Q_UNUSED(reason)
     Q_UNUSED(max_num)
@@ -210,6 +210,8 @@ bool TrustAI::askForSkillInvoke(const QString &, const QVariant &)
 QString TrustAI::askForChoice(const QString &, const QString &choice, const QVariant &)
 {
     QStringList choices = choice.split("+");
+    if (choices.contains("cancel")) return "cancel";
+    if (choices.contains("no")) return "no";
     return choices.at(qrand() % choices.length());
 }
 
@@ -250,6 +252,8 @@ const Card *TrustAI::askForCard(const QString &pattern, const QString &prompt, c
 {
     Q_UNUSED(prompt);
     Q_UNUSED(data);
+
+    if (!pattern.endsWith("!") && pattern.startsWith(".")) return NULL;
 
     response_skill->setPattern(pattern);
     QList<const Card *> cards = self->getHandcards();
@@ -304,12 +308,10 @@ const Card *TrustAI::askForPindian(ServerPlayer *requestor, const QString &)
 
 const Card *TrustAI::askForSinglePeach(ServerPlayer *dying)
 {
-    if (isFriend(dying)) {
+    if (dying == self) {
         QList<const Card *> cards = self->getHandcards();
         foreach (const Card *card, cards) {
-            if (card->isKindOf("Peach") && !self->hasFlag("Global_PreventPeach"))
-                return card;
-            if (card->isKindOf("Analeptic") && dying == self)
+            if ((card->isKindOf("Peach") || card->isKindOf("Analeptic")) && !self->isLocked(card) && !self->isProhibited(self, card))
                 return card;
         }
     }

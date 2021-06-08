@@ -130,6 +130,7 @@ void Photo::repaintAll()
 
     QStringList kingdoms = Sanguosha->getKingdoms();
     kingdoms.removeAll("god");
+    kingdoms.removeAll("careerist");
     foreach (const QString &kingdom, kingdoms) {
         _m_frameBorders[kingdom]->setSize(QSize(G_PHOTO_LAYOUT.m_normalWidth * 1.2, G_PHOTO_LAYOUT.m_normalHeight * 1.2));
         _m_frameBorders[kingdom]->setPos(- G_PHOTO_LAYOUT.m_normalWidth * 0.1, - G_PHOTO_LAYOUT.m_normalHeight * 0.1);
@@ -448,6 +449,7 @@ void Photo::_createBattleArrayAnimations()
 {
     QStringList kingdoms = Sanguosha->getKingdoms();
     kingdoms.removeAll("god");
+    kingdoms.removeAll("careerist");
 
     foreach (const QString &kingdom, kingdoms) {
         _m_frameBorders[kingdom] = new PixmapAnimation();

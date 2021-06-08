@@ -218,8 +218,7 @@ bool Player::canShowGeneral(const QString &flags) const
 
 bool Player::isAdjacentTo(const Player *another) const
 {
-    return getNextAlive() == another
-        || another->getNextAlive() == this;
+    return this != another && (getNextAlive() == another || another->getNextAlive() == this);
 }
 
 bool Player::isAlive() const
@@ -359,8 +358,11 @@ void Player::setGeneral(const General *new_general)
     if (this->general != new_general) {
         this->general = new_general;
 
-        if (new_general && kingdom.isEmpty())
-            setKingdom(new_general->getKingdom());
+        if (new_general && kingdom.isEmpty()) {
+            if (new_general->getKingdom() != "careerist")
+                setKingdom(new_general->getKingdom());
+
+        }
 
         emit general_changed();
     }
@@ -386,6 +388,11 @@ void Player::setGeneral2Name(const QString &general_name)
     const General *new_general = Sanguosha->getGeneral(general_name);
     if (general2 != new_general) {
         general2 = new_general;
+
+        if (new_general && kingdom.isEmpty()) {
+            if (general && general->getKingdom() == "careerist" && !new_general->isDoubleKingdoms())
+                setKingdom(new_general->getKingdom());
+        }
 
         emit general2_changed();
     }
@@ -496,7 +503,7 @@ bool Player::hasSkill(const QString &skill_name, bool include_lose) const
             return hasSkill(main_skill);
     }
 
-    if (skill_name != "companion" && skill_name != "halfmaxhp" && skill_name != "firstshow"
+    if (skill_name != "companion" && skill_name != "halfmaxhp" && skill_name != "firstshow" && skill_name != "careerman"
             && skill_name != "showhead" && skill_name != "showdeputy") {
 
         if (!include_lose && !hasEquipSkill(skill_name) && !skill->isAttachedLordSkill()) {
@@ -505,6 +512,8 @@ bool Player::hasSkill(const QString &skill_name, bool include_lose) const
                 if (inDeputySkills(skill_name) && !canShowGeneral("d")) return false;
 
             }
+
+            if (!Sanguosha->correctSkillValidity(this, skill)) return false;
 
             if (skill->getFrequency() != Skill::Compulsory && skill->getFrequency() != Skill::Wake) {
                 if (getMark("skill_invalidity") > 0) return false;
@@ -691,6 +700,33 @@ bool Player::hasEquip() const
     return weapon != NULL || armor != NULL || defensive_horse != NULL || offensive_horse != NULL || treasure != NULL || special_horse != NULL;
 }
 
+bool Player::hasSameEquipKind(const Card *card) const
+{
+    if (card->getTypeId() != Card::TypeEquip) return false;
+    const EquipCard *equip = qobject_cast<const EquipCard *>(card->getRealCard());
+    int equip_index = static_cast<int>(equip->location());
+    return getEquip(equip_index) != NULL;
+}
+
+bool Player::canSetEquip(const Card *card) const
+{
+    if (card->getTypeId() != Card::TypeEquip) return false;
+    const EquipCard *equip = qobject_cast<const EquipCard *>(card->getRealCard());
+    int equip_index = static_cast<int>(equip->location());
+    return canSetEquip(equip_index);
+}
+
+bool Player::canSetEquip(int index) const
+{
+    EquipCard::Location location = (EquipCard::Location) index;
+    if ((location == EquipCard::DefensiveHorseLocation || location == EquipCard::OffensiveHorseLocation) &&
+            getEquip((int)EquipCard::SpecialHorseLocation) != NULL) {
+        return false;
+    }
+
+    return getEquip(index) == NULL;
+}
+
 WrappedCard *Player::getWeapon() const
 {
     return weapon;
@@ -784,6 +820,13 @@ bool Player::hasArmorEffect(const QString &armor_name) const
     return false;
 }
 
+bool Player::ingoreArmor(const Player *to) const
+{
+    if (hasShownSkill("kuangcai") && getPhase() != NotActive) return true;
+    QStringList list = property("IngoreArmor").toString().split("+");
+    return list.contains(to->objectName()) || list.contains("_ALL_PLAYERS");
+}
+
 bool Player::hasTreasure(const QString &treasure_name) const
 {
     if (getMark("Equips_Nullified_to_Yourself") > 0) return false;
@@ -856,7 +899,7 @@ void Player::setKingdom(const QString &kingdom)
 {
     if (this->kingdom != kingdom) {
         this->kingdom = kingdom;
-        if (role == "careerist") return;
+        //if (role == "careerist") return;
         emit kingdom_changed(kingdom);
     }
 }
@@ -1078,7 +1121,7 @@ bool Player::canPindianTo(const Player *to) const
 
 bool Player::canTransform() const
 {
-    return getGeneral2();
+    return alive && getGeneral2();
 }
 
 void Player::addDelayedTrick(const Card *trick)
@@ -1200,7 +1243,7 @@ bool Player::canSlash(const Player *other, const Card *slash, bool distance_limi
         return false;
 
     if (distance_limit)
-        return distance <= getAttackRange() + Sanguosha->correctCardTarget(TargetModSkill::DistanceLimit, this, slash == NULL ? newslash : slash);
+        return distance <= getAttackRange() + Sanguosha->correctCardTarget(TargetModSkill::DistanceLimit, this, slash == NULL ? newslash : slash, other);
     else
         return true;
 }
@@ -1627,52 +1670,7 @@ bool Player::isCardLimited(const Card *card, Card::HandlingMethod method, bool i
             return true;
     }
 
-    if (card->getSkillName() == "qice" && card->getTypeId() == Card::TypeTrick && card->targetFixed()) {
-        int x = 0;
-        QList<const Player *> all, siblings = getAliveSiblings();
-        siblings.prepend(this);
-        foreach (const Player *p, siblings) {
-            if (!isProhibited(p, card))
-                all << p;
-        }
-
-        if (card->isKindOf("AwaitExhausted")) {
-            foreach (const Player *p, all) {
-                if (isFriendWith(p))
-                    x++;
-            }
-        } else if (card->isKindOf("FightTogether")) {
-            int big = 0, small = 0;
-
-            foreach (const Player *p, all) {
-                if (p->isBigKingdomPlayer())
-                    big++;
-                else
-                    small++;
-            }
-
-            if (big == 0) x = small;
-            else if (small == 0) x = big;
-            else x = qMin(big, small);
-
-        } else if (card->isKindOf("BurningCamps")) {
-            QList<const Player *> players = getNextAlive()->getFormation();
-            foreach (const Player *p, players) {
-                if (all.contains(p))
-                    x++;
-            }
-        } else if (card->getSubtype() == "aoe") {
-            x= all.length();
-            if (all.contains(this)) x--;
-        } else if (card->getSubtype() == "global_effect") {
-            x = all.length();
-        }
-
-        if (x > getHandcardNum()) return true;
-
-    }
-
-    return ((method == Card::MethodUse || method == Card::MethodResponse) && removed);
+    return (method == Card::MethodUse && removed);
 }
 
 void Player::addQinggangTag(const Card *card)
@@ -2061,6 +2059,9 @@ bool Player::isFriendWith(const Player *player) const
     if (player == NULL) return false;
 
     if (this == player) return true;
+
+    if (property("CareeristFriend").toString() == player->objectName()) return true;
+
 
     if (!hasShownOneGeneral() || !player->hasShownOneGeneral()) return false;
 

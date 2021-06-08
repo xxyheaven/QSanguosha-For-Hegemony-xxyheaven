@@ -164,7 +164,7 @@ CommonTranslationTable = {
 	["$ChangedJudge"] = "%from 发动“%arg”把 %to 的判定牌改为 %card",
 	["$MoveCard"] = "%to 从 %from 处获得 %card",
 	["$PasteCard"] = "%from 对 %to 使用延时锦囊 %card",
-	["$LightningMove"] = "%card 从 %from 移动到 %to",
+	["$LightningMove"] = "%card 移动到 %to 的判定区",
 	["$TurnOver"] = "%from 展示了牌堆顶的 %card",
 	["$DiscardCard"] = "%from 弃置了 %card",
 	["$DiscardCardWithSkill"] = "%from 弃置了 %card 发动“%arg”",
@@ -281,6 +281,13 @@ CommonTranslationTable = {
 	
 	["BattleRoyalMode"] = "鏖战模式",
 	["view_next_player_deputy_general"] = "观看下家的副将",
+	
+	["$gamestart"] = "游戏开始",
+	
+	["$AddCard"] = "%card 加入游戏",
+	["$RemoveCard"] = "%card 被移出游戏",
+	
+	
 }
 
 return CommonTranslationTable
