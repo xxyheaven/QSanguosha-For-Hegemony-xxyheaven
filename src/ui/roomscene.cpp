@@ -1450,16 +1450,7 @@ void RoomScene::updateTargetsEnablity(const Card *card)
 
         if (item->isSelected()) continue;
 
-        //=====================================
-        bool isCollateral = false;
-        if (card) {
-            if (card->isKindOf("Collateral"))
-                isCollateral = true;
-        }
-        bool weimuFailure = isCollateral && selected_targets.length() == 1;
-        //=====================================
-
-        bool enabled = (card == NULL) || (weimuFailure || !Sanguosha->isProhibited(Self, player, card, selected_targets) && maxVotes > 0);
+        bool enabled = (card == NULL) || (!Sanguosha->isProhibited(Self, player, card, selected_targets) && maxVotes > 0);
 
         QGraphicsItem *animationTarget = item->getMouseClickReceiver();
         QGraphicsItem *animationTarget2 = item->getMouseClickReceiver2();
@@ -4287,6 +4278,23 @@ void RoomScene::showPile(const QList<int> &card_ids, const QString &name, const 
     pileContainer->setObjectName(name);
     if (name == "huashencard") {
         QStringList huashens = target->tag["Huashens"].toStringList();
+        QList<CardItem *> generals;
+        if (huashens.isEmpty()) {
+            CardItem *item = new CardItem("");
+            addItem(item);
+            item->setParentItem(pileContainer);
+            generals.append(item);
+        } else {
+            foreach (QString arg, huashens) {
+                CardItem *item = new CardItem(arg);
+                addItem(item);
+                item->setParentItem(pileContainer);
+                generals.append(item);
+            }
+        }
+        pileContainer->fillGeneralCards(generals);
+    } else if (name == "massacre") {
+        QStringList huashens = target->property("massacre_pile").toString().split("+");;
         QList<CardItem *> generals;
         if (huashens.isEmpty()) {
             CardItem *item = new CardItem("");

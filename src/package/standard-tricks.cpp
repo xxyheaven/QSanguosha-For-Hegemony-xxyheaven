@@ -192,13 +192,14 @@ bool Collateral::targetFilter(const QList<const Player *> &targets,
 
 void Collateral::onUse(Room *room, const CardUseStruct &card_use) const
 {
-    Q_ASSERT(card_use.to.length() == 2);
-    ServerPlayer *killer = card_use.to.at(0);
-    ServerPlayer *victim = card_use.to.at(1);
-
     CardUseStruct new_use = card_use;
-    new_use.to.removeAt(1);
-    killer->tag["collateralVictim"] = QVariant::fromValue(victim);
+
+    if (card_use.to.length() == 2) {
+        ServerPlayer *killer = card_use.to.at(0);
+        ServerPlayer *victim = card_use.to.at(1);
+        new_use.to.removeAt(1);
+        killer->tag["collateralVictim"] = QVariant::fromValue(victim);
+    }
 
     SingleTargetTrick::onUse(room, new_use);
 }
@@ -844,8 +845,6 @@ void AwaitExhausted::onUse(Room *room, const CardUseStruct &card_use) const
             if (p->isFriendWith(new_use.from)) {
                 const Skill *skill = room->isProhibited(card_use.from, p, this);
                 if (skill) {
-                    if (!skill->isVisible())
-                        skill = Sanguosha->getMainSkill(skill->objectName());
                     if (skill->isVisible()) {
                         LogMessage log;
                         log.type = "#SkillAvoid";

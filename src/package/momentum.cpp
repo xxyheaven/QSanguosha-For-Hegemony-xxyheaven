@@ -1205,7 +1205,7 @@ public:
                             room->attachSkillToPlayer(p, "huangjinsymbol");
                 }
             } else {
-                ServerPlayer *lord = room->getLord(player->getKingdom());
+                ServerPlayer *lord = room->getLord(player->getSeemingKingdom());
                  if (lord && lord->isAlive() && lord->hasLordSkill(objectName()))
                      room->attachSkillToPlayer(player, "huangjinsymbol");
             }
@@ -1217,7 +1217,7 @@ public:
                 }
             }
         } else if (triggerEvent == DFDebut) {
-            ServerPlayer *lord = room->getLord(player->getKingdom());
+            ServerPlayer *lord = room->getLord(player->getSeemingKingdom());
             if (lord && lord->isAlive() && lord->hasLordSkill(objectName()) && !player->getAcquiredSkills().contains("huangjinsymbol")) {
                 room->attachSkillToPlayer(player, "huangjinsymbol");
             }
@@ -1370,7 +1370,7 @@ class PeaceSpellSkill : public ArmorSkill
 public:
     PeaceSpellSkill() : ArmorSkill("PeaceSpell")
     {
-        events << DamageInflicted << CardsMoveOneTime;
+        events << CardsMoveOneTime;
         frequency = Compulsory;
     }
 
@@ -1452,6 +1452,40 @@ public:
     }
 };
 
+class PeaceSpellSkillDecrease : public ArmorSkill
+{
+public:
+    PeaceSpellSkillDecrease() : ArmorSkill("#PeaceSpell-decrease")
+    {
+        events << DamageInflicted;
+        frequency = Compulsory;
+    }
+
+    virtual int getPriority() const
+    {
+        return -3;
+    }
+
+    virtual QStringList triggerable(TriggerEvent , Room *, ServerPlayer *player, QVariant &data, ServerPlayer* &) const
+    {
+        DamageStruct damage = data.value<DamageStruct>();
+        if (damage.from && damage.from->ingoreArmor(player)) return QStringList();
+        if (player->hasArmorEffect("PeaceSpell") && damage.nature != DamageStruct::Normal)
+            return QStringList("PeaceSpell");
+        return QStringList();
+    }
+
+    virtual bool cost(TriggerEvent , Room *, ServerPlayer *, QVariant &, ServerPlayer *) const
+    {
+        return false;
+    }
+
+    virtual bool effect(TriggerEvent , Room *, ServerPlayer *, QVariant &, ServerPlayer *) const
+    {
+        return false;
+    }
+};
+
 class PeaceSpellSkillMaxCards : public MaxCardsSkill
 {
 public:
@@ -1485,8 +1519,8 @@ MomentumEquipPackage::MomentumEquipPackage() : Package("momentum_equip", CardPac
     PeaceSpell *dp = new PeaceSpell;
     dp->setParent(this);
 
-    skills << new PeaceSpellSkill << new PeaceSpellSkillMaxCards;
-    insertRelatedSkills("PeaceSpell", "#PeaceSpell-max");
+    skills << new PeaceSpellSkill << new PeaceSpellSkillDecrease << new PeaceSpellSkillMaxCards;
+    insertRelatedSkills("PeaceSpell", 2, "#PeaceSpell-decrease", "#PeaceSpell-max");
 }
 
 ADD_PACKAGE(MomentumEquip)

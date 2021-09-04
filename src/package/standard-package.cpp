@@ -84,9 +84,24 @@ public:
             QVariantList move_datas = data.toList();
             foreach (QVariant move_data, move_datas) {
                 CardsMoveOneTimeStruct move = move_data.value<CardsMoveOneTimeStruct>();
-//                if (move.from == player && player->getPhase() == Player::Discard
-//                        && (move.reason.m_reason & CardMoveReason::S_MASK_BASIC_REASON) == CardMoveReason::S_REASON_DISCARD)
-//                    room->addPlayerMark(player, "GlobalDiscardCount", move.card_ids.length());
+
+                if ((move.reason.m_reason & CardMoveReason::S_MASK_BASIC_REASON) == CardMoveReason::S_REASON_DISCARD) {
+                    if (move.from == player && player->getPhase() == Player::Discard) {
+                        for (int i = 0; i < move.card_ids.length(); ++i) {
+                            if ((move.from_places.at(i) == Player::PlaceHand || move.from_places.at(i) == Player::PlaceEquip)) {
+                                room->addPlayerMark(player, "GlobalRuleDisCardCount");
+                            }
+                        }
+                    }
+                    if (move.reason.m_playerId == player->objectName()) {
+                        for (int i = 0; i < move.card_ids.length(); ++i) {
+                            if ((move.from_places.at(i) == Player::PlaceHand || move.from_places.at(i) == Player::PlaceEquip)) {
+                                room->addPlayerMark(player, "GlobalDisCardCount");
+                            }
+                        }
+                    }
+                }
+
 
                 if (move.from == player && !(move.to == player && (move.to_place == Player::PlaceHand || move.to_place == Player::PlaceEquip))) {
                     for (int i = 0; i < move.card_ids.length(); ++i) {
@@ -172,9 +187,8 @@ public:
 
                 if (current && current->getPhase() != Player::NotActive) {
 
-                    if (player->getCardUsedTimes("Slash")==1) {
+                    if (player->getCardUsedTimes("Slash") == 1)
                         room->setCardFlag(card, "GlobalSecondSlash");
-                    }
 
                     if (current->getPhase() == Player::Play) {
                         if (player->getCardUsedTimes(".|play")==0) {
@@ -280,7 +294,8 @@ public:
         if (triggerEvent == EventPhaseStart) {
             if (player->getPhase() == Player::NotActive) {
                 foreach (ServerPlayer *p, room->getAlivePlayers()) {
-                    //room->setPlayerMark(p, "GlobalDiscardCount", 0);
+                    room->setPlayerMark(p, "GlobalRuleDisCardCount", 0);
+                    room->setPlayerMark(p, "GlobalDisCardCount", 0);
                     room->setPlayerMark(p, "GlobalKilledCount", 0);
                     room->setPlayerMark(p, "GlobalInjuredCount", 0);
                     room->setPlayerMark(p, "Global_MaxcardsIncrease", 0);

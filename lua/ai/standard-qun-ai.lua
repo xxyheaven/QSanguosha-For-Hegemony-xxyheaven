@@ -867,6 +867,7 @@ sgs.ai_skill_invoke.lirang = function(self, data)
 	if not self:willShowForAttack() then
 		return false
 	end
+	
 	for _, afriend in ipairs(self.friends_noself) do
 		if not self:needKongcheng(afriend, true) then return true end
 	end
@@ -877,21 +878,24 @@ sgs.ai_skill_use["@@liranggive"] = function(self, prompt)
 	--self.player:speak("开始判断礼让")
 	if not self:willShowForAttack() or #self.friends_noself == 0 then return "." end
 	--local card_ids = self.player:property("lirang_this_time"):toString() ~= "" and self.player:property("lirang_this_time"):toString():split("+") or {}
-	local card_ids = self.player:getTag("lirang_this_time"):toList()
+	
+	local card_ids = self.player:getTag("lirang_forAI"):toString():split("+")
+
 	self:updatePlayers()
 	local cards = {}
-	for _, card_id in sgs.qlist(card_ids) do
-		--self.player:speak(sgs.Sanguosha:getCard(card_id:toInt()):getLogName())
-		table.insert(cards, sgs.Sanguosha:getCard(card_id:toInt()))
+
+	for _, card_id in ipairs(card_ids) do
+		self.player:speak(sgs.Sanguosha:getCard(card_id):getLogName())
+		table.insert(cards, sgs.Sanguosha:getCard(card_id))
 	end
 
 	local card, friend = self:getCardNeedPlayer(cards, self.friends_noself)
-	if card and friend then return "@LirangCard=" .. card:getEffectiveId() .. "->" .. friend:objectName() end
+	if card and friend then return "@LirangGiveCard=" .. card:getEffectiveId() .. "->" .. friend:objectName() end
 	if #self.friends_noself > 0 then
 		self:sort(self.friends_noself, "handcard")
 		for _, afriend in ipairs(self.friends_noself) do
 			if not self:needKongcheng(afriend, true) then
-				return "@LirangCard=" .. cards[1]:getEffectiveId() .. "->" .. afriend:objectName()
+				return "@LirangGiveCard=" .. cards[1]:getEffectiveId() .. "->" .. afriend:objectName()
 			end
 		end
 	end

@@ -1219,7 +1219,6 @@ public:
                             return QStringList(objectName());
                     }
                     if (triggerEvent == BeforeCardsMove) {
-
                         if ((move.reason.m_reason & CardMoveReason::S_MASK_BASIC_REASON) == CardMoveReason::S_REASON_USE && move.reason.m_skillName.isEmpty()) return QStringList();
                         if ((move.from == player && (move.from_places[move.card_ids.indexOf(id)] == Player::PlaceHand || move.from_places[move.card_ids.indexOf(id)] == Player::PlaceEquip))
                             && (move.to != player || (move.to_place != Player::PlaceHand && move.to_place != Player::PlaceEquip)))

@@ -223,6 +223,7 @@ sgs.ai_skill_invoke.yuejian = function(self, data)
 end
 
 --左慈
+--[[
 sgs.ai_skill_invoke.huashen = function(self, data)
 	local huashens = self.player:getTag("Huashens"):toList()
 	if huashens:length() < 2 then return true end
@@ -254,7 +255,7 @@ sgs.ai_skill_choice.huashen = function(self, choice, data)
 				ajust1 = ajust1 - 1
 			end
 		end
-		--]]
+		--
 		for _, name2 in ipairs(names) do
 			local g2 = sgs.Sanguosha:getGeneral(name2)
 			if not g2 or g1:getKingdom() ~= g2:getKingdom() or name1 == name2 then continue end
@@ -360,7 +361,7 @@ function SmartAI:getHuashenPairValue(g1, g2)
 	player:speak(g1:objectName() .. "+" .. g2:objectName() .. "的组合得分是：" .. current_value)
 	return current_value
 end
-
+--]]
 sgs.ai_skill_choice.xinsheng = function(self, choice, data)
 	return sgs.ai_skill_choice["huashen"](self, choice, data)
 end
@@ -539,6 +540,7 @@ end
 
 
 --吕范
+--[[
 local diaodu_skill = {}
 diaodu_skill.name = "diaodu"
 table.insert(sgs.ai_skills, diaodu_skill)
@@ -655,13 +657,16 @@ sgs.ai_skill_use["@@diaodu_equip"] = function(self, prompt)
 	end
 	return "."
 end
-
+--]]
+sgs.ai_skill_choice["diaodu"] = function(self, choices, data)
+	return "yes"
+end
 sgs.ai_skill_invoke.diancai = function(self, data)
 	if not self:willShowForDefence() then return false end
 	return true
 end
 
---孙权
+--君孙权
 local lianzi_skill = {}
 lianzi_skill.name = "lianzi"
 table.insert(sgs.ai_skills, lianzi_skill)

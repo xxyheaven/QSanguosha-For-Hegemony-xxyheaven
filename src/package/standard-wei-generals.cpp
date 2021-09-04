@@ -65,41 +65,37 @@ public:
     }
 };
 
-class Fankui : public MasochismSkill
+Fankui::Fankui(const QString &owner) : MasochismSkill("fankui" + owner)
 {
-public:
-    Fankui() : MasochismSkill("fankui")
-    {
-    }
+}
 
-    virtual QStringList triggerable(TriggerEvent, Room *, ServerPlayer *simayi, QVariant &data, ServerPlayer * &) const
-    {
-        if (MasochismSkill::triggerable(simayi)) {
-            ServerPlayer *from = data.value<DamageStruct>().from;
-            return (from && simayi->canGetCard(from, "he")) ? QStringList(objectName()) : QStringList();
-        }
-        return QStringList();
+QStringList Fankui::triggerable(TriggerEvent, Room *, ServerPlayer *simayi, QVariant &data, ServerPlayer* &) const
+{
+    if (MasochismSkill::triggerable(simayi)) {
+        ServerPlayer *from = data.value<DamageStruct>().from;
+        return (from && simayi->canGetCard(from, "he")) ? QStringList(objectName()) : QStringList();
     }
+    return QStringList();
+}
 
-    virtual bool cost(TriggerEvent, Room *room, ServerPlayer *simayi, QVariant &data, ServerPlayer *) const
-    {
-        DamageStruct damage = data.value<DamageStruct>();
-        if (!damage.from->isNude() && simayi->askForSkillInvoke(this, data)) {
-            room->broadcastSkillInvoke(objectName(), simayi);
-            room->doAnimate(QSanProtocol::S_ANIMATE_INDICATE, simayi->objectName(), damage.from->objectName());
-            return true;
-        }
-        return false;
+bool Fankui::cost(TriggerEvent, Room *room, ServerPlayer *simayi, QVariant &data, ServerPlayer *) const
+{
+    DamageStruct damage = data.value<DamageStruct>();
+    if (!damage.from->isNude() && simayi->askForSkillInvoke(this, data)) {
+        room->broadcastSkillInvoke(objectName(), simayi);
+        room->doAnimate(QSanProtocol::S_ANIMATE_INDICATE, simayi->objectName(), damage.from->objectName());
+        return true;
     }
+    return false;
+}
 
-    virtual void onDamaged(ServerPlayer *simayi, const DamageStruct &damage) const
-    {
-        Room *room = simayi->getRoom();
-        int card_id = room->askForCardChosen(simayi, damage.from, "he", objectName(), false, Card::MethodGet);
-        CardMoveReason reason(CardMoveReason::S_REASON_EXTRACTION, simayi->objectName());
-        room->obtainCard(simayi, Sanguosha->getCard(card_id), reason, false);
-    }
-};
+void Fankui::onDamaged(ServerPlayer *simayi, const DamageStruct &damage) const
+{
+    Room *room = simayi->getRoom();
+    int card_id = room->askForCardChosen(simayi, damage.from, "he", objectName(), false, Card::MethodGet);
+    CardMoveReason reason(CardMoveReason::S_REASON_EXTRACTION, simayi->objectName());
+    room->obtainCard(simayi, Sanguosha->getCard(card_id), reason, false);
+}
 
 class Guicai : public TriggerSkill
 {

@@ -539,6 +539,16 @@ void PlayerCardContainer::updateCount(const QString &pile_name, int value)
         button->setText(text);
         button->setMenu(NULL);
 
+        if (pile_name == "massacre") {
+
+            disconnect(button, &QPushButton::pressed, this, &PlayerCardContainer::showPile);
+            connect(button, &QPushButton::pressed, this, &PlayerCardContainer::showPile);
+
+            disconnect(button, &QPushButton::released, this, &PlayerCardContainer::hidePile);
+            connect(button, &QPushButton::released, this, &PlayerCardContainer::hidePile);
+        }
+
+
     }
 
     QPoint start = _m_layout->m_privatePileStartPos;
@@ -626,6 +636,7 @@ void PlayerCardContainer::showPile()
         if (!player) return;
         QList<int> card_ids = player->getPile(button->objectName());
         if (button->objectName() == "huashencard" && player == Self) RoomSceneInstance->showPile(card_ids, button->objectName(), player);
+        if (button->objectName() == "massacre" && player == Self) RoomSceneInstance->showPile(card_ids, button->objectName(), player);
         if (card_ids.isEmpty() || card_ids.contains(-1)) return;
         RoomSceneInstance->showPile(card_ids, button->objectName(), player);
     }

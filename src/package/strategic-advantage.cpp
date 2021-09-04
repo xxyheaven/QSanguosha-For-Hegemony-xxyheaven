@@ -715,8 +715,6 @@ void BurningCamps::onUse(Room *room, const CardUseStruct &card_use) const
             const Skill *skill = room->isProhibited(card_use.from, player, this);
             ServerPlayer *splayer = room->findPlayer(player->objectName());
             if (skill) {
-                if (!skill->isVisible())
-                    skill = Sanguosha->getMainSkill(skill->objectName());
                 if (skill->isVisible()) {
                     LogMessage log;
                     log.type = "#SkillAvoid";
@@ -985,8 +983,6 @@ void FightTogether::onUse(Room *room, const CardUseStruct &card_use) const
 
     foreach (ServerPlayer *p, voids) {
         const Skill *skill = room->isProhibited(source, p, this);
-        if (!skill->isVisible())
-            skill = Sanguosha->getMainSkill(skill->objectName());
         if (skill->isVisible()) {
             LogMessage log;
             log.type = "#SkillAvoid";
@@ -1048,8 +1044,6 @@ void AllianceFeast::onUse(Room *room, const CardUseStruct &card_use) const
                 continue;
             const Skill *skill = room->isProhibited(source, player, this);
             if (skill) {
-                if (!skill->isVisible())
-                    skill = Sanguosha->getMainSkill(skill->objectName());
                 if (skill->isVisible()) {
                     LogMessage log;
                     log.type = "#SkillAvoid";
@@ -1259,8 +1253,6 @@ void ImperialOrder::onUse(Room *room, const CardUseStruct &card_use) const
                 continue;
             const Skill *skill = room->isProhibited(source, p, this);
             if (skill) {
-                if (!skill->isVisible())
-                    skill = Sanguosha->getMainSkill(skill->objectName());
                 if (skill && skill->isVisible()) {
                     LogMessage log;
                     log.type = "#SkillAvoid";

@@ -822,7 +822,6 @@ bool Player::hasArmorEffect(const QString &armor_name) const
 
 bool Player::ingoreArmor(const Player *to) const
 {
-    if (hasShownSkill("kuangcai") && getPhase() != NotActive) return true;
     QStringList list = property("IngoreArmor").toString().split("+");
     return list.contains(to->objectName()) || list.contains("_ALL_PLAYERS");
 }
@@ -2152,7 +2151,10 @@ Player *Player::getNextAlive(int n, bool ignoreRemoved) const
 
 Player *Player::getLastAlive(int n, bool ignoreRemoved) const
 {
-    return getNextAlive(aliveCount(!ignoreRemoved) - n, ignoreRemoved);
+    int index = aliveCount(!ignoreRemoved) - n;
+    if (isRemoved())
+        index++;
+    return getNextAlive(index, ignoreRemoved);
 }
 
 QList<const Player *> Player::getFormation() const

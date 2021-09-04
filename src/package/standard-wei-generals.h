@@ -25,6 +25,17 @@
 #include "card.h"
 #include "skill.h"
 
+class Fankui : public MasochismSkill
+{
+public:
+    explicit Fankui(const QString &owner = QString());
+
+    virtual QStringList triggerable(TriggerEvent, Room *, ServerPlayer *lidian, QVariant &, ServerPlayer* &) const;
+    virtual bool cost(TriggerEvent triggerEvent, Room *room, ServerPlayer *player, QVariant &data, ServerPlayer *ask_who = NULL) const;
+    virtual void onDamaged(ServerPlayer *simayi, const DamageStruct &damage) const;
+
+};
+
 // class TuxiCard : public SkillCard
 // {
 //     Q_OBJECT

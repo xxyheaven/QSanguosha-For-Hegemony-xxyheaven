@@ -1158,6 +1158,12 @@ const Card *ArraySummonCard::validate(CardUseStruct &card_use) const
     const BattleArraySkill *skill = qobject_cast<const BattleArraySkill *>(Sanguosha->getTriggerSkill(objectName()));
     if (skill) {
         card_use.from->showSkill(skill->objectName(), card_use.card->getSkillPosition());                           //new function by weidouncle
+
+        QString name = objectName();
+        name[0] = name[0].toUpper();
+        name += "SummonCard";
+        card_use.from->getRoom()->addPlayerHistory(card_use.from, name);
+
         skill->summonFriends(card_use.from);
     }
     return NULL;

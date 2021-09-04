@@ -828,7 +828,8 @@ bool GameRule::effect(TriggerEvent triggerEvent, Room *room, ServerPlayer *playe
             else if (kill_count > 7)
                 room->setEmotion(killer, "zylove", false, 4000);
 
-            rewardAndPunish(killer, player);
+            if (!killer->hasShownSkill("juejue") || !killer->isFriendWith(player))
+                rewardAndPunish(killer, player);
         }
 
         if (player->getGeneral()->isLord() && player == data.value<DeathStruct>().who) {
@@ -1060,24 +1061,34 @@ QString GameRule::getWinner(ServerPlayer *victim) const
 
         QList<ServerPlayer *> careerists;
 
+        bool careerist_rule = false;
         foreach (ServerPlayer *p, players) {
-            if (p->hasShownGeneral1() || p->getSeemingKingdom() == "careerist") continue;
-            if (p->getActualGeneral1()->getKingdom() == "careerist") {
-                if (room->askForChoice(p, "GameRule:CareeristShow", "yes+no", QVariant(), "@careerist-show") == "yes") {
+            if (!p->hasShownGeneral1() && p->getSeemingKingdom() != "careerist" && p->getActualGeneral1()->getKingdom() == "careerist") {
+                careerist_rule = true;
+                break;
+            }
+        }
 
-                    LogMessage log;
-                    log.type = "#GameRule_CareeristShow";
-                    log.from = p;
-                    room->sendLog(log);
+        if (careerist_rule) {
+            foreach (ServerPlayer *p, players) {
+                if (p->hasShownGeneral1() || p->getSeemingKingdom() == "careerist") continue;
+                if (p->getActualGeneral1()->getKingdom() == "careerist") {
+                    if (room->askForChoice(p, "GameRule:CareeristShow", "yes+no", QVariant(), "@careerist-show") == "yes") {
 
-                    room->setTag("GlobalCareeristShow", true);
-                    p->showGeneral();
-                    room->setTag("GlobalCareeristShow", false);
+                        LogMessage log;
+                        log.type = "#GameRule_CareeristShow";
+                        log.from = p;
+                        room->sendLog(log);
 
-                    careerists << p;
-                }
-            } else
-                room->askForChoice(p, "GameRule:CareeristShow", "no", QVariant(), "@careerist-show", "yes+no");
+                        room->setTag("GlobalCareeristShow", true);
+                        p->showGeneral();
+                        room->setTag("GlobalCareeristShow", false);
+
+                        careerists << p;
+                    }
+                } else
+                    room->askForChoice(p, "GameRule:CareeristShow", "no", QVariant(), "@careerist-show", "yes+no");
+            }
         }
 
         if (room->alivePlayerCount() > 2) {

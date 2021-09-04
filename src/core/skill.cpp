@@ -660,7 +660,12 @@ using namespace HegemonyMode;
 bool ArraySummonSkill::isEnabledAtPlay(const Player *player) const
 {
     if (player->getAliveSiblings().length() < 3) return false;
-    if (player->hasFlag("Global_SummonFailed")) return false;
+
+    QString name = objectName();
+    name[0] = name[0].toUpper();
+    name += "SummonCard";
+    if (player->hasUsed(name)) return false;
+
     if (!player->canShowGeneral(player->inHeadSkills(objectName()) ? "h" : "d")) return false;
     const BattleArraySkill *skill = qobject_cast<const BattleArraySkill *>(Sanguosha->getTriggerSkill(objectName()));
     if (skill) {

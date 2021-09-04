@@ -595,6 +595,8 @@ enum TriggerEvent
     PreCardsMoveOneTime,
     CardsMoveOneTime,
 
+    PlayCard,
+
     PreCardUsed,
     CardUsed,
     TargetChoosing, //distinguish "choose target" and "confirm target"

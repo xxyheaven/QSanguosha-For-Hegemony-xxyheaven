@@ -82,6 +82,70 @@ public:
     Q_INVOKABLE FengyangSummon();
 };
 
+class AocaiCard : public SkillCard
+{
+    Q_OBJECT
+
+public:
+    Q_INVOKABLE AocaiCard();
+
+    virtual bool targetFixed() const;
+    virtual bool targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const;
+    virtual bool targetsFeasible(const QList<const Player *> &targets, const Player *Self) const;
+
+    virtual const Card *validateInResponse(ServerPlayer *user) const;
+    virtual const Card *validate(CardUseStruct &cardUse) const;
+};
+
+class DuwuCard : public SkillCard
+{
+    Q_OBJECT
+
+public:
+    Q_INVOKABLE DuwuCard();
+    virtual void onUse(Room *room, const CardUseStruct &card_use) const;
+    virtual void use(Room *room, ServerPlayer *source, QList<ServerPlayer *> &targets) const;
+};
+
+class JinfaCard : public SkillCard
+{
+    Q_OBJECT
+
+public:
+    Q_INVOKABLE JinfaCard();
+
+    virtual bool targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const;
+    virtual void onEffect(const CardEffectStruct &effect) const;
+};
+
+class HuaiyiCard : public SkillCard
+{
+    Q_OBJECT
+
+public:
+    Q_INVOKABLE HuaiyiCard();
+    virtual void extraCost(Room *room, const CardUseStruct &card_use) const;
+    void use(Room *room, ServerPlayer *source, QList<ServerPlayer *> &targets) const;
+};
+
+class QingyinCard : public SkillCard
+{
+    Q_OBJECT
+
+public:
+    Q_INVOKABLE QingyinCard();
+    virtual void onUse(Room *room, const CardUseStruct &card_use) const;
+    virtual void use(Room *room, ServerPlayer *source, QList<ServerPlayer *> &targets) const;
+};
+
+class FangyuanSummon : public ArraySummonCard
+{
+    Q_OBJECT
+
+public:
+    Q_INVOKABLE FangyuanSummon();
+};
+
 class LordEXPackage : public Package
 {
     Q_OBJECT

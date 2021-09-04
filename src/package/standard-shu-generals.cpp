@@ -238,7 +238,7 @@ public:
 
         CardUseStruct use = data.value<CardUseStruct>();
         if (triggerEvent == TargetChosen && player->hasShownSkill(objectName())) {
-            ServerPlayer *lord = room->getLord(player->getKingdom());
+            ServerPlayer *lord = room->getLord(player->getSeemingKingdom());
             if (lord != NULL && lord->hasShownSkill("shouyue")) {
                 if (use.card != NULL && use.card->isKindOf("Slash")) {
                     QStringList targets;

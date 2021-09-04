@@ -99,7 +99,7 @@ public:
 
     bool askCommandto(const QString &reason, ServerPlayer *target);
     int startCommand(const QString &reason, ServerPlayer *target = NULL);
-    bool doCommand(const QString &reason, int index, ServerPlayer *source, ServerPlayer *dest = NULL);
+    bool doCommand(const QString &reason, int index, ServerPlayer *source);
 
     void turnOver();
     void play(QList<Player::Phase> set_phases = QList<Player::Phase>());

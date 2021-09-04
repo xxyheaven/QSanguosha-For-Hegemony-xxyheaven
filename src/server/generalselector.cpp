@@ -236,19 +236,24 @@ void GeneralSelector::calculateDeputyValue(const ServerPlayer *player, const QSt
 
             if (general1->isCompanionWith(second)) v += 3;
 
-            if (general1->isFemale()) {
+            if (general1->isFemale()) 
+            {
                 if ("wu" == kingdom)
                     v -= 2;
                 else if (kingdom != "qun")
                     v += 1;
-            } else if ("qun" == kingdom)
+            } 
+            else if ("qun" == kingdom)
                 v += 1;
 
             if (general1->hasSkill("baoling") && general2_value > 6) v -= 5;
+            if (general1->hasSkill("cunsi")) v -= 5;
+            if (general1->hasSkill("jianglve")) v -= 5;
+            if (general1->hasSkill("tianxiang")) v += 3;
 
             if (max_hp < 8) {
                 QSet<QString> need_high_max_hp_skills;
-                need_high_max_hp_skills << "zhiheng" << "zaiqi" << "yinghun" << "kurou";
+                need_high_max_hp_skills << "zhiheng" << "zaiqi" << "kurou";
                 foreach (const Skill *skill, general1->getVisibleSkills() + general2->getVisibleSkills()) {
                     if (need_high_max_hp_skills.contains(skill->objectName())) v -= 5;
                 }

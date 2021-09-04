@@ -374,7 +374,7 @@ sgs.ai_skill_playerchosen.tuxi = function(self)
 	return {}
 end
 
-sgs.ai_skill_invoke.luoyi = function(self,data)
+sgs.ai_skill_discard.luoyi = function(self, discard_num, min_num, optional, include_equip)
 	if self.player:isSkipped(sgs.Player_Play) then return false end
 	local cards = self.player:getHandcards()
 	cards = sgs.QList2Table(cards)
@@ -406,9 +406,9 @@ sgs.ai_skill_invoke.luoyi = function(self,data)
 	end
 	if (slashtarget+dueltarget) > 0 then
 		self:speak("luoyi")
-		return true
+		return self:askForDiscard("dummy_reason", 1, 1, false, true)
 	end
-	return false
+	return {}
 end
 
 function sgs.ai_cardneed.luoyi(to, card, self)
@@ -1384,12 +1384,12 @@ sgs.ai_skill_playerchosen.fangzhu = function(self, targets)
 				target = friend
 			break
 		end
-		if not target then
+		--[[if not target then
 			if not self:toTurnOver(friend, n, "fangzhu") then
 				target = friend
 				break
 			end
-		end
+		end--]]
 	end
 	if not target then
 		if n >= 3 then
@@ -1550,6 +1550,7 @@ sgs.ai_skill_cardask["@xiaoguo-discard"] = function(self, data)
 
 	if not card_id then return "." else return "$" .. card_id end
 end
+
 
 sgs.ai_cardneed.xiaoguo = function(to, card)
 	return getKnownCard(to, global_room:getCurrent(), "BasicCard", true) == 0 and card:getTypeId() == sgs.Card_TypeBasic

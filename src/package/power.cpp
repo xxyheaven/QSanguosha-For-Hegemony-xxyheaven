@@ -550,12 +550,6 @@ void JianglveCard::use(Room *room, ServerPlayer *source, QList<ServerPlayer *> &
 {
     int index = source->startCommand("jianglve");
 
-    ServerPlayer *dest = NULL;
-    if (index == 0) {
-        dest = room->askForPlayerChosen(source, room->getAlivePlayers(), "command_jianglve", "@command-damage");
-        room->doAnimate(QSanProtocol::S_ANIMATE_INDICATE, source->objectName(), dest->objectName());
-    }
-
     QList<ServerPlayer *> alls = room->getAlivePlayers();
     room->sortByActionOrder(alls);
     foreach(ServerPlayer *anjiang, alls) {
@@ -603,7 +597,8 @@ void JianglveCard::use(Room *room, ServerPlayer *source, QList<ServerPlayer *> &
     }
 
     foreach (ServerPlayer *p, all_lieges) {
-        if (p->isAlive() && p->doCommand("jianglve", index, source, dest))
+        if (source->isDead()) break;
+        if (p->isAlive() && p->doCommand("jianglve", index, source))
             responsers << p;
     }
 
@@ -697,7 +692,7 @@ public:
             invoke = true;
             room->sendCompulsoryTriggerLog(player, objectName());
         } else
-            invoke = player->askForSkillInvoke(this, QVariant::fromValue(target));
+            invoke = player->askForSkillInvoke(this, data);
 
         if (invoke) {
             room->doAnimate(QSanProtocol::S_ANIMATE_INDICATE, player->objectName(), target->objectName());
@@ -1017,7 +1012,7 @@ public:
         if (!TriggerSkill::triggerable(player)) return QStringList();
         CardUseStruct use = data.value<CardUseStruct>();
         if (triggerEvent == TargetChosen) {
-            ServerPlayer *lord = room->getLord(player->getKingdom());
+            ServerPlayer *lord = room->getLord(player->getSeemingKingdom());
             if (lord != NULL && lord->hasShownSkill("shouyue")) {
                 if (use.card != NULL && use.card->isKindOf("Slash")) {
                     QStringList targets;
@@ -1351,12 +1346,12 @@ public:
 };
 
 
-class KeshouViewAsSkill : public ViewAsSkill
+class KeshouDiscard : public ViewAsSkill
 {
 public:
-    KeshouViewAsSkill() : ViewAsSkill("keshou")
+    KeshouDiscard() : ViewAsSkill("keshou_discard")
     {
-        response_pattern = "@@keshou";
+        response_pattern = "@@keshou_discard";
     }
 
     virtual bool viewFilter(const QList<const Card *> &selected, const Card *to_select) const
@@ -1385,12 +1380,6 @@ public:
     Keshou() : TriggerSkill("keshou")
     {
         events << DamageInflicted;
-        view_as_skill = new KeshouViewAsSkill;
-    }
-
-    virtual bool canPreshow() const
-    {
-        return true;
     }
 
     virtual QStringList triggerable(TriggerEvent, Room *, ServerPlayer *player, QVariant &, ServerPlayer* &) const
@@ -1401,57 +1390,30 @@ public:
 
     virtual bool cost(TriggerEvent, Room *room, ServerPlayer *player, QVariant &data, ServerPlayer *) const
     {
-        const Card *card = room->askForCard(player, "@@keshou", "@keshou", data, Card::MethodNone);
-        if (card) {
-            room->notifySkillInvoked(player, objectName());
+        if (player->askForSkillInvoke(this, data)) {
             room->broadcastSkillInvoke(objectName(), player);
-            room->throwCard(card, player, NULL, objectName());
-            QStringList target_list = player->tag["keshou_effect"].toStringList();
-            target_list.append("decreasedamage");
-            player->tag["keshou_effect"] = target_list;
             return true;
-        } else {
-
-            bool no_friend = true;
-            QList<ServerPlayer *> alls = room->getOtherPlayers(player);
-            foreach (ServerPlayer *p, alls) {
-                if (p->isFriendWith(player)) {
-                    no_friend = false;
-                    break;
-                }
-            }
-            if (no_friend && player->askForSkillInvoke(this, "judge")) {
-                room->broadcastSkillInvoke(objectName(), player);
-                QStringList effect_list = player->tag["keshou_effect"].toStringList();
-                effect_list.append("judge");
-                player->tag["keshou_effect"] = effect_list;
-                return true;
-            }
         }
         return false;
     }
 
     virtual bool effect(TriggerEvent, Room *room, ServerPlayer *player, QVariant &data, ServerPlayer *) const
     {
-        QStringList effect_list = player->tag["keshou_effect"].toStringList();
-        QString effect_name = effect_list.takeLast();
-        player->tag["keshou_effect"] = effect_list;
-
         DamageStruct damage = data.value<DamageStruct>();
+        const Card *card = room->askForCard(player, "@@keshou_discard", "@keshou", data, Card::MethodNone);
+        if (card) {
+            room->throwCard(card, player, NULL, objectName());
+            damage.damage--;
+        }
 
         bool no_friend = true;
 
-        if (effect_name == "decreasedamage") {
-            damage.damage--;
-
-            QList<ServerPlayer *> alls = room->getOtherPlayers(player);
-            foreach (ServerPlayer *p, alls) {
-                if (p->isFriendWith(player)) {
-                    no_friend = false;
-                    break;
-                }
+        QList<ServerPlayer *> alls = room->getOtherPlayers(player);
+        foreach (ServerPlayer *p, alls) {
+            if (p->isFriendWith(player)) {
+                no_friend = false;
+                break;
             }
-
         }
 
         if (no_friend) {
@@ -1461,12 +1423,15 @@ public:
             judge.reason = objectName();
             judge.who = player;
             room->judge(judge);
-            if (judge.isGood()) player->drawCards(1, objectName());
+
+            if (judge.isGood())
+                player->drawCards(1, objectName());
         }
 
-        if (damage.damage < 1)
-            return true;
         data = QVariant::fromValue(damage);
+
+        if (damage.damage <= 0)
+            return true;
 
         return false;
     }
@@ -1578,7 +1543,9 @@ public:
     virtual bool cost(TriggerEvent, Room *room, ServerPlayer *player, QVariant &data, ServerPlayer *) const
     {
         ServerPlayer *from = data.value<DamageStruct>().from;
+        player->tag["FudiTarget"] = QVariant::fromValue(from); // for AI
         QList<int> result = room->askForExchange(player, objectName(), 1, 0, "@fudi-give:"+ from->objectName(), "", ".|.|.|hand");
+        player->tag.remove("FudiTarget");
         if (!result.isEmpty()) {
             LogMessage l;
             l.type = "#InvokeSkill";
@@ -1617,7 +1584,7 @@ public:
         }
         if (targets.isEmpty()) return;
 
-        ServerPlayer *target = room->askForPlayerChosen(zhangxiu, targets, "fudi-damage", "@fudi-damage");
+        ServerPlayer *target = room->askForPlayerChosen(zhangxiu, targets, "fudi_damage", "@fudi-damage");
         room->damage(DamageStruct(objectName(), zhangxiu, target, 1));
     }
 };
@@ -2519,7 +2486,7 @@ PowerPackage::PowerPackage()
     addMetaObject<WeidiCard>();
     addMetaObject<HuibianCard>();
 
-    skills << new CommandEffect << new ZhengbiGive << new XuanhuoAttach << new WeidiRecord << new EliteGeneralFlag
+    skills << new CommandEffect << new ZhengbiGive << new XuanhuoAttach << new KeshouDiscard << new WeidiRecord << new EliteGeneralFlag
            << new WushengXH << new PaoxiaoXH << new LongdanXH << new Tieqi("_xh") << new LiegongXH << new KuangguXH
            << new Tuxi("_egf") << new Qiaobian("_egf") << new Xiaoguo("_egf") << new JieyueEGF << new DuanliangEGF;
 }

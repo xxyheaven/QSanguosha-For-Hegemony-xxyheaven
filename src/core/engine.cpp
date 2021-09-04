@@ -668,7 +668,7 @@ SkillCard *Engine::cloneSkillCard(const QString &name) const
 #ifndef USE_BUILDBOT
 QSanVersionNumber Engine::getVersionNumber() const
 {
-    return QSanVersionNumber(2, 3, 10);
+    return QSanVersionNumber(2, 3, 14);
 }
 #endif
 
@@ -1064,6 +1064,9 @@ const ViewAsSkill *Engine::getViewAsSkill(const QString &skill_name) const
 
 const ProhibitSkill *Engine::isProhibited(const Player *from, const Player *to, const Card *card, const QList<const Player *> &others) const
 {
+    if (card && card->isKindOf("Collateral") && others.length() == 1)
+        return NULL;
+
     foreach (const ProhibitSkill *skill, prohibit_skills) {
         if (skill->isProhibited(from, to, card, others))
             return skill;

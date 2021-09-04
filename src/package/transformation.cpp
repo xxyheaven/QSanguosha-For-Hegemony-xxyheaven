@@ -808,38 +808,21 @@ YiguiCard::YiguiCard()
 
 bool YiguiCard::targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
 {
-    Card *mutable_card = Sanguosha->cloneCard(Self->tag["yigui"].toString());
-    if (mutable_card) {
-        mutable_card->addSubcards(subcards);
-        mutable_card->setCanRecast(false);
-        mutable_card->deleteLater();
-    }
     QString generalName = Self->tag["yigui_general"].toString();
 
     const General *general = Sanguosha->getGeneral(generalName);
 
     if (general == NULL) return false;
 
-    if (!(mutable_card->isKindOf("Collateral") && !targets.isEmpty())) {
-        if (to_select->hasShownOneGeneral() && !general->getKingdoms().contains(to_select->getKingdom()) && to_select->getRole() != "careerist")
-            return false;
+    Card *mutable_card = Sanguosha->cloneCard(Self->tag["yigui"].toString());
+    if (mutable_card) {
+        mutable_card->setSkillName("yigui");
+        mutable_card->addSubcards(subcards);
+        mutable_card->setCanRecast(false);
+        mutable_card->deleteLater();
+        mutable_card->setTag("YiguiGeneral", generalName);
     }
 
-    if (mutable_card->isKindOf("FightTogether")) {
-        QList<const Player *> siblings = Self->getAliveSiblings();
-        siblings << Self;
-        foreach (const Player *p, siblings) {
-            if (!Self->isProhibited(p, mutable_card)) {
-                if (p->isBigKingdomPlayer() == to_select->isBigKingdomPlayer()) {
-                    if (p->hasShownOneGeneral() && !general->getKingdoms().contains(p->getKingdom()) && p->getRole() != "careerist") {
-                        return false;
-                    }
-                }
-            }
-        }
-
-
-    }
     return mutable_card && mutable_card->targetFilter(targets, to_select, Self) && !Self->isProhibited(to_select, mutable_card, targets);
 }
 
@@ -847,6 +830,7 @@ bool YiguiCard::targetFixed() const
 {
     Card *mutable_card = Sanguosha->cloneCard(Self->tag["yigui"].toString());
     if (mutable_card) {
+        mutable_card->setSkillName("yigui");
         mutable_card->addSubcards(subcards);
         mutable_card->setCanRecast(false);
         mutable_card->deleteLater();
@@ -858,6 +842,7 @@ bool YiguiCard::targetsFeasible(const QList<const Player *> &targets, const Play
 {
     Card *mutable_card = Sanguosha->cloneCard(Self->tag["yigui"].toString());
     if (mutable_card) {
+        mutable_card->setSkillName("yigui");
         mutable_card->addSubcards(subcards);
         mutable_card->setCanRecast(false);
         mutable_card->deleteLater();
@@ -880,6 +865,7 @@ const Card *YiguiCard::validate(CardUseStruct &card_use) const
     use_card->setSkillName("yigui");
     use_card->setCanRecast(false);
     use_card->setShowSkill("yigui");
+    use_card->setTag("YiguiGeneral", soul_name);
 
     bool available = true;
 
@@ -889,8 +875,6 @@ const Card *YiguiCard::validate(CardUseStruct &card_use) const
 
     QString classname;
     if (use_card->isKindOf("Slash"))
-        classname = "Slash";
-    else if (use_card->isKindOf("Slash"))
         classname = "Slash";
     else
         classname = use_card->getClassName();
@@ -913,9 +897,11 @@ const Card *YiguiCard::validateInResponse(ServerPlayer *user) const
 
     Card *c = Sanguosha->cloneCard(card_name, Card::NoSuit, 0);
 
+    c->setTag("YiguiGeneral", soul_name);
+
     QString classname;
-    if (c->isKindOf("Nullification"))
-        classname = "Nullification";
+    if (c->isKindOf("Slash"))
+        classname = "Slash";
     else
         classname = c->getClassName();
 
@@ -961,14 +947,9 @@ public:
 
         if (zuoci->property("Huashens").toString().isEmpty()) return false;
 
-        if (pattern == "slash")
-            return !zuoci->hasFlag("Yigui_Slash");
+        if (pattern == "jink" || pattern == "nullification") return false;
 
-        if (pattern == "jink")
-            return !zuoci->hasFlag("Yigui_Jink");
-
-        if (pattern == "nullification")
-            return !zuoci->hasFlag("Yigui_Nullification");
+        if (pattern == "slash") return !zuoci->hasFlag("Yigui_Slash");
 
         QList<const Player *> siblings = zuoci->getAliveSiblings();
         siblings.prepend(zuoci);
@@ -981,7 +962,7 @@ public:
             }
         }
 
-        if (target->hasShownOneGeneral() && target->getRole() != "careerist") {
+        if (target->hasShownOneGeneral()) {
             QStringList huashens = zuoci->tag["Huashens"].toStringList();
             bool no_same = true;
             foreach (QString name, huashens) {
@@ -1021,13 +1002,6 @@ public:
 
         return false;
     }
-
-    virtual bool isEnabledAtNullification(const ServerPlayer *zuoci) const
-    {
-        Nullification *nullification = new Nullification(Card::NoSuit, 0);
-        nullification->setSkillName("yigui");
-        return !zuoci->isLocked(nullification) && !zuoci->property("Huashens").toString().isEmpty() && !zuoci->hasFlag("Yigui_Nullification");
-    }
 };
 
 class Yigui : public TriggerSkill
@@ -1044,110 +1018,65 @@ public:
     {
         if (button_name.isEmpty()) return true;
 
-        Card *ca = Sanguosha->cloneCard(button_name, Card::NoSuit, 0);
+        QString generalName = Self->tag["yigui_general"].toString();
+        const General *general = Sanguosha->getGeneral(generalName);
+        if (general == NULL) return false;
 
-        if (ca == NULL) return false;
+        Card *card = Sanguosha->cloneCard(button_name, Card::NoSuit, 0);
 
-        ca->setSkillName("yigui");
-        QString classname = ca->getClassName();
-        if (ca->isKindOf("Slash"))
+        if (card == NULL) return false;
+
+        card->setSkillName("yigui");
+        card->setTag("YiguiGeneral", generalName);
+        card->setCanRecast(false);
+
+        QString classname = card->getClassName();
+        if (card->isKindOf("Slash"))
             classname = "Slash";
-        if (ca->isKindOf("Nullification"))
+        if (card->isKindOf("Nullification"))
             classname = "Nullification";
 
         if (Self->hasFlag("Yigui_" + classname)) return false;
 
-        QString generalName = Self->tag["yigui_general"].toString();
-
-        const General *general = Sanguosha->getGeneral(generalName);
-
-        if (general == NULL) return false;
-
-        if (ca->isKindOf("AllianceFeast")) {
-            if (Self->hasShownOneGeneral() && !general->getKingdoms().contains(Self->getKingdom()) && Self->getRole() != "careerist")
-                return false;
-        }
-
-        if (ca->targetFixed()) {
-
-            if (ca->isKindOf("Peach")) {
-
-                QList<const Player *> siblings = Self->getAliveSiblings();
-                siblings.prepend(Self);
-
-                const Player *target = Self;
-                foreach (const Player *p, siblings) {
-                    if (p->hasFlag("Global_Dying")) {
-                        target = p;
-                        break;
-                    }
-                }
-
-                if (target->hasShownOneGeneral() && !general->getKingdoms().contains(target->getKingdom()) && target->getRole() != "careerist")
+        if (Sanguosha->currentRoomState()->getCurrentCardUseReason() == CardUseStruct::CARD_USE_REASON_PLAY)
+            return !Self->isCardLimited(card, Card::MethodUse, false) && card->isAvailable(Self);
+        else {
+            if (Sanguosha->currentRoomState()->getCurrentCardUseReason() == CardUseStruct::CARD_USE_REASON_RESPONSE_USE) {
+                if (Self->isCardLimited(card, Card::MethodUse, false))
                     return false;
 
-            }
+                if (card->isKindOf("Peach") || card->isKindOf("Analeptic")) {
 
-            if (ca->isKindOf("Analeptic") || ca->isKindOf("ExNihilo") || ca->isKindOf("ThreatenEmperor")
-                    || ca->isKindOf("AwaitExhausted") || ca->isKindOf("AllianceFeast")) {
-                if (Self->hasShownOneGeneral() && !general->getKingdoms().contains(Self->getKingdom()) && Self->getRole() != "careerist")
-                    return false;
-            }
-
-            if (ca->isKindOf("GlobalEffect") || ca->isKindOf("AOE")) {
-                if (ca->isKindOf("FightTogether")) {
-                    QList<const Player *> siblings = Self->getAliveSiblings(), bigs, smalls;
-                    siblings << Self;
-                    foreach (const Player *p, siblings) {
-                        if (p->isBigKingdomPlayer())
-                            bigs << p;
-                        else
-                            smalls << p;
-                    }
-                    if (bigs.isEmpty()) return false;
-
-                    bool big = false, small = false, no_target = true;
-
-                    foreach (const Player *p, bigs) {
-                        if (!Self->isProhibited(p, ca)) {
-                            no_target = false;
-                            if (p->hasShownOneGeneral() && !general->getKingdoms().contains(p->getKingdom()) && p->getRole() != "careerist") {
-                                big = true;
-                                break;
-                            }
-                        }
-                    }
-                    foreach (const Player *p, smalls) {
-                        if (!Self->isProhibited(p, ca)) {
-                            no_target = false;
-                            if (p->hasShownOneGeneral() && !general->getKingdoms().contains(p->getKingdom()) && p->getRole() != "careerist") {
-                                small = true;
-                                break;
-                            }
-                        }
-                    }
-
-                    if (no_target || (big && small)) return false;
-
-                } else if (ca->isKindOf("BurningCamps")) {
-                    Player *target = Self->getNextAlive();
-                    if (target->hasShownOneGeneral() && !general->getKingdoms().contains(target->getKingdom()) && target->getRole() != "careerist")
-                        return false;
-                } else {
                     QList<const Player *> siblings = Self->getAliveSiblings();
-                    if (ca->isKindOf("GlobalEffect")) siblings << Self;
+                    siblings.prepend(Self);
+
+                    const Player *target = Self;
                     foreach (const Player *p, siblings) {
-                        if (p->hasShownOneGeneral() && ca->isKindOf("ImperialOrder")) continue;
-                        if (!Self->isProhibited(p, ca)) {
-                            if (p->hasShownOneGeneral() && !general->getKingdoms().contains(p->getKingdom()) && p->getRole() != "careerist")
-                                return false;
+                        if (p->hasFlag("Global_Dying")) {
+                            target = p;
+                            break;
                         }
                     }
-                }
-            }
-        }
 
-        return Skill::buttonEnabled(button_name);
+                    if (Self->isProhibited(target, card, QList<const Player *>()))
+                        return false;
+                }
+
+
+            } else
+                return false;
+
+            QString pattern = Sanguosha->currentRoomState()->getCurrentCardUsePattern();
+            if (pattern.startsWith(".") || pattern.startsWith("@"))
+                return false;
+            if (pattern == "slash") {
+                return card->isKindOf("Slash");
+            } else if (pattern == "nullification") {
+                return card->isKindOf("Nullification");
+            } else
+                return pattern.contains(button_name);
+        }
+        return false;
     }
 
     static void AcquireGenerals(ServerPlayer *zuoci, int n, QString reason)
@@ -1264,6 +1193,24 @@ public:
     }
 };
 
+class YiguiProhibit : public ProhibitSkill
+{
+public:
+    YiguiProhibit() : ProhibitSkill("#yigui-prohibit")
+    {
+    }
+
+    virtual bool isProhibited(const Player *, const Player *to, const Card *card, const QList<const Player *> &) const
+    {
+        if (card->getSkillName(true) == "yigui" && to->hasShownOneGeneral()) {
+            QString generalName = card->tag["YiguiGeneral"].toString();
+            const General *general = Sanguosha->getGeneral(generalName);
+            return (general && !general->getKingdoms().contains(to->getKingdom()));
+        }
+        return false;
+    }
+};
+
 class Jihun : public TriggerSkill
 {
 public:
@@ -1275,10 +1222,10 @@ public:
     virtual TriggerList triggerable(TriggerEvent triggerEvent, Room *room, ServerPlayer *player, QVariant &) const
     {
         TriggerList skill_list;
-        if (triggerEvent == QuitDying && player->isAlive()) {
+        if (triggerEvent == QuitDying && player->isAlive() && player->hasShownOneGeneral()) {
             QList<ServerPlayer *> zuocis = room->findPlayersBySkillName(objectName());
             foreach (ServerPlayer *zuoci, zuocis) {
-                if (zuoci != NULL && zuoci->isFriendWith(player))
+                if (zuoci != NULL && !zuoci->isFriendWith(player) && zuoci->hasShownOneGeneral())
                     skill_list.insert(zuoci, QStringList(objectName()));
             }
             return skill_list;
@@ -1994,13 +1941,14 @@ class Jubao : public TriggerSkill
 public:
     Jubao() : TriggerSkill("jubao")
     {
-        events << EventPhaseStart;
+        events << EventPhaseStart << BeforeCardsMove;
         frequency = Compulsory;
     }
 
-    virtual QStringList triggerable(TriggerEvent, Room *room, ServerPlayer *player, QVariant &, ServerPlayer* &) const
+    virtual QStringList triggerable(TriggerEvent triggerEvent, Room *room, ServerPlayer *player, QVariant &data, ServerPlayer* &) const
     {
-        if (player->getPhase() == Player::Finish && TriggerSkill::triggerable(player)) {
+        if (!TriggerSkill::triggerable(player)) return QStringList();
+        if (triggerEvent == EventPhaseStart && player->getPhase() == Player::Finish) {
             foreach (ServerPlayer *p, room->getAlivePlayers()) {
                 if (p->getTreasure() && p->getTreasure()->isKindOf("LuminousPearl"))
                     return QStringList(objectName());
@@ -2009,47 +1957,59 @@ public:
                 if (Sanguosha->getCard(id)->isKindOf("LuminousPearl"))
                     return QStringList(objectName());
             }
+        } else if (triggerEvent == BeforeCardsMove && player->getTreasure()) {
+            int treasure_id = player->getTreasure()->getEffectiveId();
+            QVariantList move_datas = data.toList();
+            foreach (QVariant move_data, move_datas) {
+                CardsMoveOneTimeStruct move = move_data.value<CardsMoveOneTimeStruct>();
+                if (move.from != player) continue;
+                if (move.to && move.to != move.from && move.to_place == Player::PlaceHand
+                     && move.reason.m_reason != CardMoveReason::S_REASON_GIVE) {
+                    foreach (int id, move.card_ids) {
+                        if (treasure_id == id)
+                            return QStringList(objectName());
+                    }
+                }
+            }
         }
         return QStringList();
     }
 
-    virtual bool cost(TriggerEvent, Room *room, ServerPlayer *player, QVariant &, ServerPlayer *) const
+    virtual bool cost(TriggerEvent, Room *room, ServerPlayer *player, QVariant &data, ServerPlayer *) const
     {
-        if (player->hasShownSkill(this) || player->askForSkillInvoke(this)) {
+        bool invoke = false;
+        if (player->hasShownSkill(objectName())) {
+            invoke = true;
+            room->sendCompulsoryTriggerLog(player, objectName());
+        } else
+            invoke = player->askForSkillInvoke(this, data);
+
+        if (invoke) {
             room->broadcastSkillInvoke(objectName(), player);
             return true;
         }
         return false;
     }
-    virtual bool effect(TriggerEvent, Room *room, ServerPlayer *player, QVariant &, ServerPlayer *) const
+
+    virtual bool effect(TriggerEvent triggerEvent, Room *room, ServerPlayer *player, QVariant &data, ServerPlayer *) const
     {
-        room->sendCompulsoryTriggerLog(player, objectName());
-        player->drawCards(1, objectName());
-        QList<CardsMoveStruct> moves;
-        foreach (ServerPlayer *p, room->getAlivePlayers()) {
-            if (p->getTreasure() && p->getTreasure()->isKindOf("LuminousPearl") && player->canGetCard(p, "he")) {
-                int card_id = room->askForCardChosen(player, p, "he", objectName(), false, Card::MethodGet);
-                CardMoveReason reason(CardMoveReason::S_REASON_EXTRACTION, player->objectName());
-                CardsMoveStruct move(card_id, player, Player::PlaceHand, reason);
-                moves.append(move);
+        if (triggerEvent == EventPhaseStart) {
+            player->drawCards(1, objectName());
+            QList<CardsMoveStruct> moves;
+            foreach (ServerPlayer *p, room->getAlivePlayers()) {
+                if (p->getTreasure() && p->getTreasure()->isKindOf("LuminousPearl") && player->canGetCard(p, "he")) {
+                    int card_id = room->askForCardChosen(player, p, "he", objectName(), false, Card::MethodGet);
+                    CardMoveReason reason(CardMoveReason::S_REASON_EXTRACTION, player->objectName());
+                    CardsMoveStruct move(card_id, player, Player::PlaceHand, reason);
+                    moves.append(move);
+                }
             }
+            if (!moves.isEmpty())
+                room->moveCardsAtomic(moves, false);
+        } else if (player->getTreasure()) {
+            int id = player->getTreasure()->getEffectiveId();
+            data = room->changeMoveData(data, QList<int>() << id);
         }
-        if (!moves.isEmpty()) room->moveCardsAtomic(moves, false);
-        return false;
-    }
-};
-
-class JubaoCardFixed : public FixCardSkill
-{
-public:
-    JubaoCardFixed() : FixCardSkill("#jubao-treasure")
-    {
-    }
-    virtual bool isCardFixed(const Player *from, const Player *to, const QString &flags, Card::HandlingMethod method) const
-    {
-        if (from != to && method == Card::MethodGet && to->hasShownSkill(this) && (flags.contains("t")))
-            return true;
-
         return false;
     }
 };
@@ -2062,7 +2022,7 @@ FlameMapCard::FlameMapCard()
 void FlameMapCard::onUse(Room *room, const CardUseStruct &card_use) const
 {
     ServerPlayer *source = card_use.from;
-    ServerPlayer *sunquan = room->getLord(source->getKingdom());
+    ServerPlayer *sunquan = room->getLord(source->getSeemingKingdom());
     LogMessage log;
     log.type = "#InvokeOthersSkill";
     log.from = source;
@@ -2230,7 +2190,7 @@ public:
                             room->attachSkillToPlayer(p, "flamemap");
                 }
             } else {
-                ServerPlayer *lord = room->getLord(player->getKingdom());
+                ServerPlayer *lord = room->getLord(player->getSeemingKingdom());
                  if (lord && lord->isAlive() && lord->hasLordSkill(objectName(), true))
                      room->attachSkillToPlayer(player, "flamemap");
             }
@@ -2242,7 +2202,7 @@ public:
                 }
             }
         } else if (triggerEvent == DFDebut) {
-            ServerPlayer *lord = room->getLord(player->getKingdom());
+            ServerPlayer *lord = room->getLord(player->getSeemingKingdom());
             if (lord && lord->isAlive() && lord->hasLordSkill(objectName(), true) && !player->getAcquiredSkills().contains("flamemap")) {
                 room->attachSkillToPlayer(player, "flamemap");
             }
@@ -2457,7 +2417,8 @@ TransformationPackage::TransformationPackage()
     General *Zuoci_new = new General(this, "new_zuoci", "qun", 3);
     Zuoci_new->addSkill(new Yigui);
     Zuoci_new->addSkill(new YiguiShow);
-    insertRelatedSkills("yigui", "#yigui-show");
+    Zuoci_new->addSkill(new YiguiProhibit);
+    insertRelatedSkills("yigui", 2, "#yigui-show", "#yigui-prohibit");
     Zuoci_new->addSkill(new Jihun);
     Zuoci_new->addCompanion("yuji");
 
@@ -2487,8 +2448,6 @@ TransformationPackage::TransformationPackage()
     insertRelatedSkills("jiahe", "#jiahe-clear");
     sunquan->addSkill(new Lianzi);
     sunquan->addSkill(new Jubao);
-    sunquan->addSkill(new JubaoCardFixed);
-    insertRelatedSkills("jubao", "#jubao-treasure");
     sunquan->addRelateSkill("zhiheng");
     sunquan->addRelateSkill("flamemap");
     sunquan->addRelateSkill("yingzi_flamemap");

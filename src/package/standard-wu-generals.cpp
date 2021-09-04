@@ -904,6 +904,11 @@ public:
         view_as_skill = new TianxiangViewAsSkill;
     }
 
+    virtual int getPriority() const
+    {
+        return -2;
+    }
+
     virtual bool canPreshow() const
     {
         return true;

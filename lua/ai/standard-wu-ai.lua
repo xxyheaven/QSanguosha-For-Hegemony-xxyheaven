@@ -1400,7 +1400,7 @@ sgs.ai_skill_use["@@tianxiang"] = function(self, data, method)
 		if (friend:getLostHp() + dmg.damage > 1 and friend:isAlive()) then
 			if friend:isChained() and dmg.nature ~= sgs.DamageStruct_Normal and not self:isGoodChainTarget(friend, dmg.from, dmg.nature, dmg.damage, dmg.card) then
 			elseif friend:getHp() >= 2 and dmg.damage < 2
-					and (friend:hasShownSkills("yiji|buqu|shuangxiong|zaiqi|yinghun_sunjian|yinghun_sunce|jianxiong|fangzhu")
+					and (friend:hasShownSkills("yiji|shuangxiong|zaiqi|jianxiong|fangzhu")
 						or self:getDamagedEffects(friend, dmg.from or self.room:getCurrent())
 						or self:needToLoseHp(friend)
 						or (friend:getHandcardNum() < 3 and friend:hasShownSkill("rende"))) then

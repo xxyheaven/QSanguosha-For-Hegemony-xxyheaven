@@ -835,13 +835,8 @@ bool ServerPlayer::pindian(ServerPlayer *target, const QString &reason, const Ca
 bool ServerPlayer::askCommandto(const QString &reason, ServerPlayer *target)
 {
     int index = startCommand(reason, target);
-    ServerPlayer *dest = NULL;
-    if (index == 0) {
-        dest = room->askForPlayerChosen(this, room->getAlivePlayers(), "command_"+reason, "@command-damage");
-        room->doAnimate(QSanProtocol::S_ANIMATE_INDICATE, objectName(), dest->objectName());
-    }
 
-    bool invoke = target->doCommand(reason, index, this, dest);
+    bool invoke = target->doCommand(reason, index, this);
     return invoke;
 }
 
@@ -879,7 +874,7 @@ int ServerPlayer::startCommand(const QString &reason, ServerPlayer *target)
     return allcommands.indexOf(choice);
 }
 
-bool ServerPlayer::doCommand(const QString &reason, int index, ServerPlayer *source, ServerPlayer *dest)
+bool ServerPlayer::doCommand(const QString &reason, int index, ServerPlayer *source)
 {
     QStringList allcommands;
     allcommands << "command1" << "command2" << "command3" << "command4" << "command5" << "command6";
@@ -889,14 +884,12 @@ bool ServerPlayer::doCommand(const QString &reason, int index, ServerPlayer *sou
     QString prompt = "@docommand:"+source->objectName()+"::"+reason+":#"+command;
 
     if (index == 0) {
-        if (dest == NULL || dest->isDead()) return false;
-        prompt = "@docommand1:"+source->objectName()+":"+ dest->objectName()+":"+reason;
-    }else if (index == 1) {
+        prompt = "@docommand1:"+source->objectName()+"::"+reason;
+    } else if (index == 1) {
         prompt = "@docommand2:"+source->objectName()+"::"+reason;
     }
 
     QString choice = room->askForChoice(this, "docommand_"+reason, "yes+no", QVariant(), prompt);
-
 
     LogMessage log;
     log.type = "#CommandChoice";
@@ -907,7 +900,8 @@ bool ServerPlayer::doCommand(const QString &reason, int index, ServerPlayer *sou
     if (choice == "yes") {
         switch (index+1) {
         case 1: {
-            room->damage(DamageStruct("command", this, dest, 1));
+            ServerPlayer *dest = room->askForPlayerChosen(source, room->getAlivePlayers(), "command_"+reason, "@command-damage");
+            room->damage(DamageStruct("command", this, dest));
             break;
         }
         case 2: {
@@ -1735,8 +1729,10 @@ void ServerPlayer::showGeneral(bool head_general, bool trigger_event, bool sendL
             room->notifyProperty(p, this, "head_skin_id");
 
         if (getGeneral()->getKingdom() == "careerist" || getRole() == "careerist") {
-            if (getGeneral()->getKingdom() == "careerist" && property("CareeristFriend").toString().isEmpty())
-                setKingdom("careerist");
+            if (getGeneral()->getKingdom() == "careerist" && property("CareeristFriend").toString().isEmpty()) {
+                //setKingdom("careerist");
+                room->setPlayerProperty(this, "kingdom", "careerist");
+            }
             room->setPlayerProperty(this, "role", "careerist");
         }
         else if (!hasShownGeneral2()) {

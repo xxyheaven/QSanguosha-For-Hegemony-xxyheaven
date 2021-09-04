@@ -143,7 +143,7 @@ public:
         if (triggerEvent == EventPhaseStart && player->getPhase() ==  Player::NotActive) {
             QList<ServerPlayer *> alls = room->getAlivePlayers();
             foreach (ServerPlayer *p, alls) {
-
+                room->setPlayerMark(p, "#xibing", 0);
                 room->removePlayerDisableShow(p, objectName());
             }
         }
@@ -183,6 +183,7 @@ public:
         if (x > 0) {
             player->drawCards(x);
             room->setPlayerCardLimitation(player, "use", ".|.|.|hand", true);
+            room->addPlayerTip(player, "#xibing");
         }
 
         if (huaxin->hasShownAllGenerals() && player->hasShownAllGenerals()) {
@@ -628,15 +629,8 @@ class Kuangcai : public TriggerSkill
 public:
     Kuangcai() : TriggerSkill("kuangcai")
     {
-        events << EventPhaseStart << TrickCardCanceling;
+        events << EventPhaseStart;
         frequency = Compulsory;
-    }
-
-    virtual void record(TriggerEvent triggerEvent, Room *, ServerPlayer *, QVariant &) const
-    {
-         if (triggerEvent == TrickCardCanceling) {
-
-         }
     }
 
     virtual QStringList triggerable(TriggerEvent triggerEvent, Room *, ServerPlayer *player, QVariant &, ServerPlayer* &) const
@@ -644,7 +638,7 @@ public:
         if (!TriggerSkill::triggerable(player)) return QStringList();
         if (triggerEvent == EventPhaseStart && player->getPhase() == Player::Discard) {
             int x = player->getCardUsedTimes("."), y = player->getMark("Global_DamagePiont_Round");
-            if ((x > 0 && y == 0) || y >= x)
+            if (x > 0 && y == 0)
                 return QStringList(objectName());
         }
         return QStringList();
@@ -668,14 +662,7 @@ public:
 
     virtual bool effect(TriggerEvent, Room *room, ServerPlayer *player, QVariant &, ServerPlayer *) const
     {
-        int x = player->getCardUsedTimes("."), y = player->getMark("Global_DamagePiont_Round");
-
-        if (x > 0 && y == 0)
-            room->addPlayerMark(player, "Global_MaxcardsDecrease", 2);
-        else if (y >= x) {
-            player->fillHandCards(player->getMaxHp(), objectName());
-            room->addPlayerMark(player, "Global_MaxcardsIncrease", 2);
-        }
+        room->addPlayerMark(player, "Global_MaxcardsDecrease");
         return false;
     }
 };
@@ -720,12 +707,17 @@ public:
         events << TargetConfirmed;
     }
 
-    virtual QStringList triggerable(TriggerEvent , Room *, ServerPlayer *player, QVariant &data, ServerPlayer* &) const
+    virtual QStringList triggerable(TriggerEvent , Room *room, ServerPlayer *player, QVariant &data, ServerPlayer* &) const
     {
-        if (!TriggerSkill::triggerable(player) || !player->hasShownOneGeneral()) return QStringList();
+        if (!TriggerSkill::triggerable(player) || player->isKongcheng()) return QStringList();
+        QList<ServerPlayer *> allplayers = room->getAlivePlayers();
+        foreach (ServerPlayer *p, allplayers) {
+            if (p->getHp() <= 0)
+                return QStringList();
+        }
         CardUseStruct use = data.value<CardUseStruct>();
         if (use.card->getTypeId() != Card::TypeSkill && use.to.size() == 1 && use.to.contains(player)) {
-            if (use.from && use.from->isAlive() && use.from->hasShownOneGeneral() && !use.from->isFriendWith(player) && !player->isKongcheng())
+            if (use.from && use.from->isAlive() && use.from != player)
                 return QStringList(objectName());
 
         }
@@ -754,6 +746,99 @@ public:
     }
 };
 
+class Yusui : public TriggerSkill
+{
+public:
+    Yusui() : TriggerSkill("yusui")
+    {
+        events << TargetConfirmed;
+    }
+
+    virtual QStringList triggerable(TriggerEvent, Room *, ServerPlayer *player, QVariant &data, ServerPlayer* &) const
+    {
+        if (!TriggerSkill::triggerable(player) || !player->hasShownOneGeneral() || player->getHp() < 1) return QStringList();
+        CardUseStruct use = data.value<CardUseStruct>();
+        if (use.card->getTypeId() != Card::TypeSkill && use.card->isBlack() && use.to.contains(player)
+                && (use.from && !use.from->isFriendWith(player) && use.from->isAlive()))
+            return QStringList(objectName());
+        return QStringList();
+    }
+
+    virtual bool cost(TriggerEvent, Room *room, ServerPlayer *player, QVariant &data, ServerPlayer *) const
+    {
+        CardUseStruct use = data.value<CardUseStruct>();
+        if (player->askForSkillInvoke(this, QVariant::fromValue(use.from))) {
+            room->broadcastSkillInvoke(objectName(), player);
+            room->doAnimate(QSanProtocol::S_ANIMATE_INDICATE, player->objectName(), use.from->objectName());
+            return true;
+        }
+
+        return false;
+    }
+
+    virtual bool effect(TriggerEvent, Room *room, ServerPlayer *player, QVariant &data, ServerPlayer *) const
+    {
+        CardUseStruct use = data.value<CardUseStruct>();
+        ServerPlayer *target = use.from;
+        room->loseHp(player);
+
+        if (target == NULL || target->isDead() || player->isDead()) return false;
+
+        QStringList choices;
+        if (target->getHp() > player->getHp()) choices << "losehp";
+        if (!target->isNude()) choices << "discard";
+
+        if (choices.isEmpty()) return false;
+
+
+        QString choice =room->askForChoice(player, objectName(), choices.join("+"), data, "@yusui-choice::"+target->objectName(), "losehp+discard");
+
+        if (choice == "losehp" && target->getHp() > player->getHp())
+            room->loseHp(target, target->getHp() - player->getHp());
+        else if (choice == "discard")
+            room->askForDiscard(target, "yusui_discard", target->getMaxHp(), target->getMaxHp());
+        return false;
+    }
+};
+
+BoyanCard::BoyanCard()
+{
+
+}
+
+bool BoyanCard::targetFilter(const QList<const Player *> &targets, const Player *, const Player *) const
+{
+    return targets.isEmpty();
+}
+
+void BoyanCard::onEffect(const CardEffectStruct &effect) const
+{
+    ServerPlayer *target = effect.to;
+    target->fillHandCards(target->getMaxHp(), "boyan");
+    target->getRoom()->setPlayerCardLimitation(target, "use,response", ".|.|.|hand", true);
+}
+
+class Boyan : public ZeroCardViewAsSkill
+{
+public:
+    Boyan() : ZeroCardViewAsSkill("boyan")
+    {
+
+    }
+
+    const Card *viewAs() const
+    {
+        BoyanCard *skill_card = new BoyanCard;
+        skill_card->setShowSkill(objectName());
+        return skill_card;
+    }
+
+    bool isEnabledAtPlay(const Player *player) const
+    {
+        return !player->hasUsed("BoyanCard");
+    }
+};
+
 ManoeuvrePackage::ManoeuvrePackage()
     : Package("manoeuvre")
 {
@@ -777,5 +862,11 @@ ManoeuvrePackage::ManoeuvrePackage()
     miheng->addSkill(new Shejian);
     insertRelatedSkills("kuangcai", "#kuangcai-target");
 
+    General *fengxi = new General(this, "fengxi", "wu", 3);
+    fengxi->addSkill(new Yusui);
+    fengxi->addSkill(new Boyan);
+
+
+    addMetaObject<BoyanCard>();
 }
 

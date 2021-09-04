@@ -693,7 +693,7 @@ class SilverLionSkill : public ArmorSkill
 public:
     SilverLionSkill() : ArmorSkill("SilverLion")
     {
-        events << DamageInflicted << CardsMoveOneTime;
+        events << CardsMoveOneTime;
         frequency = Compulsory;
     }
 
@@ -762,10 +762,41 @@ public:
             room->recover(player, recover);
 
             return false;
-
-
-
         }
+        return false;
+    }
+};
+
+class SilverLionSkillDecrease : public ArmorSkill
+{
+public:
+    SilverLionSkillDecrease() : ArmorSkill("#SilverLion-decrease")
+    {
+        events << DamageInflicted;
+        frequency = Compulsory;
+    }
+
+    virtual int getPriority() const
+    {
+        return -3;
+    }
+
+    virtual QStringList triggerable(TriggerEvent , Room *, ServerPlayer *player, QVariant &data, ServerPlayer* &) const
+    {
+        DamageStruct damage = data.value<DamageStruct>();
+        if (damage.from && damage.from->ingoreArmor(player)) return QStringList();
+        if (player->hasArmorEffect("SilverLion") && damage.damage > 1)
+            return QStringList("SilverLion");
+        return QStringList();
+    }
+
+    virtual bool cost(TriggerEvent , Room *, ServerPlayer *, QVariant &, ServerPlayer *) const
+    {
+        return false;
+    }
+
+    virtual bool effect(TriggerEvent , Room *, ServerPlayer *, QVariant &, ServerPlayer *) const
+    {
         return false;
     }
 };
@@ -851,7 +882,9 @@ void StandardCardPackage::addEquipSkills()
     skills << new DoubleSwordSkill << new QinggangSwordSkill << new IceSwordSkill
         << new SpearSkill << new FanSkill << new AxeSkill << new KylinBowSkill
         << new TribladeSkill << new EightDiagramSkill << new RenwangShieldSkill
-        << new VineSkill << new SilverLionSkill << new SixSwordsSkill;
+        << new VineSkill << new SilverLionSkill << new SilverLionSkillDecrease << new SixSwordsSkill;
+
+    insertRelatedSkills("SilverLion", "#SilverLion-decrease");
 
     addMetaObject<TribladeSkillCard>();
 

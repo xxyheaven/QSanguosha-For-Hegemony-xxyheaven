@@ -66,7 +66,7 @@ bool Slash::IsAvailable(const Player *player, const Card *slash, bool considerSp
         if (used < valid) return true;
 
         if (considerSpecificAssignee) {
-            QList<const Player *> all_players = player->getSiblings();
+            QList<const Player *> all_players = player->getAliveSiblings();
             foreach (const Player *p, all_players) {
                 if (used < 1 + Sanguosha->correctCardTarget(TargetModSkill::Residue, player, THIS_SLASH, p))
                     return true;

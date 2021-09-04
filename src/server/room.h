@@ -131,19 +131,25 @@ public:
     bool isJinkEffected(ServerPlayer *user, const Card *jink);
     void judge(JudgeStruct &judge_struct);
     void sendJudgeResult(const JudgeStruct *judge);
-    QList<int> getNCards(int n, bool update_pile_number = true);
+    QList<int> getNCards(int n, bool update_pile_number = true, bool from_up = true);
     ServerPlayer *getLord(const QString &kingdom, bool include_death = false) const;
+    AskForMoveCardsStruct askForArrangeCards(ServerPlayer *zhuge, const QList<int> &cards, GuanxingType guanxing_type = GuanxingBothSides);
+    void guanxingFinish(ServerPlayer *zhuge, const QList<int> &upcards, const QList<int> &downcards);
     void askForGuanxing(ServerPlayer *zhuge, const QList<int> &cards, GuanxingType guanxing_type = GuanxingBothSides);
     AskForMoveCardsStruct askForMoveCards(ServerPlayer *zhuge, const QList<int> &upcards, const QList<int> &downcards, bool visible, const QString &reason,
         const QString &pattern, const QString &skillName, int min_num, int max_num, bool can_refuse = true, bool moverestricted = false,const QList<int> &notify_visible_list = QList<int>());
+    void returnToTopDrawPile(const QList<int> &cards);
+    void returnCardToDrawPile(int card_id, int index = 0);
+    int getRandomCardInPile(QString pattern, bool drawpile);
     int doGongxin(ServerPlayer *shenlvmeng, ServerPlayer *target, QList<int> enabled_ids = QList<int>(), const QString &skill_name = "shangyi");
-    int drawCard();
+    int drawCard(bool from_up = true);
     void fillAG(const QList<int> &card_ids, ServerPlayer *who = NULL, const QList<int> &disabled_ids = QList<int>(), QList<ServerPlayer *> watchers = QList<ServerPlayer *>());
     void takeAG(ServerPlayer *player, int card_id, bool move_cards = true);
     void clearAG(ServerPlayer *player = NULL);
     void provide(const Card *card);
     QList<ServerPlayer *> getLieges(const QString &kingdom, ServerPlayer *lord) const;
-    void sendLog(const LogMessage &log);
+    void sendLog(const LogMessage &log, QList<ServerPlayer *> players = QList<ServerPlayer *>());
+    void sendLog(const LogMessage &log, ServerPlayer *player);
     void sendCompulsoryTriggerLog(ServerPlayer *player, const QString &skill_name, bool notify_skill = true);
     void showCard(ServerPlayer *player, int card_id, ServerPlayer *only_viewer = NULL);
     void showCard(ServerPlayer *player, QList<int> card_ids, ServerPlayer *only_viewer = NULL);
@@ -320,7 +326,7 @@ public:
     void resetAI(ServerPlayer *player);
     void doDragonPhoenix(ServerPlayer *target, const QString &general1_name, const QString &general2_name, bool full_state = true,
                          const QString &kingdom = QString(), bool sendLog = true, const QString &show_flags = QString(), bool resetHp = false);
-    void transformDeputyGeneral(ServerPlayer *player);
+    void transformDeputyGeneral(ServerPlayer *player, bool show = true);
     void swapSeat(ServerPlayer *a, ServerPlayer *b);
     lua_State *getLuaState() const;
     void setFixedDistance(Player *from, const Player *to, int distance);
@@ -352,9 +358,9 @@ public:
     ServerPlayer *getCardOwner(int card_id) const;
     void setCardMapping(int card_id, ServerPlayer *owner, Player::Place place);
 
-    void drawCards(ServerPlayer *player, int n, const QString &reason = QString());
-    void drawCards(QList<ServerPlayer *> players, int n, const QString &reason = QString());
-    void drawCards(QList<ServerPlayer *> players, QList<int> n_list, const QString &reason = QString());
+    void drawCards(ServerPlayer *player, int n, const QString &reason = QString(), bool from_up = true);
+    void drawCards(QList<ServerPlayer *> players, int n, const QString &reason = QString(), bool from_up = true);
+    void drawCards(QList<ServerPlayer *> players, QList<int> n_list, const QString &reason = QString(), QList<bool> f_list = QList<bool>());
     void obtainCard(ServerPlayer *target, const Card *card, bool unhide = true);
     void obtainCard(ServerPlayer *target, int card_id, bool unhide = true);
     void obtainCard(ServerPlayer *target, const Card *card, const CardMoveReason &reason, bool unhide = true);
@@ -380,6 +386,7 @@ public:
 
     QVariant changeMoveData(QVariant data, CardsMoveStruct cards_move);
     QVariant changeMoveData(QVariant data, QList<CardsMoveStruct> cards_move);
+    QVariant changeMoveData(QVariant data, QList<int> ids);
     QVariant cheakMoveData(QVariant data);
 
     // interactive methods
