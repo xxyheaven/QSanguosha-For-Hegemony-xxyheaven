@@ -17,7 +17,7 @@
 
   Mogara
 *********************************************************************]]
-
+--[[旧珠联璧合等
 sgs.ai_skill_choice.halfmaxhp = function(self, choice, data)
 	if self:needKongcheng(self.player, true) and self.player:getPhase() ~= sgs.Player_Play then return "cancel" end
 	return "draw"
@@ -36,7 +36,7 @@ sgs.ai_skill_choice.firstshow = function(self, choice, data)
 	if self.room:getMode() == "jiange_defense" then return "cancel" end
 	return "draw"
 end
-
+]]--
 sgs.ai_skill_choice.heg_nullification = function(self, choice, data)
 	local effect = data:toCardEffect()
 	if effect.card:isKindOf("AOE") or effect.card:isKindOf("GlobalEffect") then
@@ -495,6 +495,7 @@ sgs.ai_skill_choice.GameRule_AskForGeneralShow = function(self, choices)
 	return "cancel"
 end
 
+--鏖战桃
 local aozhan_skill = {}
 aozhan_skill.name = "aozhan"
 table.insert(sgs.ai_skills, aozhan_skill)
@@ -538,21 +539,170 @@ sgs.ai_view_as.aozhan = function(card, player, card_place, class_name)
 end
 
 sgs.aozhan_keep_value = {
-	Peach = 6,
+	Peach = 7.5,
 }
 
+--珠联璧合标记
+local companion_skill = {}
+companion_skill.name = "companion"
+table.insert(sgs.ai_skills, companion_skill)
+companion_skill.getTurnUseCard = function(self, inclusive)
+	if self.player:getMark("@companion") < 1 then return end
+	return sgs.Card_Parse("@CompanionCard=.&")
+end
 
+sgs.ai_skill_use_func.CompanionCard= function(card, use, self)
+	--global_room:writeToConsole("珠联璧合判断开始")
+	local card_str = ("@CompanionCard=.&_companion")
+	local nofreindweak = true
+	for _, friend in ipairs(self.friends_noself) do
+		if self:isWeak(friend) then
+			nofreindweak = false
+		end
+	end
+	if self:getOverflow() > 2 and self.player:getHp() == 1 and nofreindweak then
+		--global_room:writeToConsole("桃回复")
+		use.card = sgs.Card_Parse(card_str)
+		return
+	end
+	return
 
+--暂不考虑摸牌
+--[[如何获取当前或上一张杀的目标？canHit?
+	情况1：能出杀，敌方目标血量为1且无闪或手牌小于等于2
+	情况2：敌方目标血量为1且自身或团队状态良好，有桃
+]]--
+end
 
+sgs.ai_skill_choice["companion"] = function(self, choices)
+	return "peach"
+end
 
+function sgs.ai_cardsview.companion(self, class_name, player, cards)
+	if class_name == "Peach" then
+		if player:getMark("@companion") > 0  then
+			--global_room:writeToConsole("珠联璧合标记救人")
+			return "@CompanionCard=.&_companion"
+		end
+	end
+end
+
+sgs.ai_card_intention.CompanionCard = -140
+sgs.ai_use_priority.CompanionCard= 0.1
+
+--阴阳鱼标记
 sgs.ai_skill_choice.halfmaxhp = function(self, choices)
 	if self.player:getHandcardNum() - self.player:getMaxCards() > 1 then
 		return "yes"
 	end
 	return "no"
 end
+--暂不考虑摸牌
 
+--先驱标记
+local firstshow_skill = {}
+firstshow_skill.name = "firstshow"
+table.insert(sgs.ai_skills, firstshow_skill)
+firstshow_skill.getTurnUseCard = function(self, inclusive)
+	if self.player:getMark("@firstshow") < 1 then return end
+	return sgs.Card_Parse("@FirstShowCard=.&")
+end
 
+sgs.ai_skill_use_func.FirstShowCard= function(card, use, self)
+	sgs.ai_use_priority.CompanionCard = 0.1--挟天子之前
+	--global_room:writeToConsole("先驱判断开始")
+	if self.player:getHandcardNum() <= 1 and self:slashIsAvailable() then
+		sgs.ai_use_priority.CompanionCard = 2.4--杀之后
+		use.card = card
+		return
+	end
 
+	local freindisweak = false
+	for _, friend in ipairs(self.friends) do
+		if self:isWeak(friend) then
+			freindisweak = true
+		end
+	end
+	if self.player:getHandcardNum() <= 2 and self:getCardsNum("Peach") == 0 and freindisweak then
+		sgs.ai_use_priority.CompanionCard = 1--桃之前
+		use.card = card
+		return
+	end
+end
+
+sgs.ai_skill_choice["firstshow_see"] = function(self, choices)
+	choices = choices:split("+")
+	return choices[#choices]
+
+	--暂不考虑详细
+end
+
+sgs.ai_card_intention.FirstShowCard = 0
+
+--野心家标记
+local careerman_skill = {}
+careerman_skill.name = "careerman"
+table.insert(sgs.ai_skills, careerman_skill)
+careerman_skill.getTurnUseCard = function(self, inclusive)
+	if self.player:getMark("@careerist") < 1 then return end
+	--global_room:writeToConsole("野心家标记生成")
+	return sgs.Card_Parse("@CareermanCard=.&")
+end
+
+sgs.ai_skill_use_func.CareermanCard= function(card, use, self)
+	sgs.ai_use_priority.CareermanCard = 0.1--挟天子之前
+	self.careerman_case = 2--记录选择情况
+	--global_room:writeToConsole("野心家标记判断开始")
+	local card_str = ("@CareermanCard=.&_careerman")
+	local nofreindweak = true
+	for _, friend in ipairs(self.friends_noself) do
+		if self:isWeak(friend) then
+			nofreindweak = false
+		end
+	end
+	if self:getOverflow() > 2 and self.player:getHp() == 1 and nofreindweak then
+		--global_room:writeToConsole("野心家标记回复")
+		self.careerman_case = 3
+		use.card = sgs.Card_Parse(card_str)
+		return
+	end
+	if self.player:getHandcardNum() <= 1 and self:slashIsAvailable() then
+		sgs.ai_use_priority.CareermanCard = 2.4--杀之后
+		--global_room:writeToConsole("野心家标记补牌")
+		self.careerman_case = 4
+		use.card = card
+		return
+	end
+	return
+	--暂时不考虑摸2牌
+end
+
+--[[
+	all_choices << "draw1card" << "draw2cards" << "peach" << "firstshow";
+	对应self.careerman_case 1 2 3 4 有必要可以加入table.indexOf判断
+]]--
+
+sgs.ai_skill_choice["careerman"] = function(self, choices)
+	if self.careerman_case == 3 then
+		return "peach"
+	end
+	if self.careerman_case == 4 then
+		return "firstshow"
+	end
+	return "draw2cards"--默认情况case2
+end
+
+sgs.ai_skill_playerchosen["careerman"] = sgs.ai_skill_playerchosen.damage
+
+function sgs.ai_cardsview.careerman(self, class_name, player, cards)
+	if class_name == "Peach" then
+		if player:getMark("@careerist") > 0  then
+			--global_room:writeToConsole("野心家标记救人")
+			return "@CareermanCard=.&_careerman"
+		end
+	end
+end
+
+sgs.ai_card_intention.CareermanCard = -140
 
 

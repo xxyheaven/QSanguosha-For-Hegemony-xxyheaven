@@ -186,15 +186,15 @@ sgs.ai_skill_invoke.wanwei = function(self, data)
 	if self:isFriend(target) then return false end
 	self.wanwei = {}
 	local cards = sgs.QList2Table(self.player:getCards("e"))
-	local handcards = sgs.QList2Table(self.player:getHandcards())
-	table.insertTable(cards, handcards)
+	local hcards = sgs.QList2Table(self.player:getHandcards())
+	table.insertTable(cards, hcards)
 	self:sortByUseValue(cards)
 	for i = 1, move.card_ids:length(), 1 do
 		table.insert(self.wanwei, card[i]:getEffectiveId())
 	end
 	return true
 end
---]]
+--]]--ai好像有问题
 
 sgs.ai_skill_exchange.wanwei = function(self)
 	if not self:willShowForDefence() then return {} end
@@ -361,16 +361,47 @@ function SmartAI:getHuashenPairValue(g1, g2)
 	player:speak(g1:objectName() .. "+" .. g2:objectName() .. "的组合得分是：" .. current_value)
 	return current_value
 end
---]]
+
 sgs.ai_skill_choice.xinsheng = function(self, choice, data)
 	return sgs.ai_skill_choice["huashen"](self, choice, data)
 end
+]]--
 
 --沙摩柯
 sgs.ai_skill_invoke.jili = function(self, data)
 	if not self:willShowForAttack() then return false end
 	return true
 end
+
+--[[沙摩柯武器优先度调整]]--
+function SmartAI:shamokeUseWeaponPriority(card)
+	local class_name = card:getClassName()
+	local v = self:getUsePriority(card)
+	if self.player:hasSkill("jili") and not self.player:isKongcheng()
+	and card:isKindOf("Weapon") and not card:isKindOf("Crossbow") then
+		--global_room:writeToConsole("进入shamokeUseWeapon函数")
+		local hcards = self.player:getHandcards()
+		hcards = sgs.QList2Table(hcards)
+		self:sortByUsePriority(hcards)
+		local firstcard = hcards[1]
+		--assert(self.player:getMark("jili"))--沙摩柯标记
+		--global_room:writeToConsole("jilimark:")
+		--global_room:writeToConsole(self.player:getMark("jili"))
+		--assert(sgs.Sanguosha:correctAttackRange(self.player,true,false))--攻击距离修正技能
+		--global_room:writeToConsole(sgs.Sanguosha:correctAttackRange(self.player,true,false))
+		if self.player:getMark("jili") + 2 == sgs.weapon_range[class_name] + sgs.Sanguosha:correctAttackRange(self.player,true,false)
+		and v ~= self:getUsePriority(firstcard) then--防止无限自增死循环，防止两把武器相同距离死循环
+			if not (firstcard:isKindOf("Weapon") and sgs.weapon_range[class_name] == sgs.weapon_range[firstcard:getClassName()]) then
+				v = self:getUsePriority(firstcard) + 0.1
+				--global_room:writeToConsole("装备的优先度调整:")
+				--global_room:writeToConsole(v)
+			end
+		end
+	end
+	return v
+end
+
+sgs.ai_cardneed.jili = sgs.ai_cardneed.weapon
 
 --马谡
 sgs.ai_skill_invoke.zhiman = function(self, data)
@@ -535,7 +566,7 @@ sgs.ai_choicemade_filter.cardChosen.xuanlue = function(self, player, promptlist)
 	sgs.updateIntention(player, target, intention)
 end
 
-
+sgs.ai_cardneed.xuanlue = sgs.ai_cardneed.weapon
 
 
 
@@ -679,9 +710,9 @@ lianzi_skill.getTurnUseCard = function(self)
 		end
 	end
 	if num >= 3 then
-		local handcards = sgs.QList2Table(self.player:getHandcards())
-		self:sortByUseValue(handcards)
-		return sgs.Card_Parse("@LianziCard=" .. handcards[1]:getEffectiveId() .. "&lianzi")
+		local hcards = sgs.QList2Table(self.player:getHandcards())
+		self:sortByUseValue(hcards)
+		return sgs.Card_Parse("@LianziCard=" .. hcards[1]:getEffectiveId() .. "&lianzi")
 	end
 end
 
@@ -692,6 +723,10 @@ end
 sgs.ai_skill_invoke.jubao = function(self, data)
 	return true
 end
+
+sgs.ai_skill_cardchosen.jubao = sgs.ai_skill_cardchosen.jianchu
+
+--缺聚宝选装备？直接用鞬出试试
 
 --缘江烽火图【缘江】
 flamemap_skill = {}
@@ -810,18 +845,48 @@ sgs.ai_use_value.FlameMapCard = 10
 sgs.ai_skill_choice.flamemap = function(self, choices)
 	--英姿、好施、涉猎、度势
 	--初步策略：手牌十分充裕选度势，其次优先级：好施，涉猎，英姿，如果能选择两项则必选度势（0张手牌，没额外摸牌技选好施+英姿）
+	--界限突破英姿变为锁定技并获得手牌上限效果，损失血量过大或有其他摸牌技能，优先考虑英姿
 	
 	choices = choices:split("+")
 	local sunquan = self.room:getLord(self.player:getKingdom())
 	local n = sunquan:getPile("flame_map"):length()
 
-	if self.player:hasSkill("haoshi") then
-		table.removeOne(choices, "haoshi_flamemap")--双好施太复杂了，直接pass掉
+	if self.player:hasSkill("duoshi") or
+	(self.player:getHandcardNum() == 0 and not (self.player:hasSkills("yingzi_zhouyu|yingzi_sunce|haoshi") or self.player:hasTreasure("JadeSeal")))then
+		table.removeOne(choices, "duoshi_flamemap")--双度势应该不需要，0张手牌，没额外摸牌技移除度势
 	end
 
+	if self.player:hasSkill("haoshi") and table.contains(choices, "haoshi_flamemap") then
+		if sgs.ai_skill_invoke.haoshi(self) and self.haoshi_target then
+			return "haoshi_flamemap"--有目标时双好施
+		else
+			table.removeOne(choices, "haoshi_flamemap")--复杂情况不考虑
+		end
+	end
 	
-	if n > 5 and table.contains(choices, "duoshi_flamemap") and not (self.player:getHandcardNum() == 0 and self.player:hasSkills(sgs.drawcard_skill)) then
-		return "duoshi_flamemap"
+	if n > 4 and table.contains(choices, "duoshi_flamemap") then
+		return "duoshi_flamemap"--能选择两项则必选度势
+	end
+
+	if n > 4 and table.contains(choices, "haoshi_flamemap") and
+	self.player:getHandcardNum() > 3 and sgs.ai_skill_invoke.haoshi_flamemap(self) then--手牌大于3时触发好施必定有队友
+		return "haoshi_flamemap"--手牌充裕时好施给队友+度势
+	end	
+
+	if table.contains(choices, "yingzi_flamemap") and table.contains(choices, "haoshi_flamemap")  then
+		if self.player:hasSkills("yingzi_zhouyu|yingzi_sunce") --已有英姿且能好施，0手牌或有目标
+		and sgs.ai_skill_invoke.haoshi_flamemap(self) then
+			return "haoshi_flamemap"
+		end
+		if self.player:getLostHp() < 2 and self.player:hasTreasure("JadeSeal")--血量健康有玉玺且能好施
+		and sgs.ai_skill_invoke.haoshi_flamemap(self) then
+			return "haoshi_flamemap"
+		end
+		if (self.player:getLostHp() > 1 and not self.player:hasSkill("keji"))--损失血量过大
+		or self.player:hasSkills("yingzi_zhouyu|yingzi_sunce")--已有英姿，不适合好施
+		or self.player:hasTreasure("JadeSeal") then--已有玉玺，不适合好施
+			return "yingzi_flamemap"
+		end
 	end
 
 	if table.contains(choices, "haoshi_flamemap") and sgs.ai_skill_invoke.haoshi_flamemap(self) then
@@ -871,6 +936,7 @@ sgs.ai_skill_use["@@flamemap"] = function(self, prompt)
 end
 
 sgs.ai_skill_invoke.yingzi_flamemap = function(self, data)
+	--[[
 	if not self:willShowForAttack() and not self:willShowForDefence() then
 		return false
 	end
@@ -891,16 +957,30 @@ sgs.ai_skill_invoke.yingzi_flamemap = function(self, data)
 		end
 		return false
 	end
+	]]--现在是锁定技了
 	return true
 end
 
 
---好施，不考虑双好施
+--好施，复杂情况不考虑双好施
 sgs.ai_skill_invoke.haoshi_flamemap = sgs.ai_skill_invoke.haoshi
+--[[
+sgs.ai_skill_invoke.haoshi_flamemap = function(self, data)
+	if self.player:hasSkills("haoshi") then
+		if sgs.ai_skill_invoke.haoshi(self) and self.haoshi_target then
+			return true--双好施且有目标
+		else
+			return false--双好施一个不发动
+		end
+	end
+	return sgs.ai_skill_invoke.haoshi(self)
+end
+]]--
+
 
 --涉猎
 sgs.ai_skill_invoke.shelie = function(self, data)
-	if self.player:hasSkill("haoshi") and self.player:getHandcardNum() < 2 then return false end
+	if self.player:hasSkills("haoshi|haoshi_flamemap") and self.player:getHandcardNum() < 2 then return false end
 	local extra = 0
 	if self.player:hasTreasure("JadeSeal") then
 		extra = extra+1
@@ -933,29 +1013,34 @@ sgs.ai_skill_movecards.shelie = function(self, upcards, downcards, min_num, max_
 	return upcards_copy, down
 end
 
---度势，skillname不同只能再写一次，真烦
+--度势
 local duoshi_flamemap_skill = {}
 duoshi_flamemap_skill.name = "duoshi_flamemap"
 table.insert(sgs.ai_skills, duoshi_flamemap_skill)
 duoshi_flamemap_skill.getTurnUseCard = function(self, inclusive)
-	local DuoTime = 2
-	if self.player:hasSkills("fenming|zhiheng|fenxun|keji") then
-		DuoTime = 1
-	end
-	if self.player:hasSkills("hongyan|yingzi_zhouyu|yingzi_sunce|yingzi_flamemap") then
-		DuoTime = 3
-	end
-	if self.player:hasSkills("xiaoji|haoshi") then
-		DuoTime = 4
+	local DuoTime = 1
+	if self.player:hasSkills("hongyan|yingzi_zhouyu|yingzi_sunce|yingzi_flamemap|haoshi|haoshi_flamemap") then
+		DuoTime = 2
 	end
 	for _, player in ipairs(self.friends) do
-		if player:hasShownSkills("xiaoji|haoshi") then
-			DuoTime = 4
+		if player:hasShownSkills("xiaoji|xuanlue|diaodu") then
+			DuoTime = 2
 			break
 		end
 	end
+	if self.player:hasSkills("xiaoji|xuanlue|diaodu") then
+		DuoTime = 2
+		for _,card in sgs.qlist(self.player:getCards("he")) do
+			if card:isKindOf("EquipCard") then
+				DuoTime = DuoTime + 1
+			end
+		  end
+	end
+	if self.player:getHandcardNum() > 4 then
+		DuoTime = DuoTime + 1
+	end
 
-	if self.player:usedTimes("ViewAsSkill_duoshi_flamemapCard") >= DuoTime and self:getOverflow() <= 0 then return end
+	if self.player:usedTimes("ViewAsSkill_duoshi_flamemapCard") >= DuoTime or self:getOverflow() < 0 then return end
 	if self.player:usedTimes("ViewAsSkill_duoshi_flamemapCard") >= 4 then return end
 	
 	if sgs.turncount <= 1 and #self.friends_noself == 0 and not self:isWeak() and self:getOverflow() <= 0 then return end
@@ -1042,15 +1127,6 @@ duoshi_flamemap_skill.getTurnUseCard = function(self, inclusive)
 		return await
 	end
 end
-
-
-
-
-
-
-
-
-
 
 
 --夜明珠

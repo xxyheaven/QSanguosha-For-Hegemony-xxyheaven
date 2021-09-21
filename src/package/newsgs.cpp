@@ -806,22 +806,35 @@ BoyanCard::BoyanCard()
 
 }
 
-bool BoyanCard::targetFilter(const QList<const Player *> &targets, const Player *, const Player *) const
+bool BoyanCard::targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
 {
-    return targets.isEmpty();
+    return targets.isEmpty() && to_select != Self;
 }
 
 void BoyanCard::onEffect(const CardEffectStruct &effect) const
 {
+    ServerPlayer *source = effect.from;
     ServerPlayer *target = effect.to;
+    Room *room = source->getRoom();
+
     target->fillHandCards(target->getMaxHp(), "boyan");
-    target->getRoom()->setPlayerCardLimitation(target, "use,response", ".|.|.|hand", true);
+    room->setPlayerCardLimitation(target, "use,response", ".|.|.|hand", true);
+    room->addPlayerTip(target, "#boyan");
+
+    if (source->isAlive() && target->isAlive() &&
+            (room->askForChoice(source, "boyan", "yes+no", QVariant::fromValue(target),
+                               "@boyan-zongheng::"+target->objectName()) == "yes")) {
+
+        room->acquireSkill(target, "boyanzongheng", true, false);
+    }
+
+
 }
 
-class Boyan : public ZeroCardViewAsSkill
+class BoyanViewAsSkill : public ZeroCardViewAsSkill
 {
 public:
-    Boyan() : ZeroCardViewAsSkill("boyan")
+    BoyanViewAsSkill() : ZeroCardViewAsSkill("boyan")
     {
 
     }
@@ -836,6 +849,289 @@ public:
     bool isEnabledAtPlay(const Player *player) const
     {
         return !player->hasUsed("BoyanCard");
+    }
+};
+
+class Boyan : public TriggerSkill
+{
+public:
+    Boyan() : TriggerSkill("boyan")
+    {
+        events << EventPhaseStart;
+        view_as_skill = new BoyanViewAsSkill;
+    }
+
+    virtual void record(TriggerEvent , Room *room, ServerPlayer *player, QVariant &) const
+    {
+        if (player->getPhase() == Player::NotActive) {
+            room->detachSkillFromPlayer(player, "boyanzongheng", false, false, false);
+            foreach (ServerPlayer *p, room->getAlivePlayers()) {
+                room->removePlayerTip(p, "#boyan");
+            }
+        }
+    }
+
+    virtual QStringList triggerable(TriggerEvent, Room *, ServerPlayer *, QVariant &, ServerPlayer * &) const
+    {
+        return QStringList();
+    }
+};
+
+BoyanZonghengCard::BoyanZonghengCard()
+{
+
+}
+
+bool BoyanZonghengCard::targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
+{
+    return targets.isEmpty() && to_select != Self;
+}
+
+void BoyanZonghengCard::onEffect(const CardEffectStruct &effect) const
+{
+    ServerPlayer *target = effect.to;
+    Room *room = target->getRoom();
+    room->setPlayerCardLimitation(target, "use,response", ".|.|.|hand", true);
+    room->addPlayerTip(target, "#boyan");
+}
+
+class BoyanZongheng : public ZeroCardViewAsSkill
+{
+public:
+    BoyanZongheng() : ZeroCardViewAsSkill("boyanzongheng")
+    {
+
+    }
+
+    const Card *viewAs() const
+    {
+        BoyanZonghengCard *skill_card = new BoyanZonghengCard;
+        skill_card->setShowSkill(objectName());
+        return skill_card;
+    }
+
+    bool isEnabledAtPlay(const Player *player) const
+    {
+        return !player->hasUsed("BoyanZonghengCard");
+    }
+};
+
+class Jianliang : public PhaseChangeSkill
+{
+public:
+    Jianliang() : PhaseChangeSkill("jianliang")
+    {
+
+    }
+
+    virtual QStringList triggerable(TriggerEvent, Room *room, ServerPlayer *player, QVariant &, ServerPlayer* &) const
+    {
+        if (!PhaseChangeSkill::triggerable(player) || player->getPhase() != Player::Draw)
+            return QStringList();
+        QList<ServerPlayer *> players = room->getOtherPlayers(player);
+        foreach(ServerPlayer *p, players) {
+            if (p->getHandcardNum() < player->getHandcardNum())
+                return QStringList();
+        }
+
+        return QStringList(objectName());
+    }
+
+    virtual bool cost(TriggerEvent, Room *room, ServerPlayer *player, QVariant &, ServerPlayer *) const
+    {
+        if (player->askForSkillInvoke(this)) {
+            room->broadcastSkillInvoke(objectName(), player);
+            return true;
+        }
+
+        return false;
+    }
+
+    virtual bool onPhaseChange(ServerPlayer *player) const
+    {
+        Room *room = player->getRoom();
+        QList<ServerPlayer *> to_choose, all_players = room->getAlivePlayers();
+        foreach (ServerPlayer *p, all_players) {
+            if (player->isFriendWith(p))
+                to_choose << p;
+        }
+        room->sortByActionOrder(to_choose);
+        foreach (ServerPlayer *p, to_choose) {
+            if (p->isAlive())
+                p->drawCards(1, objectName());
+        }
+        return false;
+    }
+};
+
+WeimengCard::WeimengCard()
+{
+
+}
+
+bool WeimengCard::targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
+{
+    return targets.isEmpty() && to_select != Self && !to_select->isNude();
+}
+
+void WeimengCard::onEffect(const CardEffectStruct &effect) const
+{
+    ServerPlayer *source = effect.from;
+    ServerPlayer *target = effect.to;
+    Room *room = source->getRoom();
+
+    if (source->isAlive() && target->isAlive() && !target->isNude()) {
+        int max = qMin(source->getHp(), target->getCardCount(true));
+        QStringList get_num;
+        for (int i = 1; i <= max; get_num << QString::number(i++)) {
+
+        }
+        int num = room->askForChoice(source, "weimeng_num", get_num.join("+"), QVariant::fromValue(target),
+                                     "@weimeng-num::"+target->objectName()).toInt();
+
+        QStringList handle_string;
+        for (int i = 0; i < num; i++) {
+            handle_string << "he";
+        }
+
+        QList<int> to_get = room->askForCardsChosen(source, target, handle_string, "weimeng");
+
+        CardMoveReason reason1(CardMoveReason::S_REASON_EXTRACTION, source->objectName());
+
+        DummyCard dummy1(to_get);
+
+        room->obtainCard(source, &dummy1, reason1);
+
+        if (source->isAlive() && target->isAlive() && !source->isNude()) {
+            num = qMin(num, source->getCardCount(true));
+
+            target->setFlags("WeimengTarget");
+
+            QString prompt = QString("@weimeng-give::%1:%2").arg(target->objectName()).arg(num);
+            QList<int> ints = room->askForExchange(source, "weimeng_giveback", num, num, prompt);
+            target->setFlags("-WeimengTarget");
+
+            CardMoveReason reason(CardMoveReason::S_REASON_GIVE, source->objectName(), target->objectName(), "weimeng", QString());
+            reason.m_playerId = target->objectName();
+
+            DummyCard dummy2(ints);
+
+            room->moveCardTo(&dummy2, target, Player::PlaceHand, reason);
+
+        }
+    }
+
+    if (source->isAlive() && target->isAlive() &&
+            (room->askForChoice(source, "weimeng", "yes+no", QVariant::fromValue(target),
+                               "@weimeng-zongheng::"+target->objectName()) == "yes")) {
+
+        room->acquireSkill(target, "weimengzongheng", true, false);
+    }
+
+
+}
+
+class WeimengViewAsSkill : public ZeroCardViewAsSkill
+{
+public:
+    WeimengViewAsSkill() : ZeroCardViewAsSkill("weimeng")
+    {
+
+    }
+
+    const Card *viewAs() const
+    {
+        WeimengCard *skill_card = new WeimengCard;
+        skill_card->setShowSkill(objectName());
+        return skill_card;
+    }
+
+    bool isEnabledAtPlay(const Player *player) const
+    {
+        return !player->hasUsed("WeimengCard") && player->getHp() > 0;
+    }
+};
+
+class Weimeng : public TriggerSkill
+{
+public:
+    Weimeng() : TriggerSkill("weimeng")
+    {
+        events << EventPhaseStart;
+        view_as_skill = new WeimengViewAsSkill;
+    }
+
+    virtual void record(TriggerEvent , Room *room, ServerPlayer *player, QVariant &) const
+    {
+        if (player->getPhase() == Player::NotActive) {
+            room->detachSkillFromPlayer(player, "weimengzongheng", false, false, false);
+        }
+    }
+
+    virtual QStringList triggerable(TriggerEvent, Room *, ServerPlayer *, QVariant &, ServerPlayer * &) const
+    {
+        return QStringList();
+    }
+};
+
+WeimengZonghengCard::WeimengZonghengCard()
+{
+
+}
+
+bool WeimengZonghengCard::targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
+{
+    return targets.isEmpty() && to_select != Self && !to_select->isNude();
+}
+
+void WeimengZonghengCard::onEffect(const CardEffectStruct &effect) const
+{
+    ServerPlayer *source = effect.from;
+    ServerPlayer *target = effect.to;
+    Room *room = source->getRoom();
+
+    if (source->isDead() || target->isDead() || target->isNude()) return;
+    int card_id1 = room->askForCardChosen(source, target, "he", "weimeng", false, Card::MethodGet);
+    CardMoveReason reason1(CardMoveReason::S_REASON_EXTRACTION, source->objectName());
+    room->obtainCard(source, Sanguosha->getCard(card_id1), reason1, false);
+
+    if (source->isDead() || target->isDead() || source->isNude()) return;
+
+    target->setFlags("WeimengTarget");
+    QString prompt = QString("@weimeng-give::%1:%2").arg(target->objectName()).arg(1);
+    QList<int> ints = room->askForExchange(source, "weimeng_giveback", 1, 1, prompt);
+    target->setFlags("-WeimengTarget");
+
+    int card_id = -1;
+    if (ints.isEmpty()) {
+        card_id = source->getCards("he").first()->getEffectiveId();
+    } else
+        card_id = ints.first();
+
+    CardMoveReason reason(CardMoveReason::S_REASON_GIVE, source->objectName(), target->objectName(), "weimeng", QString());
+    reason.m_playerId = target->objectName();
+    room->moveCardTo(Sanguosha->getCard(card_id), target, Player::PlaceHand, reason);
+
+}
+
+class WeimengZongheng : public ZeroCardViewAsSkill
+{
+public:
+    WeimengZongheng() : ZeroCardViewAsSkill("weimengzongheng")
+    {
+
+    }
+
+    const Card *viewAs() const
+    {
+        WeimengZonghengCard *skill_card = new WeimengZonghengCard;
+        skill_card->setShowSkill(objectName());
+        return skill_card;
+    }
+
+    bool isEnabledAtPlay(const Player *player) const
+    {
+        return !player->hasUsed("WeimengZonghengCard");
     }
 };
 
@@ -866,7 +1162,21 @@ ManoeuvrePackage::ManoeuvrePackage()
     fengxi->addSkill(new Yusui);
     fengxi->addSkill(new Boyan);
 
+    General *dengzhi = new General(this, "dengzhi", "shu", 3);
+    dengzhi->addSkill(new Jianliang);
+    dengzhi->addSkill(new Weimeng);
+
+
+
+
+
+
 
     addMetaObject<BoyanCard>();
+    addMetaObject<BoyanZonghengCard>();
+    addMetaObject<WeimengCard>();
+    addMetaObject<WeimengZonghengCard>();
+
+    skills << new BoyanZongheng << new WeimengZongheng;
 }
 

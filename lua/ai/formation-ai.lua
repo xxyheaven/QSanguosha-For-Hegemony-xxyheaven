@@ -17,7 +17,7 @@
 
   Mogara
 *********************************************************************]]
-
+--邓艾
 sgs.ai_skill_invoke.tuntian = function(self, data)
 	if not (self:willShowForAttack() or self:willShowForDefence()) then
 		return false
@@ -97,6 +97,7 @@ sgs.ai_skill_use["@@ziliang"] = function(self)
 	return "."
 end
 
+--曹洪
 local function huyuan_validate(self, equip_type, is_handcard)
 	local targets = {}
 	if is_handcard then targets = self.friends else targets = self.friends_noself end
@@ -205,7 +206,7 @@ sgs.huyuan_keep_value = {
 	EquipCard = 4.8
 }
 
-
+--姜维
 function SmartAI:isTiaoxinTarget(enemy)
 	if not enemy then self.room:writeToConsole(debug.traceback()) return end
 	if getCardsNum("Slash", enemy, self.player) < 1 and self.player:getHp() > 1 and not self:canHit(self.player, enemy)
@@ -288,6 +289,7 @@ end
 sgs.ai_card_intention.TiaoxinCard = 80
 sgs.ai_use_priority.TiaoxinCard = 4
 
+--蒋琬＆费祎
 sgs.ai_skill_invoke.shoucheng = function(self, data)
 	local target = data:toPlayer()
 	if target and self:isFriend(target) and not self:needKongcheng(target, true) then
@@ -306,6 +308,20 @@ sgs.ai_skill_playerchosen.shoucheng = function(self, targets)
 	return result
 end
 
+sgs.ai_skill_invoke.shengxi = function(self, data)
+	if not self:willShowForDefence() and (self:needKongcheng() and self.player:getHp() < 3 ) then
+		return false
+	end
+--[[
+		if self:getOverflow() >= 0 then
+		local erzhang = sgs.findPlayerByShownSkillName("guzheng")
+		if erzhang and self:isEnemy(erzhang) then return false end
+	end
+]]--现在是结束阶段发动
+	return true
+end
+
+--蒋钦
 local shangyi_skill = {}
 shangyi_skill.name = "shangyi"
 table.insert(sgs.ai_skills, shangyi_skill)
@@ -367,6 +383,7 @@ sgs.ai_use_value.ShangyiCard = 4
 sgs.ai_use_priority.ShangyiCard = 9
 sgs.ai_card_intention.ShangyiCard = 50
 
+--徐盛
 sgs.ai_skill_invoke.yicheng = function(self, data)
 	if not self:willShowForDefence() then
 		return false
@@ -426,11 +443,39 @@ sgs.ai_skill_discard.yicheng = function(self, discard_num, min_num, optional, in
 	return self:askForDiscard("dummyreason", 1, 1, false, true)
 end
 
+--于吉
 sgs.ai_skill_invoke.qianhuan = function(self, data)
 	if not (self:willShowForAttack() or self:willShowForDefence() or self:willShowForMasochism() ) then
 		return false
 	end
 	return true
+end
+
+sgs.ai_skill_cardask["@qianhuan-put"] = function(self, data, pattern, target, target2)
+
+	local function qianhuan_CanPut(self,card)
+		local sorcery_ids = self.player:getPile("sorcery")
+		local suits = {"heart", "diamond", "spade", "club"}
+		for _,id in sgs.qlist(sorcery_ids) do
+			table.removeOne(suits, sgs.Sanguosha:getCard(id):getSuitString())
+		end
+		for _,suit in ipairs(suits) do
+			if card:getSuitString() == suit then
+				return true
+			end
+		end
+		return false
+	end
+
+	local cards = self.player:getCards("he")
+	cards=sgs.QList2Table(cards)
+	self:sortByKeepValue(cards)
+	for _,card in ipairs(cards) do
+		if qianhuan_CanPut(self,card) and not card:isKindOf("Peach") then
+			return card:toString()
+		end
+	end
+	return "."
 end
 
 local invoke_qianhuan = function(self, use)
@@ -469,10 +514,11 @@ sgs.ai_skill_use["@@qianhuan"] = function(self)
 	return "."
 end
 
+--何太后
 local function will_discard_zhendu(self)
 	local current = self.room:getCurrent()
 	local need_damage = self:getDamagedEffects(current, self.player) or self:needToLoseHp(current, self.player)
-	if self:isFriend(current) then
+	if self:isFriend(current) and not self.player:hasSkill("congjian") then
 		if current:getMark("drank") > 0 and not need_damage then return -1 end
 		if (getKnownCard(current, self.player, "Slash") > 0 or (getCardsNum("Slash", current, self.player) >= 1 and current:getHandcardNum() >= 2))
 			and (not self:damageIsEffective(current, nil, self.player) or current:getHp() > 2 or (getCardsNum("Peach", current, self.player) > 1 and not self:isWeak(current))) then
@@ -489,16 +535,28 @@ local function will_discard_zhendu(self)
 		end
 		if need_damage then return 3 end
 	elseif self:isEnemy(current) then
+		if self.player:hasSkill("congjian") and not current:hasArmorEffect("SilverLion")  then--张绣配合，无白银狮子
+			if current:getHp() <= 2 then
+				return 1
+			elseif self.player:getMark("GlobalBattleRoyalMode")  then--鏖战或出牌阶段手牌小于4
+				return 2.5
+			elseif current:getHandcardNum() < 4 then
+				return 3.5
+			else--手牌较多时
+				return 5.3
+			end
+		end
 		if current:getHp() == 1 then return 1 end
-		if need_damage or current:getHandcardNum() >= 2 then return -1 end
+		if need_damage or current:getHandcardNum() > 2 then return -1 end
 		if getKnownCard(current, self.player, "Slash") == 0 and getCardsNum("Slash", current, self.player) < 0.5 then return 3.5 end
+		return 5.9
 	end
 	return -1
 end
 
 sgs.ai_skill_discard.zhendu = function(self)
 	local discard_trend = will_discard_zhendu(self)
-	if discard_trend <= 0 then return "." end
+	if discard_trend <= 0 then return {} end
 	if self.player:getHandcardNum() + math.random(1, 100) / 100 >= discard_trend then
 		local cards = sgs.QList2Table(self.player:getHandcards())
 		self:sortByKeepValue(cards)
@@ -509,6 +567,9 @@ sgs.ai_skill_discard.zhendu = function(self)
 	return {}
 end
 
+sgs.ai_skill_invoke.qiluan = true
+
+--君·刘备
 sgs.ai_skill_invoke.jizhao = sgs.ai_skill_invoke.niepan
 
 sgs.ai_skill_invoke.zhangwu = true
@@ -537,6 +598,7 @@ function sgs.ai_slash_weaponfilter.DragonPhoenix(self, to, player)
 		and (sgs.card_lack[to:objectName()]["Jink"] == 1 or getCardsNum("Jink", to, self.player) == 0)
 end
 
+--[[新飞龙夺凤技能修改
 sgs.ai_skill_invoke.DragonPhoenix = function(self, data)
 	if data:toString() == "revive" then return true end
 	local death = data:toDeath()
@@ -638,6 +700,12 @@ sgs.ai_skill_choice.DragonPhoenix = function(self, choices, data)
 	if #choices_t == 0 then choices_t = string.split(choices, "+") end
 	return choices_t[math.random(1, #choices_t)]
 end
+--]]
+
+sgs.ai_skill_invoke.DragonPhoenix = function(self, data)
+	local target = data:toPlayer()
+	return not self:isFriend(target)
+end
 
 sgs.ai_skill_discard.DragonPhoenix = function(self, discard_num, min_num, optional, include_equip)
 	local to_discard = sgs.QList2Table(self.player:getCards("he"))
@@ -684,15 +752,10 @@ sgs.ai_skill_discard.DragonPhoenix = function(self, discard_num, min_num, option
 	end
 end
 
-sgs.ai_skill_invoke.shengxi = function(self, data)
-	if not self:willShowForDefence() then
-		return false
-	end
-	if self:getOverflow() >= 0 then
-		local erzhang = sgs.findPlayerByShownSkillName("guzheng")
-		if erzhang and self:isEnemy(erzhang) then return false end
-	end
-	return true
+sgs.ai_skill_cardchosen.DragonPhoenix = function(self, who, flags)
+	local cards = who:getCards(flags)
+	local length = cards:length()
+	local index = math.random(0, length)
+	local card = cards:at(index)
+	return card:getId()
 end
-
-

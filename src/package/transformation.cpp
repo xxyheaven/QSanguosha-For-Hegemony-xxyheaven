@@ -166,7 +166,7 @@ void QiceCard::onUse(Room *room, const CardUseStruct &card_use) const
         room->useCard(CardUseStruct(use_card, source, card_use.to));
 
         if (source->getMark("qicetransformUsed") ==0 && source->canTransform()) {
-            if (room->askForChoice(source, "transform", "yes+no", QVariant(), "@transform-ask:::qice") == "yes") {
+            if (room->askForChoice(source, "transform_qice", "yes+no", QVariant(), "@transform-ask:::qice") == "yes") {
                 room->broadcastSkillInvoke("transform", source->isMale());
                 room->addPlayerMark(source, "qicetransformUsed");
                 room->transformDeputyGeneral(source);
@@ -1455,7 +1455,7 @@ public:
         }
         if (to->isFriendWith(player) && to->canTransform() && player->getMark("zhimantransformUsed") == 0
                 && (room->askForChoice(player, "zhiman", "yes+no", QVariant(), "@zhiman-ask::"+to->objectName()) == "yes")
-                && (room->askForChoice(to, "transform", "yes+no", QVariant(), "@transform-ask:::"+objectName()) == "yes")) {
+                && (room->askForChoice(to, "transform_zhiman", "yes+no", QVariant(), "@transform-ask:::"+objectName()) == "yes")) {
             room->addPlayerMark(player, "zhimantransformUsed");
             room->broadcastSkillInvoke("transform", to->isMale());
             room->transformDeputyGeneral(to);
@@ -1855,7 +1855,7 @@ public:
             ask_who->drawCards(ask_who->getMaxHp() - ask_who->getHandcardNum(), objectName());
 
         if (ask_who->canTransform() && ask_who->getMark("diancaitransformUsed") == 0
-                && room->askForChoice(ask_who, "transform", "yes+no", QVariant(), "@transform-ask:::"+objectName()) == "yes") {
+                && room->askForChoice(ask_who, "transform_diancai", "yes+no", QVariant(), "@transform-ask:::"+objectName()) == "yes") {
             room->addPlayerMark(ask_who, "diancaitransformUsed");
             room->broadcastSkillInvoke("transform", ask_who->isMale());
             room->transformDeputyGeneral(ask_who);

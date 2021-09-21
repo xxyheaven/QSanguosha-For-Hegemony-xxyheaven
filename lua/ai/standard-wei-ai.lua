@@ -145,21 +145,6 @@ sgs.ai_skill_cardask["@guicai-card"] = function(self, data)
 	for _, id in sgs.qlist(self.player:getHandPile()) do
 		table.insert(cards, 1, sgs.Sanguosha:getCard(id))
 	end
-	if judge.reason == "tieqi" then
-		local target
-		for _, p in sgs.qlist(self.room:getAlivePlayers()) do
-			if p:hasFlag("TieqiTarget") then target = p break end
-		end
-		if self:canHit(target, judge.from) then return "." end
-		if getCardsNum("Jink", target, self.player) == 0 then return "." end
-		if target:objectName() == self.player:objectName() then
-			local jinks = self:getCards("Jink")
-			local card_id = self:getRetrialCardId(cards, judge)
-			if #jinks == 1 and jinks[1]:toString() == tostring(card_id) then
-				return "."
-			end
-		end
-	end
 
 	if self:needRetrial(judge) then
 		local card_id = self:getRetrialCardId(cards, judge)
@@ -1069,9 +1054,6 @@ sgs.ai_suit_priority.duanliang= "club|spade|diamond|heart"
 
 function sgs.ai_skill_invoke.jushou(self, data)
 	if not self.player:faceUp() then return true end
-	for _, friend in ipairs(self.friends) do
-		if friend:hasShownSkill("fangzhu") then return true end
-	end
 	if not self:willShowForDefence() then return false end
 	local to_count = sgs.SPlayerList()
 	
@@ -1100,8 +1082,13 @@ function sgs.ai_skill_invoke.jushou(self, data)
 	if add_self then
 		to_count:append(self.player)
 	end
-
 	if to_count:length() < 3 then return true end
+
+	for _, friend in ipairs(self.friends) do
+		if friend:hasShownSkill("fangzhu") and to_count:length() > 3 then
+			return true 
+		end
+	end
 
 	return self:isWeak()
 end
@@ -1375,7 +1362,7 @@ function SmartAI:toTurnOver(player, n, reason) -- @todo: param of toTurnOver
 end
 
 sgs.ai_skill_playerchosen.fangzhu = function(self, targets)
-	if not self:willShowForMasochism() then return end
+	if not self:willShowForMasochism() then return {} end
 	self:sort(self.friends_noself, "handcard")
 	local target = nil
 	local n = self.player:getLostHp()
@@ -1384,16 +1371,18 @@ sgs.ai_skill_playerchosen.fangzhu = function(self, targets)
 				target = friend
 			break
 		end
-		--[[if not target then
-			if not self:toTurnOver(friend, n, "fangzhu") then
-				target = friend
-				break
-			end
-		end--]]
 	end
 	if not target then
-		if n >= 3 then
-			target = self:findPlayerToDraw(false, n)
+		if n >= 3 then--魏国无5血将暂时没此情况
+			for _, friend in ipairs(self.friends_noself) do
+				if self:toTurnOver(friend, n, "fangzhu") then
+					target = friend
+					break
+				end
+			end
+			if not target then
+				target = self:findPlayerToDraw(false, n)
+			end
 		else
 			self:sort(self.enemies)
 			for _, enemy in ipairs(self.enemies) do
@@ -1410,9 +1399,39 @@ sgs.ai_skill_playerchosen.fangzhu = function(self, targets)
 					end
 				end
 			end
+			if not target then
+				for _, p in sgs.qlist(self.room:getOtherPlayers(self.player)) do
+					if not self:isFriendWith(p) and self:toTurnOver(p, n, "fangzhu") then
+						target = p
+				  		break
+					end
+				end
+			end
+			--[[
+				if not target then
+				for _, friend in ipairs(self.friends_noself) do--曹仁相关
+					if friend:faceUp() and friend:hasShownSkill("jushou") and friend:getPhase() <= sgs.Player_Finish then
+							target = friend
+						break
+					end
+				end
+			end
+			]]--
 		end
 	end
 	return target
+end
+
+sgs.ai_skill_discard["fangzhu_discard"] = function(self, discard_num, min_num, optional, include_equip)
+	if not self:willShowForAttack() and not self:willShowForDefence() then
+		return {}
+	end
+	if not self.player:faceUp() or self:isWeak() then
+		return {}
+	else
+		return self:askForDiscard("dummy_reason", 1, 1, false, true)
+	end
+	return {}
 end
 
 sgs.ai_playerchosen_intention.fangzhu = function(self, from, to)

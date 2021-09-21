@@ -691,8 +691,9 @@ public:
         if (player->hasShownSkill(objectName())) {
             invoke = true;
             room->sendCompulsoryTriggerLog(player, objectName());
-        } else
-            invoke = player->askForSkillInvoke(this, data);
+        } else {
+            invoke = player->askForSkillInvoke(this, QVariant::fromValue(target));
+        }
 
         if (invoke) {
             room->doAnimate(QSanProtocol::S_ANIMATE_INDICATE, player->objectName(), target->objectName());
@@ -1668,7 +1669,9 @@ void WeidiCard::onEffect(const CardEffectStruct &effect) const
     int x = qMin(cards->subcardsLength(), player->getCardCount(true));
 
     if (x > 0 && player->isAlive() && to->isAlive()) {
+        to->setFlags("WeidiTarget");
         QList<int> result = room->askForExchange(player, "weidi_give", x, x, QString("@weidi-return:%1::%2").arg(to->objectName()).arg(x), "", ".");
+        to->setFlags("-WeidiTarget");
         DummyCard dummy(result);
         CardMoveReason return_reason = CardMoveReason(CardMoveReason::S_REASON_GIVE, player->objectName());
         room->moveCardTo(&dummy, to, Player::PlaceHand, return_reason);

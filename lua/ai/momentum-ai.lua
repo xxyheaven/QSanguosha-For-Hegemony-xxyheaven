@@ -21,7 +21,9 @@ sgs.ai_skill_invoke.xunxun = function(self, data)
 	if not (self:willShowForDefence() or self:willShowForAttack()) then
 		return false
 	end
+	--[[
 	if self.player:getTreasure() and self.player:getTreasure():isKindOf("JadeSeal") then return false end
+	]]--
 	return true
 end
 
@@ -94,35 +96,41 @@ sgs.ai_choicemade_filter.skillInvoke.hengjiang = function(self, player, promptli
 end
 
 sgs.ai_skill_invoke.qianxi = function(self, data)
-
 	if not self:willShowForAttack() then
 		return false
 	end
+	return true
+end
 
-	for _, p in ipairs(self.enemies) do
-		if self.player:distanceTo(p) == 1 and not p:isKongcheng() then
-			return true
+sgs.ai_skill_cardask["@qianxi-discard"] = function(self, data, pattern, target, target2)
+	local cards = self.player:getCards("he")
+	cards=sgs.QList2Table(cards)
+	self:sortByUseValue(cards, true)
+	self.qianxi_isred = cards[1]:isRed()
+	if cards[1]:isBlack() and #cards > 1 then
+		if cards[2]:isRed() and not cards[2]:isKindOf("Peach") then
+			self.qianxi_isred = cards[2]:isRed()
+			return cards[2]:toString()
 		end
 	end
-	return false
+	return cards[1]:toString()--必须弃1
 end
 
 sgs.ai_skill_playerchosen.qianxi = function(self, targets)
 	local enemies = {}
 	local slash = self:getCard("Slash") or sgs.cloneCard("slash")
-	local isRed = (self.player:getTag("qianxi"):toString() == "red")
 
 	for _, target in sgs.qlist(targets) do
 		if self:isEnemy(target) and not target:isKongcheng() then
 			table.insert(enemies, target)
 		end
 	end
-
+	self:sort(self.enemies, "defenseSlash")
+	
 	if #enemies == 1 then
 		return enemies[1]
 	else
-		self:sort(enemies, "defense")
-		if not isRed then
+		if not self.qianxi_isred then
 			for _, enemy in ipairs(enemies) do
 				if enemy:hasShownSkill("qingguo") and self:slashIsEffective(slash, enemy) then return enemy end
 			end
@@ -142,7 +150,7 @@ sgs.ai_skill_playerchosen.qianxi = function(self, targets)
 		end
 		return enemies[1]
 	end
-	return targets:first()
+	return sgs.ai_skill_playerchosen.zero_card_as_slash(self, targets)--ai默认函数
 end
 
 sgs.ai_playerchosen_intention.qianxi = 80
@@ -231,6 +239,7 @@ end
 sgs.ai_skill_invoke.hunshang = true
 
 sgs.ai_skill_invoke.yingzi_sunce = function(self, data)
+	--[[
 	if not self:willShowForAttack() and not self:willShowForDefence() then
 		return false
 	end
@@ -251,6 +260,7 @@ sgs.ai_skill_invoke.yingzi_sunce = function(self, data)
 		end
 		return false
 	end
+	]]--
 	return true
 end
 

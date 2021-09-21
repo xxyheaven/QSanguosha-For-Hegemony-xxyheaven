@@ -810,6 +810,8 @@ function SmartAI:canHit(to, from, conservative)
 	if self:canLiegong(to, from) then return true end
 	if not self:isFriend(to, from) then
 		if from:hasWeapon("Axe") and from:getCards("he"):length() > 2 then return true end
+		if from:hasShownSkill("jianchu") and to:hasEquip() then return true end
+		--[[
 		if from:hasShownSkill("mengjin") and not self:hasHeavySlashDamage(from, nil, to) and not self:needLeiji(to, from) then
 			if self:doNotDiscard(to, "he", true) then
 			elseif to:getCards("he"):length() == 1 and not to:getArmor() then
@@ -819,6 +821,7 @@ function SmartAI:canHit(to, from, conservative)
 			elseif not self:isWeak(to) and to:getDefensiveHorse() then return true
 			end
 		end
+		]]--技能修改
 	end
 
 	local hasHeart, hasRed, hasBlack
@@ -1073,6 +1076,7 @@ sgs.ai_skill_invoke.IceSword = function(self, data)
 		elseif target:getLostHp() < 1 then return false end
 		return true
 	else
+		if self.player:getMark("GlobalBattleRoyalMode") > 0 and target:hasShownSkill("tianxiang") then return true end
 		if target:hasArmorEffect("PeaceSpell") and damage.nature ~= sgs.DamageStruct_Normal then return true end
 		if self:isWeak(target) then return false end
 		if damage.damage > 1 or self:hasHeavySlashDamage(self.player, damage.card, target) then return false end
@@ -3062,7 +3066,7 @@ sgs.ai_skill_askforag.amazing_grace = function(self, card_ids)
 					if getCardsNum("Jink", enemy, self.player) < 1
 						or enemy:isKongcheng()
 						or self:canLiegong(enemy, self.player)
-						or self.player:hasSkills("tieqi|wushuang|qianxi")
+						or self.player:hasSkills(sgs.force_slash_skill)
 						or (self.player:hasWeapon("Axe") or self:getCardsNum("Axe") > 0) and self.player:getCards("he"):length() > 4
 						then
 						return analeptic

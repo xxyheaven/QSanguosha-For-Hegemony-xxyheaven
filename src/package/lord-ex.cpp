@@ -461,9 +461,9 @@ public:
         return QStringList();
     }
 
-    virtual bool cost(TriggerEvent, Room *room, ServerPlayer *player, QVariant &, ServerPlayer *) const
+    virtual bool cost(TriggerEvent, Room *room, ServerPlayer *player, QVariant &data, ServerPlayer *) const
     {
-        if (player->askForSkillInvoke(this)) {
+        if (player->askForSkillInvoke(this, data)) {
             room->broadcastSkillInvoke(objectName(), player);
             player->setFlags("MidaoUsed");
             return true;
@@ -475,12 +475,16 @@ public:
     {
         CardUseStruct use = data.value<CardUseStruct>();
 
+        owner->tag["MidaoUseData"] = data;
+
         Card::Suit suit = room->askForSuit(owner, "midao");
 
         QStringList natures;
         natures << "normal" << "fire" << "thunder";
 
-        QString nature = room->askForChoice(owner, "midao", natures.join("+"), QVariant(), "@midao-nature::" + player->objectName()+":"+use.card->objectName());
+        QString nature = room->askForChoice(owner, "midao", natures.join("+"), data, "@midao-nature::" + player->objectName()+":"+use.card->objectName());
+
+        owner->tag.remove("MidaoUseData");
 
         QString name = use.card->objectName();
         QString _name = name;
@@ -550,9 +554,13 @@ public:
         return skill_list;
     }
 
-    virtual bool cost(TriggerEvent, Room *room, ServerPlayer *player, QVariant &, ServerPlayer *owner) const
+    virtual bool cost(TriggerEvent, Room *room, ServerPlayer *player, QVariant &data, ServerPlayer *owner) const
     {
+        player->tag["MidaoUseData"] = data;
+
         QList<int> ints = room->askForExchange(player, "midao", 1, 0, "@midao:" + owner->objectName(), QString(), ".|.|.|hand");
+
+        player->tag.remove("MidaoUseData");
 
         if (ints.isEmpty()) return false;
 
@@ -579,12 +587,15 @@ public:
     {
         CardUseStruct use = data.value<CardUseStruct>();
 
+        owner->tag["MidaoUseData"] = data;
         Card::Suit suit = room->askForSuit(owner, "midao");
 
         QStringList natures;
         natures << "normal" << "fire" << "thunder";
 
-        QString nature = room->askForChoice(owner, "midao", natures.join("+"), QVariant(), "@midao-nature::" + player->objectName()+":"+use.card->objectName());
+        QString nature = room->askForChoice(owner, "midao", natures.join("+"), data, "@midao-nature::" + player->objectName()+":"+use.card->objectName());
+
+        owner->tag.remove("MidaoUseData");
 
         QString name = use.card->objectName();
         QString _name = name;
@@ -667,7 +678,10 @@ public:
     {
         CardUseStruct use = data.value<CardUseStruct>();
         ServerPlayer *target = use.to.first();
-        if (player->askForSkillInvoke(this, QVariant::fromValue(target))) {
+        player->tag["FengshixUsedata"] = data;
+        bool invoke = player->askForSkillInvoke(this, QVariant::fromValue(target));
+        player->tag.remove("FengshixUsedata");
+        if (invoke) {
             room->broadcastSkillInvoke(objectName(), player);
             room->doAnimate(QSanProtocol::S_ANIMATE_INDICATE, player->objectName(), target->objectName());
 
@@ -816,7 +830,7 @@ public:
         ServerPlayer *target = room->findPlayerbyobjectName(target_name);
         if (target != NULL && !player->isNude()) {
 
-            QList<int> ints = room->askForExchange(target, "_wenji", 1, 1, "@wenji-give:" + player->objectName());
+            QList<int> ints = room->askForExchange(target, "wenji_give", 1, 1, "@wenji-give:" + player->objectName());
             int card_id = -1;
             if (ints.isEmpty()) {
                 card_id = target->getCards("he").first()->getEffectiveId();
@@ -849,7 +863,10 @@ public:
 
                 QString pattern = QString("^%1").arg(card_id);
 
-                QList<int> ints = room->askForExchange(player, "_wenji", 1, 1, "@wenji-give:" + target->objectName(), QString(), pattern);
+                target->setFlags("WenjiTarget");
+                QList<int> ints = room->askForExchange(player, "wenji_giveback", 1, 1, "@wenji-give:" + target->objectName(), QString(), pattern);
+                target->setFlags("-WenjiTarget");
+
                 int card_id = -1;
                 if (ints.isEmpty()) {
                     card_id = give_back;
@@ -1131,14 +1148,14 @@ public:
         if (player->forceToDiscard(2, true, true).length() > 1)
             choices << "discard";
 
-        QString choice = room->askForChoice(player, "lixia", choices.join("+"), QVariant(), "@lixia-choose:" + shixie->objectName(), all_choices.join("+"));
+        QString choice = room->askForChoice(player, "lixia_effect", choices.join("+"), QVariant(), "@lixia-choose:" + shixie->objectName(), all_choices.join("+"));
 
         if (choice.contains("draw"))
             shixie->drawCards(2, "lixia");
         if (choice == "losehp")
             room->loseHp(player);
         if (choice == "discard")
-            room->askForDiscard(player, "lixia", 2, 2, false, true);
+            room->askForDiscard(player, "lixia_discard", 2, 2, false, true);
         return false;
     }
 
@@ -3655,7 +3672,7 @@ public:
 
         if (triggerEvent == EventPhaseStart) {
 
-            QString name = room->askForGeneral(player, huashens);
+            QString name = room->askForGeneral(player, huashens, QString(), true, "xiongnve_attack");
 
             LogMessage log;
             log.type = "#dropMassacreDetail";
@@ -3714,7 +3731,7 @@ public:
 
         } else if (triggerEvent == EventPhaseEnd && huashens.length() > 1) {
 
-            QString name = room->askForGeneral(player, huashens);
+            QString name = room->askForGeneral(player, huashens, QString(), true, "xiongnve_defence");
             LogMessage log;
             log.type = "#dropMassacreDetail";
             log.from = player;
@@ -3723,7 +3740,7 @@ public:
             huashens.removeOne(name);
             room->handleUsedGeneral("-" + name);
 
-            name = room->askForGeneral(player, huashens);
+            name = room->askForGeneral(player, huashens, QString(), true, "xiongnve_defence");
             log.arg = name;
             room->sendLog(log);
             huashens.removeOne(name);
@@ -4237,7 +4254,7 @@ public:
 
     virtual bool effect(TriggerEvent, Room *room, ServerPlayer *, QVariant &, ServerPlayer *huangzu) const
     {
-        if (room->askForChoice(huangzu, "transform", "yes+no", QVariant(), "@transform-ask:::xishe") == "yes") {
+        if (room->askForChoice(huangzu, "transform_xishe", "yes+no", QVariant(), "@transform-ask:::xishe") == "yes") {
             room->broadcastSkillInvoke("transform", huangzu->isMale());
             room->addPlayerMark(huangzu, "xishetransformUsed");
             room->transformDeputyGeneral(huangzu, false);
@@ -4290,7 +4307,7 @@ void HuaiyiCard::use(Room *room, ServerPlayer *source, QList<ServerPlayer *> &) 
 
     if (to_choose.isEmpty()) return;
 
-    QList<ServerPlayer *> choosees = room->askForPlayersChosen(source, to_choose, "huaiyi", 0, n, "@huaiyi-snatch:::"+QString::number(n));
+    QList<ServerPlayer *> choosees = room->askForPlayersChosen(source, to_choose, "huaiyi_snatch", 0, n, "@huaiyi-snatch:::"+QString::number(n));
 
     if (choosees.isEmpty()) return;
 
@@ -4422,7 +4439,7 @@ public:
 
     virtual bool effect(TriggerEvent, Room *room, ServerPlayer *player, QVariant &, ServerPlayer *ask_who) const
     {
-        QList<ServerPlayer *> to_chains, to_slashes, allplayers = room->getAlivePlayers();
+        QList<ServerPlayer *> to_chains, to_slashes, to_count, allplayers = room->getAlivePlayers();
 
         foreach (ServerPlayer *p, allplayers) {
             if (!p->isChained() && p->canBeChainedBy(ask_who))
@@ -4430,16 +4447,25 @@ public:
         }
 
         if (!to_chains.isEmpty()) {
-            ServerPlayer *target = room->askForPlayerChosen(ask_who, to_chains, "_daming", "@daming-chain");
+            ServerPlayer *target = room->askForPlayerChosen(ask_who, to_chains, "daming_chain", "@daming-chain");
             room->setPlayerProperty(target, "chained", true);
         }
         allplayers = room->getAlivePlayers();
 
-        int x = 0;
         foreach (ServerPlayer *p, allplayers) {
-            if (p->isChained())
-                x++;
+            if (p->hasShownOneGeneral() && p->isChained()) {
+                bool no_friend = true;
+                foreach (ServerPlayer *p2, to_count) {
+                    if (p->isFriendWith(p2)) {
+                        no_friend = false;
+                        break;
+                    }
+                }
+                if (no_friend)
+                    to_count << p;
+            }
         }
+        int x = to_count.length();
         if (x > 0) ask_who->drawCards(x, objectName());
 
         if (player->isDead() || ask_who->isDead()) return false;
@@ -4470,7 +4496,7 @@ public:
         if (choice == "peach") {
             room->useCard(CardUseStruct(peach, ask_who, player), false);
         } else if (choice == "slash") {
-            ServerPlayer *target = room->askForPlayerChosen(ask_who, to_slashes, "_daming", "@daming-slash::"+player->objectName());
+            ServerPlayer *target = room->askForPlayerChosen(ask_who, to_slashes, "daming_slash", "@daming-slash::"+player->objectName());
             room->useCard(CardUseStruct(slash, player, target), false);
         }
 
@@ -4988,26 +5014,27 @@ public:
 
         QList<const Player *> to_count, siblings = target->getAliveSiblings();
 
-        if (target->isRemoved() || siblings.length() < 3 || target->aliveCount(false) < 3) return 0;
+        if (!target->hasShownOneGeneral() || target->isRemoved() || siblings.length() < 3 || target->aliveCount(false) < 3) return 0;
 
         Player *p1 = target->getNextAlive();
         Player *p2 = target->getLastAlive();
         Player *p3 = target->getNextAlive(2);
         Player *p4 = target->getLastAlive(2);
 
-        if (p1 && p2 && p1->isFriendWith(p2) && !p1->isFriendWith(target)) {
-            if (p1->hasShownSkill("fangyuan")) x--;
-            if (p2->hasShownSkill("fangyuan")) x--;
-        }
-
         if (target->aliveCount(false) > 3) {
-            if (p1 && p3 && target->isFriendWith(p3) && !target->isFriendWith(p1)) {
+
+            if (p1 && p2 && p1->isFriendWith(p2) && !p1->isFriendWith(target)) {
+                if (p1->hasShownSkill("fangyuan")) x--;
+                if (p2->hasShownSkill("fangyuan")) x--;
+            }
+
+            if (p1 && p3 && target->isFriendWith(p3) && !target->isFriendWith(p1) && p1->hasShownOneGeneral()) {
                 if (target->hasShownSkill("fangyuan") && !to_count.contains(target))
                     to_count << target;
                 if (p3->hasShownSkill("fangyuan") && !to_count.contains(p3))
                     to_count << p3;
             }
-            if (p2 && p4 && target->isFriendWith(p4) && !target->isFriendWith(p2)) {
+            if (p2 && p4 && target->isFriendWith(p4) && !target->isFriendWith(p2) && p2->hasShownOneGeneral()) {
                 if (target->hasShownSkill("fangyuan") && !to_count.contains(target))
                     to_count << target;
                 if (p3->hasShownSkill("fangyuan") && !to_count.contains(p4))

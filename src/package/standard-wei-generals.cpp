@@ -1301,7 +1301,7 @@ Xiaoguo::Xiaoguo(const QString &owner) : PhaseChangeSkill("xiaoguo" + owner)
 TriggerList Xiaoguo::triggerable(TriggerEvent , Room *room, ServerPlayer *player, QVariant &) const
 {
     TriggerList skill_list;
-    if (player != NULL && player->getPhase() == Player::Finish) {
+    if (player != NULL && player->isAlive() && player->getPhase() == Player::Finish) {
         QList<ServerPlayer *> yuejins = room->findPlayersBySkillName(objectName());
         foreach (ServerPlayer *yuejin, yuejins) {
             if (yuejin != NULL && player != yuejin && !yuejin->isKongcheng())
@@ -1323,6 +1323,7 @@ bool Xiaoguo::cost(TriggerEvent, Room *room, ServerPlayer *player, QVariant &, S
 
 bool Xiaoguo::effect(TriggerEvent, Room *room, ServerPlayer *player, QVariant &, ServerPlayer *ask_who) const
 {
+    if (player->isDead()) return false;
     if (!room->askForCard(player, ".Equip", "@xiaoguo-discard", QVariant()))
         room->damage(DamageStruct("xiaoguo", ask_who, player));
 
@@ -1509,7 +1510,7 @@ void StandardPackage::addWeiGenerals()
     zhenji->addSkill(new Qingguo);
     zhenji->addSkill(new Luoshen);
 
-    General *xiahouyuan = new General(this, "xiahouyuan", "wei"); // WEI 008
+    General *xiahouyuan = new General(this, "xiahouyuan", "wei", 5); // WEI 008
     xiahouyuan->addSkill(new Shensu);
 
     General *zhanghe = new General(this, "zhanghe", "wei"); // WEI 009

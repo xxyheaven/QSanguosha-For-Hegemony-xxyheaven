@@ -509,7 +509,7 @@ public:
         QList<ServerPlayer *> targets = room->getAlivePlayers();
         if (effect.to && effect.to->isAlive())
             targets.removeOne(effect.to);
-        ServerPlayer *target = room->askForPlayerChosen(player, targets, objectName(), "longdan-damage", true);
+        ServerPlayer *target = room->askForPlayerChosen(player, targets, "longdan_damage", "longdan-damage", true);
         if (target != NULL) {
             room->doAnimate(QSanProtocol::S_ANIMATE_INDICATE, player->objectName(), target->objectName());
             LogMessage log;
@@ -582,7 +582,7 @@ public:
                 targets << p;
         }
         if (targets.isEmpty()) return false;
-        ServerPlayer *target = room->askForPlayerChosen(zhaoyun, targets, objectName(), "longdan-recover", true);
+        ServerPlayer *target = room->askForPlayerChosen(zhaoyun, targets, "longdan_recover", "longdan-recover", true);
         if (target != NULL) {
             LogMessage log;
             log.type = "#LongdanRecover";

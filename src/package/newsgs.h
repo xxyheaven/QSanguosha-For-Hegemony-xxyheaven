@@ -39,6 +39,39 @@ public:
     virtual void onEffect(const CardEffectStruct &effect) const;
 };
 
+class BoyanZonghengCard : public SkillCard
+{
+    Q_OBJECT
+
+public:
+    Q_INVOKABLE BoyanZonghengCard();
+
+    virtual bool targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const;
+    virtual void onEffect(const CardEffectStruct &effect) const;
+};
+
+class WeimengCard : public SkillCard
+{
+    Q_OBJECT
+
+public:
+    Q_INVOKABLE WeimengCard();
+
+    virtual bool targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const;
+    virtual void onEffect(const CardEffectStruct &effect) const;
+};
+
+class WeimengZonghengCard : public SkillCard
+{
+    Q_OBJECT
+
+public:
+    Q_INVOKABLE WeimengZonghengCard();
+
+    virtual bool targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const;
+    virtual void onEffect(const CardEffectStruct &effect) const;
+};
+
 
 
 

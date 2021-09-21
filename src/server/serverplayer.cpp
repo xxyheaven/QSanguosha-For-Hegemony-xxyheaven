@@ -889,7 +889,9 @@ bool ServerPlayer::doCommand(const QString &reason, int index, ServerPlayer *sou
         prompt = "@docommand2:"+source->objectName()+"::"+reason;
     }
 
-    QString choice = room->askForChoice(this, "docommand_"+reason, "yes+no", QVariant(), prompt);
+    room->setPlayerMark(this, "command_index", index+1);
+    QString choice = room->askForChoice(this, "docommand_"+reason, "yes+no", QVariant::fromValue(source), prompt);
+    room->setPlayerMark(this, "command_index", 0);
 
     LogMessage log;
     log.type = "#CommandChoice";

@@ -23,19 +23,20 @@ local transfer_skill = {}
 transfer_skill.name = "transfer"
 table.insert(sgs.ai_skills, transfer_skill)
 transfer_skill.getTurnUseCard = function(self, inclusive)
+	if self.player:hasUsed("TransferCard") then return end
 	for _, c in sgs.qlist(self.player:getCards("h")) do
 		if c:isTransferable() then return sgs.Card_Parse("@TransferCard=.") end
 	end
 end
 
 sgs.ai_skill_use_func.TransferCard = function(transferCard, use, self)
-	
-	local friends, friends_other = {}, {}
+	--global_room:writeToConsole("合纵连横判断开始:" ..self.player:objectName())
+	local friends_shown, friends_other = {}, {}
 	local targets = sgs.PlayerList()
 	for _, friend in ipairs(self.friends_noself) do
-		if transferCard:targetFilter(targets, friend, self.player) and not self:needKongcheng(friend, true) then
+		if transferCard:targetFilter(targets, friend, self.player)  then
 			if friend:hasShownOneGeneral() then
-				table.insert(friends, friend)
+				table.insert(friends_shown, friend)
 			else
 				table.insert(friends_other, friend)
 			end
@@ -43,90 +44,151 @@ sgs.ai_skill_use_func.TransferCard = function(transferCard, use, self)
 	end
 
 	local cards = {}
-	local oneJink = self.player:hasSkill("kongcheng")
+	local oneJink = false
 	for _, c in sgs.qlist(self.player:getCards("he")) do
-		if c:isTransferable() and (not isCard("Peach", c, self.player) or #friends > 0) then
+		if c:isTransferable() and (not isCard("Peach", c, self.player) or #friends_shown > 0) then
 			if not oneJink and isCard("Jink", c, self.player) then
 				oneJink = true
 				continue
-			elseif c:getNumber() > 10 and self.player:hasSkills("tianyi|quhu|shuangren|lieren") then 
+			elseif c:getNumber() > 10 and self.player:hasSkills("tianyi|quhu|shuangren|lieren") then
 				continue
 			end
 			table.insert(cards, c)
 		end
 	end
-	if #cards == 0 then return end
+	
+	local card_list = {}
+	local target
+	local card_str
 
-	if #friends > 0 then
+	local has_TE = false
+	local has_BC = false
+	for _, card in ipairs(cards) do	
+		if card:isKindOf("ThreatenEmperor") then
+			has_TE = true
+		end
+		if  card:isKindOf("BurningCamps") then
+			has_BC = true
+		end
+	end
+
+	if has_TE or has_BC then
+		local big_kingdoms = self.player:getBigKingdoms("AI")
+		if table.contains(big_kingdoms, self.player:getKingdom()) then
+			for _, card in ipairs(cards) do	
+				if card:isKindOf("ThreatenEmperor") then--大势力留下挟天子
+					table.removeOne(cards, card)
+				end
+			end
+		end
+		if has_TE then
+			--global_room:writeToConsole("合纵连横判断挟天子:" ..self.player:objectName())
+			local anjiang = 0
+			for _, p in sgs.qlist(self.room:getOtherPlayers(self.player)) do
+				if sgs.isAnjiang(p) then anjiang = anjiang + 1 end
+			end
+			local big_kingdom = #big_kingdoms > 0 and big_kingdoms[1]
+			local maxNum = (big_kingdom and (big_kingdom:startsWith("sgs") and 99 or self.player:getPlayerNumWithSameKingdom("AI", big_kingdom)))
+							or (anjiang == 0 and 99)
+							or 0
+			for _, p in sgs.qlist(self.room:getOtherPlayers(self.player)) do
+				if p:hasShownOneGeneral() and transferCard:targetFilter(targets, p, self.player)
+					and p:objectName() ~= big_kingdom and (not table.contains(big_kingdoms, p:getKingdom()) or p:getRole() == "careerist")
+					and (maxNum == 99 or p:getPlayerNumWithSameKingdom("AI") + anjiang < maxNum) then
+						target = p
+						break
+				end
+			end
+		elseif has_BC then
+			--global_room:writeToConsole("合纵连横判断火烧连营:" ..self.player:objectName())
+			local gameProcess = sgs.gameProcess()
+			if string.find(gameProcess, self.player:getKingdom() .. ">") then--小国？
+				for _, p in sgs.qlist(self.room:getOtherPlayers(self.player)) do
+					local np = p:getNextAlive()
+					if transferCard:targetFilter(targets, p, self.player) and self:isFriend(p)--盟军下家是敌人
+					--[[ or (p:hasShownOneGeneral() and self:willSkipPlayPhase(p))]]--	
+					and (not self:isFriend(np) or self:isGoodChainTarget(np, p, sgs.DamageStruct_Fire)) then
+						target = p
+						break
+					end
+				end
+			elseif string.find(gameProcess, self.player:getKingdom() .. ">>")  then--均势？
+				for _, p in sgs.qlist(self.room:getOtherPlayers(self.player)) do
+					if p:hasShownOneGeneral() and transferCard:targetFilter(targets, p, self.player) and card:isAvailable(p) then
+						local np = p:getNextAlive()
+						if not self:isFriend(np) and (not np:isChained() or self:isGoodChainTarget(np, p, sgs.DamageStruct_Fire)) then
+							target = p
+							break
+						end
+					end
+				end
+			else
+				for _, card in ipairs(cards) do	
+					if card:isKindOf("BurningCamps") then--大国？火烧联营不能给
+						table.removeOne(cards, card)
+					end
+				end
+			end
+		end
+		if target and #cards > 0 then
+			--global_room:writeToConsole("合纵连横含重要卡牌对象:" .. target:objectName())
+			for _, card in ipairs(cards) do	
+				table.insert(card_list, card:getEffectiveId())
+				if #card_list == 3 then
+					break
+				end
+			end
+			card_str = "@TransferCard=" .. table.concat(card_list, "+")
+			use.card = sgs.Card_Parse(card_str)
+			if use.to then use.to:append(target) end
+			--global_room:writeToConsole("合纵连横含重要卡牌:" .. card_str)
+			--self.player:speak("发动合纵连横")
+			return
+		end
+	end
+
+	if #cards == 0 then return end
+	for _, card in ipairs(cards) do
+		table.insert(card_list, card:getEffectiveId())
+		if #card_list == 3 then
+			break
+		end
+	end
+	card_str = "@TransferCard=" .. table.concat(card_list, "+")
+
+	assert(sgs.Card_Parse(card_str))
+
+	if #friends_shown > 0 then
+		global_room:writeToConsole("有明置的友方")
 		self:sortByUseValue(cards)
-		if #friends > 0 then
-			local card, target = self:getCardNeedPlayer(cards, friends, "transfer")
-			if card and target then
-				use.card = sgs.Card_Parse("@TransferCard=" .. card:getEffectiveId())
-				if use.to then use.to:append(target) end
+		if #friends_shown > 0 then
+			local c, p = self:getCardNeedPlayer(cards, friends_shown, "transfer")
+			if p then
+				use.card = sgs.Card_Parse(card_str)
+				if use.to then use.to:append(p) end
+				global_room:writeToConsole("合纵连横卡牌对象:" .. p:objectName())
+				global_room:writeToConsole("合纵连横卡牌:" .. card_str)
+				self.player:speak("发动合纵连横")
 				return
 			end
 		end
 	end
 
 	if #friends_other > 0 then
-		local card, target = self:getCardNeedPlayer(cards, friends_other, "transfer")
-		if card and target then
-			use.card = sgs.Card_Parse("@TransferCard=" .. card:getEffectiveId())
-			if use.to then use.to:append(target) end
+		global_room:writeToConsole("有暗置的友方")
+		local c, p = self:getCardNeedPlayer(cards, friends_other, "transfer")
+		if p then
+			use.card = sgs.Card_Parse(card_str)
+			if use.to then use.to:append(p) end
+			global_room:writeToConsole("合纵连横卡牌对象:" .. p:objectName())
+			global_room:writeToConsole("合纵连横卡牌:" .. card_str)
+			self.player:speak("发动合纵连横")
 			return
-		end
-	end
-
-	for _, card in ipairs(cards) do
-		if card:isKindOf("ThreatenEmperor") then
-			local anjiang = 0
-			for _, p in sgs.qlist(self.room:getOtherPlayers(self.player)) do
-				if sgs.isAnjiang(p) then anjiang = anjiang + 1 end
-			end
-
-			local big_kingdoms = self.player:getBigKingdoms("AI")
-			local big_kingdom = #big_kingdoms > 0 and big_kingdoms[1]
-			local maxNum = (big_kingdom and (big_kingdom:startsWith("sgs") and 99 or self.player:getPlayerNumWithSameKingdom("AI", big_kingdom)))
-							or (anjiang == 0 and 99)
-							or 0
-
-			for _, p in sgs.qlist(self.room:getOtherPlayers(self.player)) do
-				if p:hasShownOneGeneral() and transferCard:targetFilter(targets, p, self.player)
-					and p:objectName() ~= big_kingdom and (not table.contains(big_kingdoms, p:getKingdom()) or p:getRole() == "careerist")
-					and (maxNum == 99 or p:getPlayerNumWithSameKingdom("AI") + anjiang < maxNum) then
-					use.card = sgs.Card_Parse("@TransferCard=" .. card:getEffectiveId())
-					if use.to then use.to:append(p) end
-					return
-				end
-			end
-		elseif card:isKindOf("BurningCamps") then
-			local gameProcess = sgs.gameProcess()
-			if string.find(gameProcess, self.player:getKingdom() .. ">") then
-				for _, p in sgs.qlist(self.room:getOtherPlayers(self.player)) do
-					if transferCard:targetFilter(targets, p, self.player) and (self:isFriend(p) or (p:hasShownOneGeneral() and self:willSkipPlayPhase(p))) then
-						use.card = sgs.Card_Parse("@TransferCard=" .. card:getEffectiveId())
-						if use.to then use.to:append(p) end
-						return
-					end
-				end
-			else
-				for _, p in sgs.qlist(self.room:getOtherPlayers(self.player)) do
-					if p:hasShownOneGeneral() and transferCard:targetFilter(targets, p, self.player) and card:isAvailable(p) then
-						local np = p:getNextAlive()
-						if not self:isFriend(np) and (not np:isChained() or self:isGoodChainTarget(np, p, sgs.DamageStruct_Fire, 1, use.card)) then
-							use.card = sgs.Card_Parse("@TransferCard=" .. card:getEffectiveId())
-							if use.to then use.to:append(p) end
-							return
-						end
-					end
-				end
-			end
 		end
 	end
 end
 
-sgs.ai_use_priority.TransferCard = -99
+sgs.ai_use_priority.TransferCard = 3--合纵连横效果修改
 sgs.ai_card_intention.TransferCard = -10
 
 --Drowning
@@ -565,7 +627,7 @@ function SmartAI:useCardLureTiger(LureTiger, use)
 	end
 
 	players = sgs.PlayerList()
-
+--[[
 	if self.player:objectName() == self.room:getCurrent():objectName() then
 		for _, player in sgs.qlist(self.room:getOtherPlayers(self.player)) do
 			if LureTiger:targetFilter(players, player, self.player) and self:hasTrickEffective(LureTiger, player, self.player) then
@@ -576,6 +638,7 @@ function SmartAI:useCardLureTiger(LureTiger, use)
 			end
 		end
 	end
+]]--调虎离山现在不能摸牌
 end
 
 sgs.ai_nullification.LureTiger = function(self, card, from, to, positive)
@@ -862,7 +925,7 @@ function SmartAI:useCardAllianceFeast(card, use)
 	end
 end
 
-sgs.ai_skill_choice["alliance_feast"] = function(self, choices)
+sgs.ai_skill_choice["alliancefeast_draw"] = function(self, choices)
 	choices = choices:split("+")
 	return choices[#choices]
 end
@@ -955,7 +1018,7 @@ end
 --ThreatenEmperor
 function SmartAI:useCardThreatenEmperor(card, use)
 	if not card:isAvailable(self.player) then return end
-	if self.player:getCardCount(true) < 2 then return end
+	if self.player:getCardCount(false) < 2 then return end--修改后无法使用装备
 	if not self:hasTrickEffective(card, self.player, self.player) then return end
 	use.card = card
 end
@@ -965,12 +1028,12 @@ sgs.ai_keep_value.ThreatenEmperor = 3.2
 
 sgs.ai_nullification.ThreatenEmperor = function(self, card, from, to, positive, keep)
 	if positive then
-		if self:isEnemy(from) and not from:isNude() then return true, true end
+		if self:isEnemy(from) and not from:isKongcheng() then return true, true end
 	else
-		if from:getCards("he"):length() == 1 and self.player:objectName() == from:objectName() then
+		if from:getCards("h"):length() == 1 and self.player:objectName() == from:objectName() then
 			if self:getCard("Nullification"):getEffectiveId() == self.player:getCards("he"):first():getEffectiveId() then return false end
 		end
-		if self:isFriend(from) and not from:isNude() then return true, true end
+		if self:isFriend(from) and not from:isKongcheng() then return true, true end
 	end
 	return
 end
@@ -979,9 +1042,11 @@ sgs.ai_skill_cardask["@threaten_emperor"] = function(self)
 	if self.player:isKongcheng() then return "." end
 	local cards = sgs.QList2Table(self.player:getCards("h"))
 	self:sortByKeepValue(cards)
-	for _, card in ipairs(cards) do
-		if not card:isKindOf("JadeSeal") then
-			return card:getEffectiveId()
+	if self.player:getHandcardNum() > 1 then
+		for _, card in ipairs(cards) do
+			if not card:isKindOf("threaten_emperor") then--如果可以连着挟天子
+				return card:getEffectiveId()
+			end
 		end
 	end
 	return cards[1]:getEffectiveId()
@@ -1141,6 +1206,10 @@ wooden_ox_skill.getTurnUseCard = function(self)
 end
 
 sgs.ai_skill_use_func.WoodenOxCard = function(card, use, self)
+	sgs.ai_use_priority.WoodenOxCard = 0
+	if self.player:hasSkills(sgs.lose_equip_skill) then
+		sgs.ai_use_priority.WoodenOxCard = 10
+	end
 	use.card = card
 end
 
@@ -1150,7 +1219,6 @@ end
 
 sgs.ai_playerchosen_intention.WoodenOx = -10
 
-sgs.ai_use_priority.WoodenOxCard = 0
 
 --Blade
 function sgs.ai_weapon_value.Blade(self, enemy, player)
