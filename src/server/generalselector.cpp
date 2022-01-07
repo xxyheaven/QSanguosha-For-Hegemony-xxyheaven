@@ -60,13 +60,13 @@ QStringList GeneralSelector::selectGenerals(ServerPlayer *player, const QStringL
     if (m_privatePairValueTable[player].isEmpty())
         calculatePairValues(player, generals);
 
-    QHash<QString, int> my_hash = m_privatePairValueTable[player];
+    QHash<QString, double> my_hash = m_privatePairValueTable[player];
 
-    int max_score = my_hash.values().first();
+    double max_score = my_hash.values().first();
     QString best_pair = my_hash.keys().first();
 
     foreach (const QString &key, my_hash.keys()) {
-        int score = my_hash.value(key);
+        double score = my_hash.value(key);
         if (score > max_score) {
             max_score = score;
             best_pair = key;
@@ -224,9 +224,9 @@ void GeneralSelector::calculateDeputyValue(const ServerPlayer *player, const QSt
             Q_ASSERT(general1 && general2);
             QString kingdom = general1->getKingdom();
 
-            if ((kingdom != "careerist" && !general2->getKingdoms().contains(kingdom)) || general2->isLord()) continue;
-            const int general2_value = m_singleGeneralTable.value(second, 0);
-            int v = m_singleGeneralTable.value(first, 0) + general2_value;
+            if ((kingdom != "careerist" && !general2->getKingdoms().contains(kingdom)) || general2->isLord() || general2->getKingdoms().contains("careerist")) continue;
+            const double general2_value = m_singleGeneralTable.value(second, 0);
+            double v = m_singleGeneralTable.value(first, 0) + general2_value;
 
             if (!kingdom_list.isEmpty())
                 v += (kingdom_list.indexOf(kingdom) - 1);
@@ -239,17 +239,23 @@ void GeneralSelector::calculateDeputyValue(const ServerPlayer *player, const QSt
             if (general1->isFemale()) 
             {
                 if ("wu" == kingdom)
-                    v -= 2;
+                    v -= 0.5;
                 else if (kingdom != "qun")
-                    v += 1;
+                    v += 0.5;
             } 
             else if ("qun" == kingdom)
-                v += 1;
+                v += 0.5;
 
-            if (general1->hasSkill("baoling") && general2_value > 6) v -= 5;
-            if (general1->hasSkill("cunsi")) v -= 5;
-            if (general1->hasSkill("jianglve")) v -= 5;
-            if (general1->hasSkill("tianxiang")) v += 3;
+            if (general1->hasSkill("baoling") && general2_value > 6) v -= 5;//董卓
+            if (general1->hasSkill("cunsi"))        v -= 2;//糜夫人副
+            if (general1->hasSkill("jianglve"))     v -= 2;//王平副
+            if (general1->hasSkill("qingyin"))      v -= 1;//刘巴副
+            if (general1->hasSkill("enyuan"))       v += 0.5;//法正主
+            if (general1->hasSkill("tianxiang"))    v += 0.5;//小乔主
+            if (general1->hasSkill("xiaoji"))       v += 1;//孙尚香主
+            if (general1->hasSkill("diancai"))      v += 0.5;//吕范主
+            if (general1->hasSkill("qice"))         v += 0.5;//荀攸主
+            if (general1->hasSkill("xishe"))        v += 0.5;//黄祖主
 
             if (max_hp < 8) {
                 QSet<QString> need_high_max_hp_skills;
@@ -257,6 +263,14 @@ void GeneralSelector::calculateDeputyValue(const ServerPlayer *player, const QSt
                 foreach (const Skill *skill, general1->getVisibleSkills() + general2->getVisibleSkills()) {
                     if (need_high_max_hp_skills.contains(skill->objectName())) v -= 5;
                 }
+            }
+
+            if (Config.value("EnableLordConvertion", true).toBool() && qrand() % 3 > 0)//设置君主替换同时3分之2的概率
+            {
+                if (general1->hasSkill("rende"))        v += 10;    //刘备 m_singleGeneralTable.value("lord_liubei", 0)
+                if (general1->hasSkill("guidao"))       v += 10;    //张角 m_singleGeneralTable.value("lord_zhangjiao", 0)
+                if (general1->hasSkill("zhiheng"))      v += 10;    //孙权 m_singleGeneralTable.value("lord_sunquan", 0)
+                if (general1->hasSkill("jianxiong"))    v += 10;    //曹操 m_singleGeneralTable.value("lord_caocao", 0)
             }
 
             m_privatePairValueTable[player][key] = v;

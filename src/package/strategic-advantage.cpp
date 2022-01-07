@@ -287,6 +287,11 @@ public:
         //view_as_skill = new BreastplateViewAsSkill;
     }
 
+    virtual int getPriority() const
+    {
+        return -3;
+    }
+
     virtual QStringList triggerable(TriggerEvent, Room *, ServerPlayer *player, QVariant &data, ServerPlayer* &) const
     {
         DamageStruct damage = data.value<DamageStruct>();

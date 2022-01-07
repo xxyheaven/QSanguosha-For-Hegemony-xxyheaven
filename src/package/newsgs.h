@@ -72,6 +72,74 @@ public:
     virtual void onEffect(const CardEffectStruct &effect) const;
 };
 
+class DaoshuCard : public SkillCard
+{
+    Q_OBJECT
+
+public:
+    Q_INVOKABLE DaoshuCard();
+
+    virtual bool targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const;
+    virtual void onEffect(const CardEffectStruct &effect) const;
+};
+
+class JingheCard : public SkillCard
+{
+    Q_OBJECT
+
+public:
+    Q_INVOKABLE JingheCard();
+
+    virtual bool targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const;
+    virtual bool targetsFeasible(const QList<const Player *> &targets, const Player *Self) const;
+    virtual void extraCost(Room *room, const CardUseStruct &card_use) const;
+    virtual void use(Room *room, ServerPlayer *source, QList<ServerPlayer *> &targets) const;
+};
+
+class HuoqiCard : public SkillCard
+{
+    Q_OBJECT
+
+public:
+    Q_INVOKABLE HuoqiCard();
+
+    virtual bool targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const;
+    virtual void onEffect(const CardEffectStruct &effect) const;
+};
+
+class XianshouCard : public SkillCard
+{
+    Q_OBJECT
+
+public:
+    Q_INVOKABLE XianshouCard();
+
+    virtual bool targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const;
+    virtual void onEffect(const CardEffectStruct &effect) const;
+};
+
+class FenglveCard : public SkillCard
+{
+    Q_OBJECT
+
+public:
+    Q_INVOKABLE FenglveCard();
+
+    virtual bool targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const;
+    virtual void onEffect(const CardEffectStruct &effect) const;
+};
+
+class FenglveZonghengCard : public SkillCard
+{
+    Q_OBJECT
+
+public:
+    Q_INVOKABLE FenglveZonghengCard();
+
+    virtual bool targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const;
+    virtual void onEffect(const CardEffectStruct &effect) const;
+};
+
 
 
 
@@ -84,6 +152,16 @@ public:
 };
 
 ADD_PACKAGE(Manoeuvre)
+
+class NewSGSPackage : public Package
+{
+    Q_OBJECT
+
+public:
+    NewSGSPackage();
+};
+
+ADD_PACKAGE(NewSGS)
 
 #endif // NEWSGS
 

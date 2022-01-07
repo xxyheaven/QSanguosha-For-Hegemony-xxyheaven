@@ -1017,9 +1017,18 @@ public:
             room->notifySkillInvoked(player, objectName());
             room->broadcastSkillInvoke(objectName(), player);
 
+            int id = card->getEffectiveId();
+            bool isHandcard = (room->getCardOwner(id) == player && room->getCardPlace(id) == Player::PlaceHand);
+
             CardMoveReason reason(CardMoveReason::S_REASON_RESPONSE, player->objectName(), objectName(), QString());
 
             room->moveCardTo(card, NULL, Player::PlaceTable, reason);
+
+            CardResponseStruct resp(card, judge->who, false);
+            resp.m_isHandcard = isHandcard;
+            resp.m_data = data;
+            QVariant _data = QVariant::fromValue(resp);
+            room->getThread()->trigger(CardResponded, room, player, _data);
 
             QStringList card_list = player->tag["guidao_cards"].toStringList();
             card_list.append(card->toString());

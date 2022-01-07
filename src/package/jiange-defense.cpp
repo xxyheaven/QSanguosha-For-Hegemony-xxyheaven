@@ -62,7 +62,7 @@ public:
         QList<ServerPlayer *> draw_list;
         foreach (ServerPlayer *p, room->getAlivePlayers()) {
             if (p->isFriendWith(target) && p->isWounded()) {
-                room->doAnimate(QSanProtocol::S_ALL_ALIVE_PLAYERS, target->objectName(), p->objectName());
+                room->doAnimate(QSanProtocol::S_ANIMATE_INDICATE, target->objectName(), p->objectName());
                 draw_list << p;
             }
         }

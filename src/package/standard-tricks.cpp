@@ -1146,20 +1146,13 @@ bool FireAttack::targetFilter(const QList<const Player *> &targets, const Player
     if (targets.length() >= total_num)
         return false;
 
-    if (to_select->isKongcheng())
-        return false;
-
-    if (to_select == Self)
-        return !Self->isLastHandCard(this, true);
-    else
-        return true;
+    return !to_select->isKongcheng();
 }
 
 void FireAttack::onEffect(const CardEffectStruct &effect) const
 {
     Room *room = effect.from->getRoom();
-    if (effect.to->isKongcheng())
-        return;
+    if (effect.to->isKongcheng()) return;
 
     const Card *card = room->askForCardShow(effect.to, effect.from, objectName());
     room->setEmotion(effect.from, "fire_attack");

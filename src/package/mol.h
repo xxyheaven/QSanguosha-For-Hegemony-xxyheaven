@@ -48,6 +48,30 @@ public:
 
 
 
+class GuishuCard : public SkillCard
+{
+    Q_OBJECT
+
+public:
+    Q_INVOKABLE GuishuCard();
+
+    virtual bool targetFixed() const;
+    virtual bool targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const;
+    virtual bool targetsFeasible(const QList<const Player *> &targets, const Player *Self) const;
+    virtual void onUse(Room *room, const CardUseStruct &card_use) const;
+};
+
+class HongyuanCard : public SkillCard
+{
+    Q_OBJECT
+
+public:
+    Q_INVOKABLE HongyuanCard();
+    virtual bool targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const;
+    virtual void use(Room *room, ServerPlayer *source, QList<ServerPlayer *> &targets) const;
+    virtual void extraCost(Room *room, const CardUseStruct &card_use) const;
+};
+
 
 
 
@@ -62,6 +86,16 @@ public:
 };
 
 ADD_PACKAGE(MOL)
+
+class OverseasPackage : public Package
+{
+    Q_OBJECT
+
+public:
+    OverseasPackage();
+};
+
+ADD_PACKAGE(Overseas)
 
 #endif // _MOL_H
 

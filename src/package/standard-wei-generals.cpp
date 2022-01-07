@@ -141,9 +141,18 @@ public:
             room->notifySkillInvoked(player, objectName());
             room->broadcastSkillInvoke(objectName(), player);
 
+            int id = card->getEffectiveId();
+            bool isHandcard = (room->getCardOwner(id) == player && room->getCardPlace(id) == Player::PlaceHand);
+
             CardMoveReason reason(CardMoveReason::S_REASON_RESPONSE, player->objectName(), objectName(), QString());
 
             room->moveCardTo(card, NULL, Player::PlaceTable, reason);
+
+            CardResponseStruct resp(card, judge->who, false);
+            resp.m_isHandcard = isHandcard;
+            resp.m_data = data;
+            QVariant _data = QVariant::fromValue(resp);
+            room->getThread()->trigger(CardResponded, room, player, _data);
 
             QStringList card_list = player->tag["guicai_cards"].toStringList();
             card_list.append(card->toString());
@@ -1335,150 +1344,6 @@ bool Xiaoguo::onPhaseChange(ServerPlayer *) const
     return false;
 }
 
-class Weicheng : public TriggerSkill
-{
-public:
-    Weicheng() : TriggerSkill("weicheng")
-    {
-        events << CardsMoveOneTime;
-    }
-
-    virtual QStringList triggerable(TriggerEvent , Room *, ServerPlayer *player, QVariant &data, ServerPlayer* &) const
-    {
-        if (!TriggerSkill::triggerable(player) || player->getHp() <= player->getHandcardNum()) return QStringList();
-
-        QVariantList move_datas = data.toList();
-        foreach (QVariant move_data, move_datas) {
-            CardsMoveOneTimeStruct move = move_data.value<CardsMoveOneTimeStruct>();
-            if (move.from == player && move.from_places.contains(Player::PlaceHand)
-                    && move.to && move.to != move.from && move.to_place == Player::PlaceHand) {
-                return QStringList(objectName());
-            }
-        }
-
-        return QStringList();
-    }
-
-    virtual bool cost(TriggerEvent, Room *room, ServerPlayer *player, QVariant &data, ServerPlayer *) const
-    {
-        if (player->askForSkillInvoke(this, data)) {
-            room->broadcastSkillInvoke(objectName(), player);
-            return true;
-        }
-
-        return false;
-    }
-
-    virtual bool effect(TriggerEvent, Room *, ServerPlayer *player, QVariant &, ServerPlayer *) const
-    {
-        player->drawCards(1, objectName());
-        return false;
-    }
-};
-
-DaoshuCard::DaoshuCard()
-{
-
-}
-
-bool DaoshuCard::targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
-{
-    return targets.isEmpty() && Self->canGetCard(to_select, "h") && to_select != Self;
-}
-
-void DaoshuCard::onEffect(const CardEffectStruct &effect) const
-{
-    ServerPlayer *source = effect.from;
-    ServerPlayer *target = effect.to;
-    Room *room = source->getRoom();
-    Card::Suit suit = room->askForSuit(source, "daoshu");
-
-    LogMessage log;
-    log.type = "#ChooseSuit";
-    log.from = source;
-    log.arg = Card::Suit2String(suit);
-    room->sendLog(log);
-
-    int card_id = room->askForCardChosen(source, target, "h", "daoshu", false, Card::MethodGet);
-
-    CardMoveReason reason(CardMoveReason::S_REASON_EXTRACTION, source->objectName());
-    CardsMoveStruct daoshu_move(card_id, source, Player::PlaceHand, reason);
-    QList<CardsMoveOneTimeStruct> moveOneTimes = room->moveCardsSub(daoshu_move, true);
-
-    QList<const Card *> getcard;
-    foreach (CardsMoveOneTimeStruct move, moveOneTimes) {
-        if (move.from == target && move.reason.m_reason == CardMoveReason::S_REASON_EXTRACTION) {
-            for (int i = 0; i < move.card_ids.length(); ++i) {
-                const Card *card = Card::Parse(move.cards.at(i));
-                if (card && (move.from_places.at(i) == Player::PlaceHand || move.from_places.at(i) == Player::PlaceEquip)) {
-                    getcard << card;
-                }
-            }
-        }
-    }
-
-    if (getcard.isEmpty()) return;
-
-    bool cheak_suit = false;
-
-    QStringList card_suits;
-    card_suits << "spade" << "heart" << "club" << "diamond";
-
-    foreach (const Card *c, getcard) {
-        if (c->getSuit() == suit)
-            cheak_suit = true;
-        else
-            card_suits.removeOne(c->getSuitString());
-    }
-
-    if (cheak_suit) {
-        room->damage(DamageStruct("daoshu", source, target));
-        room->addPlayerHistory(source, getClassName(), -1);
-    }
-
-    if (card_suits.length() < 4) {
-        const Card *to_give = NULL;
-        foreach (const Card *c, source->getHandcards()) {
-            if (card_suits.contains(c->getSuitString())) {
-                to_give = c;
-                break;
-            }
-        }
-        if (to_give == NULL) {
-            room->showAllCards(source);
-            return;
-        }
-        const Card *select = room->askForCard(source, ".|" + card_suits.join(",") + "|.|hand!", "@daoshu-give::" + target->objectName(),
-                                              QVariant(), Card::MethodNone);
-        if (select == NULL)
-            select = to_give;
-
-        CardMoveReason reason(CardMoveReason::S_REASON_GIVE, source->objectName(), target->objectName(), "daoshu", QString());
-        room->obtainCard(target, select, reason, true);
-    }
-}
-
-class Daoshu : public ZeroCardViewAsSkill
-{
-public:
-    Daoshu() : ZeroCardViewAsSkill("daoshu")
-    {
-
-    }
-
-    virtual bool isEnabledAtPlay(const Player *player) const
-    {
-        return !player->hasUsed("DaoshuCard");
-    }
-
-    virtual const Card *viewAs() const
-    {
-        DaoshuCard *card = new DaoshuCard;
-        card->setShowSkill(objectName());
-        return card;
-    }
-};
-
 void StandardPackage::addWeiGenerals()
 {
     General *caocao = new General(this, "caocao", "wei"); // WEI 001
@@ -1537,15 +1402,10 @@ void StandardPackage::addWeiGenerals()
     General *yuejin = new General(this, "yuejin", "wei", 4); // WEI 016
     yuejin->addSkill(new Xiaoguo);
 
-    General *jianggan = new General(this, "jianggan", "wei", 3); // WEI EXTRA
-    jianggan->addSkill(new Weicheng);
-    jianggan->addSkill(new Daoshu);
-
     addMetaObject<ShensuCard>();
     addMetaObject<QiaobianAskCard>();
     addMetaObject<QiangxiCard>();
     addMetaObject<QuhuCard>();
-    addMetaObject<DaoshuCard>();
 
     skills << new JushouSelect << new QiaobianAsk;
 }

@@ -332,7 +332,7 @@ bool Analeptic::IsAvailable(const Player *player, const Card *analeptic)
     if (player->isCardLimited(THIS_ANAL, Card::MethodUse) || player->isProhibited(player, THIS_ANAL))
         return false;
 
-    return player->usedTimes("Analeptic") <= Sanguosha->correctCardTarget(TargetModSkill::Residue, player, THIS_ANAL);
+    return player->usedTimes("Analeptic") <= Sanguosha->correctCardTarget(TargetModSkill::Residue, player, THIS_ANAL, player);
 #undef THIS_ANAL
 }
 

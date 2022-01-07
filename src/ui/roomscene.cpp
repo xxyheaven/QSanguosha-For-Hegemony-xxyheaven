@@ -2470,6 +2470,7 @@ void RoomScene::useCard(const Card *card)
 {
     if (card->targetFixed() || card->targetsFeasible(selected_targets, Self))
         ClientInstance->onPlayerResponseCard(card, selected_targets);
+    dashboard->unselectAll();
     enableTargets(NULL);
 }
 

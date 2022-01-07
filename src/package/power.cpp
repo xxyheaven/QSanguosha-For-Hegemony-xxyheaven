@@ -1892,7 +1892,7 @@ public:
         bool head;
         if (generals.isEmpty()) return false;
         if (generals.length() == 1) head = (generals.first() == "head");
-        else head = (room->askForChoice(player, objectName(), generals.join("+"), data, "@jianan-hide") == "head");
+        else head = (room->askForChoice(player, "jianan_hide", generals.join("+"), data, "@jianan-hide") == "head");
 
         player->hideGeneral(head);
         room->setPlayerDisableShow(player, head?"h":"d", objectName());
@@ -1901,7 +1901,7 @@ public:
         all_skills << "tuxi" << "qiaobian" << "xiaoguo" << "jieyue" << "duanliang";
 
         if (skills.isEmpty()) return false;
-        QString skill_name = room->askForChoice(player, objectName(), skills.join("+"), data, "@jianan-skill", all_skills.join("+"))+"_egf";
+        QString skill_name = room->askForChoice(player, "jianan_skill", skills.join("+"), data, "@jianan-skill", all_skills.join("+"))+"_egf";
 
         room->acquireSkill(player, skill_name, true, false);
         QStringList skill_list = player->tag["JiananSkills"].toStringList();

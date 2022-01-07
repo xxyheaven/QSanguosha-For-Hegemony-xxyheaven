@@ -739,7 +739,7 @@ PindianStruct *ServerPlayer::pindianSelect(const QList<ServerPlayer *> &targets,
     return pindian;
 }
 
-bool ServerPlayer::pindianResult(PindianStruct *pd, int index)
+PindianStruct *ServerPlayer::pindianResultStruct(PindianStruct *pd, int index)
 {
     Q_ASSERT(pd != NULL);
     Q_ASSERT(index <= pd->tos.length());
@@ -788,7 +788,13 @@ bool ServerPlayer::pindianResult(PindianStruct *pd, int index)
         .arg(pindian_struct.to_card->getEffectiveId()));
     thread->trigger(ChoiceMade, room, this, decisionData);
 
-    return pindian_struct.success;
+    return pindian_star;
+}
+
+bool ServerPlayer::pindianResult(PindianStruct *pd, int index)
+{
+    PindianStruct *pindian_star = pindianResultStruct(pd, index);
+    return pindian_star->success;
 }
 
 void ServerPlayer::pindianFinish(PindianStruct *pd)
@@ -832,6 +838,14 @@ bool ServerPlayer::pindian(ServerPlayer *target, const QString &reason, const Ca
     return success;
 }
 
+PindianStruct *ServerPlayer::pindianStruct(ServerPlayer *target, const QString &reason, const Card *card1)
+{
+    PindianStruct *pd = pindianSelect(target, reason, card1);
+    PindianStruct *pd2 = pindianResultStruct(pd);
+    pindianFinish(pd);
+    return pd2;
+}
+
 bool ServerPlayer::askCommandto(const QString &reason, ServerPlayer *target)
 {
     int index = startCommand(reason, target);
@@ -863,7 +877,7 @@ int ServerPlayer::startCommand(const QString &reason, ServerPlayer *target)
 
     prompt = prompt+":#"+command1+":#"+command2;
 
-    QString choice = room->askForChoice(this, "startcommand_"+reason, commands.join("+"), QVariant(), prompt);
+    QString choice = room->askForChoice(this, "startcommand_"+reason, commands.join("+"), QVariant::fromValue(target), prompt);
 
     LogMessage log;
     log.type = "#CommandChoice";
@@ -876,6 +890,8 @@ int ServerPlayer::startCommand(const QString &reason, ServerPlayer *target)
 
 bool ServerPlayer::doCommand(const QString &reason, int index, ServerPlayer *source)
 {
+    if (isDead() || source->isDead()) return false;
+
     QStringList allcommands;
     allcommands << "command1" << "command2" << "command3" << "command4" << "command5" << "command6";
 
@@ -903,6 +919,14 @@ bool ServerPlayer::doCommand(const QString &reason, int index, ServerPlayer *sou
         switch (index+1) {
         case 1: {
             ServerPlayer *dest = room->askForPlayerChosen(source, room->getAlivePlayers(), "command_"+reason, "@command-damage");
+
+            LogMessage log;
+            log.type = "#CommandDamage";
+            log.from = source;
+            log.to << dest;
+            room->sendLog(log);
+            room->doAnimate(QSanProtocol::S_ANIMATE_INDICATE, source->objectName(), dest->objectName());
+
             room->damage(DamageStruct("command", this, dest));
             break;
         }
@@ -914,7 +938,9 @@ bool ServerPlayer::doCommand(const QString &reason, int index, ServerPlayer *sou
                 reason.m_playerId = source->objectName();
                 room->obtainCard(source, getCards("he").first(), reason, false);
             } else {
+                room->setPlayerFlag(source, "CommandSource");
                 QList<int> result = room->askForExchange(this, "command", 2, 2, "@command-give:"+source->objectName());
+                room->setPlayerFlag(source, "-CommandSource");
                 DummyCard dummy(result);
                 CardMoveReason reason(CardMoveReason::S_REASON_GIVE, objectName(), source->objectName(), "command", QString());
                 reason.m_playerId = source->objectName();
@@ -1129,8 +1155,8 @@ void ServerPlayer::insertPhase(Player::Phase phase)
 {
     PhaseStruct _phase;
     _phase.phase = phase;
-    phases.insert(_m_phases_index, phase);
-    _m_phases_state.insert(_m_phases_index, _phase);
+    phases.insert(_m_phases_index+1, phase);
+    _m_phases_state.insert(_m_phases_index+1, _phase);
 }
 
 bool ServerPlayer::isSkipped(Player::Phase phase)

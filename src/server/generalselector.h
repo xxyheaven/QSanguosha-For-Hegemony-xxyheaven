@@ -48,9 +48,9 @@ private:
     void calculatePairValues(const ServerPlayer *player, const QStringList &candidates);
     void calculateDeputyValue(const ServerPlayer *player, const QString &first, const QStringList &candidates, const QStringList &kingdom_list = QStringList());
 
-    QHash<QString, int> m_singleGeneralTable;
-    QHash<QString, int> m_pairTable;
-    QHash<const ServerPlayer *, QHash<QString, int> > m_privatePairValueTable;
+    QHash<QString, double> m_singleGeneralTable;
+    QHash<QString, double> m_pairTable;
+    QHash<const ServerPlayer *, QHash<QString, double> > m_privatePairValueTable;
 };
 
 #endif // GENERALSELECTOR_H

@@ -93,9 +93,11 @@ public:
     bool hasNullification();
     PindianStruct *pindianSelect(ServerPlayer *target, const QString &reason, const Card *card1 = NULL);
     PindianStruct *pindianSelect(const QList<ServerPlayer *> &target, const QString &reason, const Card *card1 = NULL);
+    PindianStruct *pindianResultStruct(PindianStruct *pd, int index = 1);
     bool pindianResult(PindianStruct *pd, int index = 1);
     void pindianFinish(PindianStruct *pd);//pd is deleted at this function
     bool pindian(ServerPlayer *target, const QString &reason, const Card *card1 = NULL);
+    PindianStruct *pindianStruct(ServerPlayer *target, const QString &reason, const Card *card1 = NULL);
 
     bool askCommandto(const QString &reason, ServerPlayer *target);
     int startCommand(const QString &reason, ServerPlayer *target = NULL);

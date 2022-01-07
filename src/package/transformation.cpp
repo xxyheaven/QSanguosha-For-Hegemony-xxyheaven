@@ -2098,7 +2098,7 @@ public:
                 if (sunquan->hasShownSkill("jiahe") && !sunquan->getPile("flame_map").isEmpty() && sunquan->isFriendWith(player))
                     skill_list.insert(sunquan, QStringList(objectName()));
             }
-        } else if (triggerEvent == Damaged && TriggerSkill::triggerable(player) && !player->getPile("flame_map").isEmpty()) {
+        } else if (triggerEvent == Damaged && player->hasSkill("jiahe") && !player->getPile("flame_map").isEmpty()) {
             DamageStruct damage = data.value<DamageStruct>();
             if (damage.card != NULL)
                 skill_list.insert(player, QStringList(objectName()));

@@ -451,7 +451,7 @@ public:
         return false;
     }
 
-    virtual void record(TriggerEvent, Room *room, ServerPlayer *player, QVariant &data) const
+    virtual void record(TriggerEvent, Room *room, ServerPlayer *player, QVariant &) const
     {
         if (player == NULL) return;
         bool has_head_guanxing = false;
@@ -856,7 +856,7 @@ public:
         return false;
     }
 
-    virtual bool effect(TriggerEvent, Room *room, ServerPlayer *skill_target, QVariant &data, ServerPlayer *ask_who) const
+    virtual bool effect(TriggerEvent, Room *, ServerPlayer *skill_target, QVariant &data, ServerPlayer *) const
     {
         CardUseStruct use = data.value<CardUseStruct>();
         int x = use.to.indexOf(skill_target);
@@ -1106,8 +1106,7 @@ public:
     virtual TriggerList triggerable(TriggerEvent, Room *room, ServerPlayer *player, QVariant &) const
     {
         TriggerList skill_list;
-        if (player == NULL) return skill_list;
-        if (player->getPhase() != Player::Play) return skill_list;
+        if (player == NULL || player->isDead() || player->getPhase() != Player::Play) return skill_list;
         QList<ServerPlayer *> hetaihous = room->findPlayersBySkillName(objectName());
         foreach (ServerPlayer *hetaihou, hetaihous) {
             if (!hetaihou->isKongcheng() && hetaihou != player)
@@ -1136,7 +1135,7 @@ public:
 
         Analeptic *analeptic = new Analeptic(Card::NoSuit, 0);
         analeptic->setSkillName("_zhendu");
-        if (analeptic->isAvailable(player) && room->useCard(CardUseStruct(analeptic, player, QList<ServerPlayer *>(), true))) {
+        if (player->isAlive() && analeptic->isAvailable(player) && room->useCard(CardUseStruct(analeptic, player, QList<ServerPlayer *>(), true))) {
             if (player->isAlive())
                 room->damage(DamageStruct(objectName(), hetaihou, player));
         } else

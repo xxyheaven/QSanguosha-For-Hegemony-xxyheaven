@@ -146,6 +146,10 @@ public:
                     room->setPlayerProperty(damage.from, "Global_DamagePlayers_Phase", player_list.join("+"));
 
 
+                    if (damage.from->getMark("Global_DamageTimes_Phase") == 0)
+                        damage.flags << "zhukou";
+
+                    room->addPlayerMark(damage.from, "Global_DamageTimes_Phase");
 
                 }
 
@@ -320,6 +324,7 @@ public:
             foreach (ServerPlayer *p, room->getAlivePlayers()) {
                 room->setPlayerMark(p, "GlobalLoseCardCount", 0);
                 room->setPlayerMark(p, "Global_InjuredTimes_Phase", 0);
+                room->setPlayerMark(p, "Global_DamageTimes_Phase", 0);
                 room->setPlayerProperty(p, "Global_DamagePlayers_Phase", QVariant());
             }
         }
@@ -395,7 +400,7 @@ void HalfMaxHpCard::extraCost(Room *room, const CardUseStruct &card_use) const
     room->removePlayerMark(card_use.from, "@halfmaxhp");
 }
 
-void HalfMaxHpCard::use(Room *room, ServerPlayer *player, QList<ServerPlayer *> &) const
+void HalfMaxHpCard::use(Room *, ServerPlayer *player, QList<ServerPlayer *> &) const
 {
     player->drawCards(1, "halfmaxhp");
 }
