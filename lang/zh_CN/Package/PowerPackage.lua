@@ -127,8 +127,8 @@ return {
 	[":elitegeneralflag"] = "一名魏势力角色的准备阶段开始时，其可弃置一张牌并选择一张暗置的武将牌或暗置两张明置的武将牌中的一张▶其选择下列技能中其他角色均没有的一个：“突袭”、“巧变”、“骁果”、“节钺”、“断粮”。其于你的下个回合开始之前拥有其以此法选择的技能且不能明置其选择的武将牌。",
 	["@elitegeneralflag"] = "你可以发动“五子良将纛”，请弃置一张牌",
 	["@jianan-hide"] = "五子良将纛：请选择要暗置的武将牌",
-	["elitegeneralflag:head"] = "暗置主将",
-	["elitegeneralflag:deputy"] = "暗置副将",
+	["jianan_hide:head"] = "暗置主将",
+	["jianan_hide:deputy"] = "暗置副将",
 	["@jianan-skill"] = "五子良将纛：请选择获得的技能",
 	["huibian"] = "挥鞭",
 	[":huibian"] = "出牌阶段限一次，你可选择一名魏势力角色和另一名已受伤的魏势力角色并对前者造成1点普通伤害▶前者摸两张牌。后者回复1点体力。",
@@ -171,6 +171,8 @@ return {
 	
 	["#commandselect_yes"] = "执行军令",
 	["#commandselect_no"] = "不执行军令",
+
+	["#CommandDamage"] = "%from 选择对 %to 造成伤害",
 	
 	["@command-damage"] = "军令：请选择伤害的目标",
 	["@command-give"] = "军令：请选择两张牌交给%src",

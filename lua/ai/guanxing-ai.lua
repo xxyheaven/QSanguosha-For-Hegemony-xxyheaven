@@ -164,7 +164,7 @@ local function GuanXing(self, cards)
 
 	end
 
-	local drawCards = self:ImitateResult_DrawNCards(self.player, self.player:getVisibleSkillList(true))
+	local drawCards = self:imitateDrawNCards(self.player, self.player:getVisibleSkillList(true))
 	local drawCards_copy = drawCards
 	if willSkipDrawPhase then drawCards = 0 end
 
@@ -172,7 +172,7 @@ local function GuanXing(self, cards)
 	local luoshen_flag = false
 	local next_judge = {}
 	local next_player
-	for _, p in sgs.qlist(global_room:getOtherPlayers(self.player)) do
+	for _, p in sgs.qlist(Global_room:getOtherPlayers(self.player)) do
 		if p:faceUp() then next_player = p break end
 	end
 	next_player = next_player or self.player:faceUp() and self.player or self.player:getNextAlive()
@@ -297,7 +297,7 @@ local function GuanXing(self, cards)
 				end
 			end
 			if not insert and not willSkipPlayPhase and self.player:hasSkills("tianyi|quhu") then
-				local maxcard = self:getMaxCard(self.player)
+				local maxcard = self:getMaxNumberCard(self.player)
 				has_big = maxcard and maxcard:getNumber() > 10
 				if not has_big and gcard:getNumber() > 10 then
 					insert = true
@@ -388,7 +388,7 @@ local function GuanXing(self, cards)
 	end
 
 	if #bottom > drawCards and #bottom > 0 and not nextplayer_judge_failed then
-		local maxCount = math.min(#bottom - drawCards, self:ImitateResult_DrawNCards(next_player, next_player:getVisibleSkillList(true)))
+		local maxCount = math.min(#bottom - drawCards, self:imitateDrawNCards(next_player, next_player:getVisibleSkillList(true)))
 		if self:isFriend(next_player) then
 			local i = 0
 			for index = 1, #bottom do
@@ -459,9 +459,9 @@ end
 local function WuXin(self, cards)
 	local up, bottom = {}, {}
 	local judged_list = {}
-	local hasJudge = false
+	local has_judged = false
 	local next_player
-	for _, p in sgs.qlist(global_room:getOtherPlayers(self.player)) do
+	for _, p in sgs.qlist(Global_room:getOtherPlayers(self.player)) do
 		if p:faceUp() then next_player = p break end
 	end
 	next_player = next_player or self.player:faceUp() and self.player or self.player:getNextAlive()
@@ -513,11 +513,11 @@ local function WuXin(self, cards)
 		end
 	end
 
-	self:sortByUseValue(bottom)
-
 	while #bottom ~= 0 do
 		table.insert(up, table.remove(bottom))
 	end
+
+	--ShowGuanxingResult(self, up, bottom)
 
 	up = getBackToId(self, up)
 	return up, {}
@@ -700,7 +700,7 @@ function SmartAI:getValuableCardForGuanxing(cards, up_cards)
 						or enemy:isKongcheng()
 						or self:canLiegong(enemy, self.player)
 						or self.player:hasShownSkills(sgs.force_slash_skill)
-						or (self.player:hasWeapon("Axe") or self:getCardsNum("Axe") > 0) and self.player:getCards("he"):length() > 4
+						or (self.player:hasWeapon("Axe") or self:getCardsNum("Axe") > 0) and self.player:getCardCount(true) > 4
 						then
 						return analeptic
 					end
@@ -732,7 +732,9 @@ function SmartAI:getValuableCardForGuanxing(cards, up_cards)
 		end
 
 		if halberd then
---@todo
+			if self.player:hasSkills(sgs.force_slash_skill .. "|" .."paoxiao|paoxiao_xh|baolie|xiongnve|kuangcai") then
+				return halberd
+			end
 		end
 
 		if gudingdao then
