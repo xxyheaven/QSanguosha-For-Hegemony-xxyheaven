@@ -184,7 +184,7 @@ void Slash::onEffect(const CardEffectStruct &card_effect) const
     effect.from->getRoom()->slashEffect(effect);
 }
 
-bool Slash::targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
+bool Slash::targetRated(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
 {
     int slash_targets = 1 + Sanguosha->correctCardTarget(TargetModSkill::ExtraTarget, Self, this, to_select);
     bool distance_limit = ((1 + Sanguosha->correctCardTarget(TargetModSkill::DistanceLimit, Self, this, to_select)) < 500);
@@ -198,34 +198,25 @@ bool Slash::targetFilter(const QList<const Player *> &targets, const Player *to_
     }
 
     if (Self->getOffensiveHorse() && subcards.contains(Self->getOffensiveHorse()->getId()))
-        ++rangefix;
-
-    bool has_specific_assignee = false;
-    foreach (const Player *p, Self->getAliveSiblings()) {
-        if (Slash::IsSpecificAssignee(p, Self, this)) {
-            has_specific_assignee = true;
-            break;
-        }
-    }
-
-    if (has_specific_assignee) {
-        if (targets.isEmpty())
-            return Slash::IsSpecificAssignee(to_select, Self, this) && Self->canSlash(to_select, this, distance_limit, rangefix);
-        else {
-            if (Self->hasFlag("slashDisableExtraTarget")) return false;
-            bool canSelect = false;
-            foreach (const Player *p, targets) {
-                if (Slash::IsSpecificAssignee(p, Self, this)) {
-                    canSelect = true;
-                    break;
-                }
-            }
-            if (!canSelect) return false;
-        }
-    }
+        rangefix += 1;
 
     if (!Self->canSlash(to_select, this, distance_limit, rangefix, targets)) return false;
     return targets.length() < slash_targets;
+}
+
+bool Slash::targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
+{
+    if (!targetRated(targets, to_select, Self)) return false;
+    if (targets.isEmpty()) {
+        QList<const Player *> all_players = Self->getSiblings();
+        all_players.append(Self);
+        foreach (const Player *p, all_players) {
+            if (Slash::IsSpecificAssignee(p, Self, this)) {
+                return Slash::IsSpecificAssignee(to_select, Self, this);
+            }
+        }
+    }
+    return true;
 }
 
 NatureSlash::NatureSlash(Suit suit, int number, DamageStruct::Nature nature)
@@ -285,6 +276,11 @@ QString Peach::getSubtype() const
     return "recover_card";
 }
 
+bool Peach::targetRated(const QList<const Player *> &targets, const Player *to_select, const Player *) const
+{
+    return !hasFlag("UsedBySecondWay") && targets.isEmpty() && to_select->isWounded();
+}
+
 void Peach::onUse(Room *room, const CardUseStruct &card_use) const
 {
     CardUseStruct use = card_use;
@@ -323,6 +319,11 @@ QString Analeptic::getSubtype() const
     return "buff_card";
 }
 
+bool Analeptic::targetRated(const QList<const Player *> &targets, const Player *, const Player *) const
+{
+    return !hasFlag("UsedBySecondWay") && targets.isEmpty();
+}
+
 bool Analeptic::IsAvailable(const Player *player, const Card *analeptic)
 {
     Analeptic *newanal = new Analeptic(Card::NoSuit, 0);
@@ -332,7 +333,7 @@ bool Analeptic::IsAvailable(const Player *player, const Card *analeptic)
     if (player->isCardLimited(THIS_ANAL, Card::MethodUse) || player->isProhibited(player, THIS_ANAL))
         return false;
 
-    return player->usedTimes("Analeptic") <= Sanguosha->correctCardTarget(TargetModSkill::Residue, player, THIS_ANAL, player);
+    return player->getMark("AnalepticUsedTimes") <= Sanguosha->correctCardTarget(TargetModSkill::Residue, player, THIS_ANAL, player);
 #undef THIS_ANAL
 }
 
@@ -354,7 +355,7 @@ void Analeptic::onEffect(const CardEffectStruct &effect) const
 {
     Room *room = effect.to->getRoom();
 
-    if (effect.to->hasFlag("Global_Dying") && Sanguosha->getCurrentCardUseReason() != CardUseStruct::CARD_USE_REASON_PLAY) {
+    if (hasFlag("UsedBySecondWay")) {
         // recover hp
         RecoverStruct recover;
         recover.card = this;

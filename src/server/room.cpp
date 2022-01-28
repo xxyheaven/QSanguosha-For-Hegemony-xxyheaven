@@ -2241,6 +2241,8 @@ const Card *Room::askForSinglePeach(ServerPlayer *player, ServerPlayer *dying)
             .arg(1 - dying->getHp())
             .arg(card->toString()));
         thread->trigger(ChoiceMade, this, player, decisionData);
+
+        setCardFlag(card, "UsedBySecondWay");
         CardUseStruct use(card, player, dying);
         useCard(use, false);
         _card->validateInResponseAfter(player);
@@ -2969,7 +2971,7 @@ void Room::doDragonPhoenix(ServerPlayer *player, const QString &general1_name, c
         setPlayerMark(player, "GlobalBattleRoyalMode", 1);
 }
 
-void Room::transformDeputyGeneral(ServerPlayer *player, bool show)
+void Room::transformDeputyGeneral(ServerPlayer *player, const QString &_name, bool show)
 {
     if (!player->getGeneral2()) return;
 
@@ -2981,31 +2983,36 @@ void Room::transformDeputyGeneral(ServerPlayer *player, bool show)
 
     QStringList names;
     names << player->getActualGeneral1Name() << player->getActualGeneral2Name();
-    QStringList available, to_select;
-    foreach (QString name, Sanguosha->getLimitedGeneralNames()) {
-        if (player->getKingdom() == "careerist" && Sanguosha->getGeneral(name)->getKingdom() == "careerist") continue;
 
-        if ((player->getKingdom() == "careerist" || Sanguosha->getGeneral(name)->getKingdoms().contains(player->getKingdom()))
-                && !name.startsWith("lord_") && !used_general.contains(name))
-            available << name;
+    QString general_name = _name;
+    if (_name.isEmpty()) {
+        QStringList available, to_select;
+        foreach (QString name, Sanguosha->getLimitedGeneralNames()) {
+            if (player->getKingdom() == "careerist" && Sanguosha->getGeneral(name)->getKingdom() == "careerist") continue;
+
+            if ((player->getKingdom() == "careerist" || Sanguosha->getGeneral(name)->getKingdoms().contains(player->getKingdom()))
+                    && !name.startsWith("lord_") && !used_general.contains(name))
+                available << name;
+        }
+        if (available.isEmpty()) return;
+
+        QVariant qnum;
+        int num = 3;
+        qnum = num;
+
+        thread->trigger(GeneralTransforming, this, player, qnum);
+        num = qnum.toInt();
+        if (num < 1) return;
+
+        qShuffle(available);
+        for (int i = 1; i <= num; i++) {
+            if (available.isEmpty()) break;
+            to_select << available.takeFirst();
+        }
+
+        general_name = askForGeneral(player, to_select.join("+"), QString(), true, "transform");
+
     }
-    if (available.isEmpty()) return;
-
-    QVariant qnum;
-    int num = 3;
-    qnum = num;
-
-    thread->trigger(GeneralTransforming, this, player, qnum);
-    num = qnum.toInt();
-    if (num < 1) return;
-
-    qShuffle(available);
-    for (int i = 1; i <= num; i++) {
-        if (available.isEmpty()) break;
-        to_select << available.takeFirst();
-    }
-
-    QString general_name = askForGeneral(player, to_select.join("+"), QString(), true, "transform");
 
     handleUsedGeneral("-" + player->getActualGeneral2Name());
     handleUsedGeneral(general_name);
@@ -4074,6 +4081,11 @@ bool Room::useCard(const CardUseStruct &use, bool add_history)
     CardUseStruct card_use = use;
 
     card_use.card = Card::Parse(use.card->toString());
+
+    foreach (QString flagname, use.card->getFlags()) {
+        setCardFlag(card_use.card, flagname);
+    }
+
     card_use.card->tag = QVariantMap(use.card->tag);
 
     card_use.m_addHistory = false;
@@ -7849,4 +7861,36 @@ void Room::cancelTarget(CardUseStruct &use, ServerPlayer *player)
 
     if (use.card != NULL && use.card->isKindOf("Slash"))
         player->slashSettlementFinished(use.card);
+}
+
+QList<ServerPlayer *> Room::getUseExtraTargets(CardUseStruct card_use, bool distance_limited)
+{
+    CardUseStruct use = card_use;
+    QList<ServerPlayer *> targets;
+    if (use.card->getTypeId() == Card::TypeEquip || use.card->getTypeId() == Card::TypeSkill
+            || use.card->isKindOf("DelayedTrick")) return targets;
+
+    if (use.card->isKindOf("Slash")) {
+        if (use.card->hasFlag("slashDisableExtraTarget")) return targets;
+
+    }
+
+    bool clear_flag = false;
+    if (use.card->hasFlag("slashNoDistanceLimit") || !distance_limited) {
+        if (!use.card->hasFlag("Global_NoDistanceChecking")) {
+            clear_flag = true;
+            setCardFlag(use.card, "Global_NoDistanceChecking");
+        }
+    }
+
+    foreach (ServerPlayer *p, m_alivePlayers) {
+        if (use.to.contains(p) || isProhibited(use.from, p, use.card)) continue;
+        if (use.card->targetRated(QList<const Player *>(), p, use.from))
+            targets.append(p);
+    }
+
+    if (clear_flag)
+        setCardFlag(use.card, "-Global_NoDistanceChecking");
+
+    return targets;
 }

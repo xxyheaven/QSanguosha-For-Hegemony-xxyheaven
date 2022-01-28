@@ -195,7 +195,7 @@ class RuleTheWorld : public SingleTargetTrick
 public:
     Q_INVOKABLE RuleTheWorld(Card::Suit suit = Spade, int number = 12);
 
-    virtual bool targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const;
+    virtual bool targetRated(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const;
     virtual void onEffect(const CardEffectStruct &effect) const;
 };
 
@@ -206,7 +206,7 @@ class Conquering : public GlobalEffect
 public:
     Q_INVOKABLE Conquering(Card::Suit suit = Diamond, int number = 1);
 
-    virtual bool targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const;
+    virtual bool targetRated(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const;
     virtual void onUse(Room *room, const CardUseStruct &card_use) const;
     virtual void onEffect(const CardEffectStruct &effect) const;
 };
@@ -229,6 +229,7 @@ class ConsolidateCountry : public SingleTargetTrick
 public:
     Q_INVOKABLE ConsolidateCountry(Card::Suit suit = Heart, int number = 1);
 
+    virtual bool targetRated(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const;
     virtual void onUse(Room *room, const CardUseStruct &card_use) const;
     virtual void onEffect(const CardEffectStruct &effect) const;
     virtual bool isAvailable(const Player *player) const;

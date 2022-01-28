@@ -160,6 +160,8 @@ public:
     static void cancelTarget(CardUseStruct &use, const QString &name);
     static void cancelTarget(CardUseStruct &use, ServerPlayer *player);
 
+    QList<ServerPlayer *> getUseExtraTargets(CardUseStruct card_use, bool distance_limited = false);
+
     // Ask a player to send a server request and returns the client response. Call is blocking until client
     // replies or server times out, whichever is earlier.
     // @param player
@@ -326,7 +328,7 @@ public:
     void resetAI(ServerPlayer *player);
     void doDragonPhoenix(ServerPlayer *target, const QString &general1_name, const QString &general2_name, bool full_state = true,
                          const QString &kingdom = QString(), bool sendLog = true, const QString &show_flags = QString(), bool resetHp = false);
-    void transformDeputyGeneral(ServerPlayer *player, bool show = true);
+    void transformDeputyGeneral(ServerPlayer *player, const QString &general_name = QString(), bool show = true);
     void swapSeat(ServerPlayer *a, ServerPlayer *b);
     lua_State *getLuaState() const;
     void setFixedDistance(Player *from, const Player *to, int distance);

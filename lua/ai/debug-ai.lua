@@ -35,7 +35,7 @@ sgs.ai_debug_func[sgs.CardUsed].debugfunc = function(self, player, data)
 end]]
 
 function sgs.debugFunc(player, debugType)
-	local owner = global_room:getOwner()
+	local owner = Global_room:getOwner()
 	local choices = {"showVisiblecards", "showHandcards", "objectiveLevel", "getDefenseSlash"}
 	-- local debugmsg = function(fmt, ...)
 		-- if type(fmt) == "boolean" then fmt = fmt and "true" or "false" end
@@ -44,51 +44,51 @@ function sgs.debugFunc(player, debugType)
 		-- logmsg("ai.html", "<pre>" .. msg .. "</pre>")
 	-- end
 
-	local players = sgs.QList2Table(global_room:getAlivePlayers())
+	local players = sgs.QList2Table(Global_room:getAlivePlayers())
 
 	local function showVisiblecards()
-		global_room:writeToConsole(string.format("-=showVisiblecards; AI: %s/%s[%s]", player:getActualGeneral1Name(), player:getActualGeneral2Name(), player:getKingdom()))
+		Global_room:writeToConsole(string.format("-=showVisiblecards; AI: %s/%s[%s]", player:getActualGeneral1Name(), player:getActualGeneral2Name(), player:getKingdom()))
 		for i = 1, #players, 1 do
 			local msg = string.format("%s/%s[Visiblecards]:", players[i]:getActualGeneral1Name(), players[i]:getActualGeneral2Name())
 			local cards = sgs.QList2Table(players[i]:getHandcards())
 			for _, card in ipairs(cards) do
-				if sgs.cardIsVisible(c, players[i], player) then
+				if sgs.cardIsVisible(card, players[i], player) then
 					msg = msg .. card:getClassName() ..", "
 				end
 			end
-			global_room:writeToConsole(msg)
+			Global_room:writeToConsole(msg)
 		end
 	end
 
 	local function showHandcards()
-		global_room:writeToConsole(string.format("-=showHandcards; AI: %s/%s[%s]", player:getActualGeneral1Name(), player:getActualGeneral2Name(), player:getKingdom()))
+		Global_room:writeToConsole(string.format("-=showHandcards; AI: %s/%s[%s]", player:getActualGeneral1Name(), player:getActualGeneral2Name(), player:getKingdom()))
 		for i = 1, #players, 1 do
 			local msg = string.format("%s/%s[Handcards]:", players[i]:getActualGeneral1Name(), players[i]:getActualGeneral2Name())
 			local cards = sgs.QList2Table(players[i]:getHandcards())
 			for _, card in ipairs(cards) do
 				msg = msg .. card:getClassName() ..", "
 			end
-			global_room:writeToConsole(msg2)
+			Global_room:writeToConsole(msg)
 		end
 	end
 
 	local function objectiveLevel()
-		global_room:writeToConsole("gameProcess :: " .. sgs.gameProcess())
-		global_room:writeToConsole(string.format("-=objectiveLevel; AI: %s/%s[%s]", player:getActualGeneral1Name(), player:getActualGeneral2Name(), player:getKingdom()))
+		Global_room:writeToConsole("gameProcess :: " .. sgs.gameProcess())
+		Global_room:writeToConsole(string.format("-=objectiveLevel; AI: %s/%s[%s]", player:getActualGeneral1Name(), player:getActualGeneral2Name(), player:getKingdom()))
 		local pSelf = sgs.ais[player:objectName()]
 		for i = 1, #players, 1 do
 			local level = pSelf:objectiveLevel(players[i])
 			local rel = pSelf:evaluateKingdom(players[i])
 
-			global_room:writeToConsole(string.format("%s/%s[%s]: %d %s", players[i]:getActualGeneral1Name(), players[i]:getActualGeneral2Name(),
+			Global_room:writeToConsole(string.format("%s/%s[%s]: %d %s", players[i]:getActualGeneral1Name(), players[i]:getActualGeneral2Name(),
 															players[i]:getKingdom(), level, rel))
 		end
 	end
 
 	local function getDefenseSlash()
-		global_room:writeToConsole(string.format("-=getDefenseSlash; AI: %s/%s[%s]", player:getActualGeneral1Name(), player:getActualGeneral2Name(), player:getKingdom()))
+		Global_room:writeToConsole(string.format("-=getDefenseSlash; AI: %s/%s[%s]", player:getActualGeneral1Name(), player:getActualGeneral2Name(), player:getKingdom()))
 		for i = 1, #players, 1 do
-			global_room:writeToConsole(string.format("%s/%s:%.2f", players[i]:getActualGeneral1Name(), players[i]:getActualGeneral2Name(), sgs.getDefenseSlash(players[i], sgs.recorder)))
+			Global_room:writeToConsole(string.format("%s/%s:%.2f", players[i]:getActualGeneral1Name(), players[i]:getActualGeneral2Name(), sgs.getDefenseSlash(players[i], sgs.recorder)))
 		end
 	end
 
@@ -107,7 +107,7 @@ function sgs.debugFunc(player, debugType)
 	end
 
 	repeat
-		local choice = global_room:askForChoice(owner, "aidebug", "cancel+"..table.concat(choices, "+"))
+		local choice = Global_room:askForChoice(owner, "aidebug", "cancel+"..table.concat(choices, "+"))
 		if choice == "cancel" then break
 		elseif choice == "showVisiblecards" then showVisiblecards()
 		elseif choice == "showHandcards" then showHandcards()
@@ -225,16 +225,16 @@ end
 
 local cardparse = sgs.Card_Parse
 function sgs.Card_Parse(str)
-	if not str then global_room:writeToConsole(debug.traceback()) end
+	if not str then Global_room:writeToConsole(debug.traceback()) end
 	if type(str) ~= "string" and type(str) ~= "number" and str.toString() then
-		global_room:writeToConsole(str:toString())
+		Global_room:writeToConsole(str:toString())
 	end
 	if str:match("->") then
 		local strings = str:split("->")
 		str = strings[1]
 	end
 	local card = cardparse(str)
-	if not card then global_room:writeToConsole("Wrong!!sgs.Card_Parse >> " .. str) assert(false) end
+	if not card then Global_room:writeToConsole("Wrong!!sgs.Card_Parse >> " .. str) assert(false) end
 	return card
 end
 
@@ -249,12 +249,12 @@ function SmartAI:printAll(self, player, intention)
 end
 
 function sgs.printFEList(player)
-	if not player then global_room:writeToConsole("---==== printFEList ====---") end
-	global_room:writeToConsole("gameProcess :: " .. sgs.gameProcess())
-	for _, p in sgs.qlist(global_room:getAlivePlayers()) do
+	if not player then Global_room:writeToConsole("---==== printFEList ====---") end
+	Global_room:writeToConsole("gameProcess :: " .. sgs.gameProcess())
+	for _, p in sgs.qlist(Global_room:getAlivePlayers()) do
 		if player and p:objectName() ~= player:objectName() then continue end
 		local name = p:getActualGeneral1Name() .. "/" .. p:getActualGeneral2Name()
-		global_room:writeToConsole("----  " .. name .. "  kingdom::" .. p:getKingdom() .. "-" .. sgs.ais[global_room:getCurrent():objectName()]:evaluateKingdom(p) .. "  ----")
+		Global_room:writeToConsole("----  " .. name .. "  kingdom::" .. p:getKingdom() .. "-" .. sgs.ais[Global_room:getCurrent():objectName()]:evaluateKingdom(p) .. "  ----")
 		local sgsself = sgs.ais[p:objectName()]
 		sgsself:updatePlayers()
 		local msge = "enemies:"
@@ -262,18 +262,18 @@ function sgs.printFEList(player)
 			local name1 = enemy:getActualGeneral1Name() .. "/" .. enemy:getActualGeneral2Name()
 			msge = msge .. name1 .. ", "
 		end
-		global_room:writeToConsole(msge)
+		Global_room:writeToConsole(msge)
 		local msgf = "friends:"
 		for _, friend in ipairs(sgsself.friends) do
 			local name2 = friend:getActualGeneral1Name() .. "/" .. friend:getActualGeneral2Name()
 			msgf = msgf .. name2 .. ", "
 		end
-		global_room:writeToConsole(msgf)
+		Global_room:writeToConsole(msgf)
 	end
 end
 
 function sgs.ShowPlayer(player)
-	for _, p in sgs.qlist(global_room:getAlivePlayers()) do
+	for _, p in sgs.qlist(Global_room:getAlivePlayers()) do
 		if player then
 			if player:objectName() == p:objectName() then p:showGeneral() end
 		else

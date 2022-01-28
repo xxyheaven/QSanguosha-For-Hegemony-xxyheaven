@@ -2292,7 +2292,7 @@ RuleTheWorld::RuleTheWorld(Card::Suit suit, int number)
     target_fixed = false;
 }
 
-bool RuleTheWorld::targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
+bool RuleTheWorld::targetRated(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
 {
     if (!targets.isEmpty()) return false;
     int x = Self->getHp();
@@ -2344,7 +2344,7 @@ void RuleTheWorld::onEffect(const CardEffectStruct &effect) const
         if (choice.startsWith("slash")) {
             if (completeEffect ||room->askForDiscard(p, objectName(), 1, 1, true, false, "@rule_the_world-slash::"+effect.to->objectName())) {
                 Slash *slash = new Slash(Card::NoSuit, 0);
-                slash->setSkillName("_conquering");
+                slash->setSkillName("_rule_the_world");
                 room->useCard(CardUseStruct(slash, p, effect.to), false);
             }
         }
@@ -2368,7 +2368,7 @@ Conquering::Conquering(Suit suit, int number)
     target_fixed = false;
 }
 
-bool Conquering::targetFilter(const QList<const Player *> &, const Player *, const Player *) const
+bool Conquering::targetRated(const QList<const Player *> &, const Player *, const Player *) const
 {
     return true;
 }
@@ -2479,6 +2479,11 @@ ConsolidateCountry::ConsolidateCountry(Suit suit, int number)
 {
     setObjectName("consolidate_country");
     target_fixed = true;
+}
+
+bool ConsolidateCountry::targetRated(const QList<const Player *> &, const Player *, const Player *) const
+{
+    return true;
 }
 
 void ConsolidateCountry::onUse(Room *room, const CardUseStruct &card_use) const

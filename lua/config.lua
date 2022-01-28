@@ -63,7 +63,9 @@ config = {
 		"Transformation",
 		"Power",
 		"Manoeuvre",
+		"NewSGS",
 		"MOL",
+		"Overseas",
 		"LordEX",
 		"Test",
 		"JiangeDefense"

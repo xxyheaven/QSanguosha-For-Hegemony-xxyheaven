@@ -176,6 +176,10 @@ public:
                         room->setPlayerFlag(player, "DuanliangEGFCannot");
                 }
 
+                if (card->isKindOf("Analeptic") && !card->hasFlag("UsedBySecondWay") && use.m_addHistory)
+                    room->addPlayerMark(player, "AnalepticUsedTimes");
+
+
             } else {
                 CardResponseStruct response = data.value<CardResponseStruct>();
                 if (!response.m_isUse)
@@ -191,12 +195,17 @@ public:
 
                 if (current && current->getPhase() != Player::NotActive) {
 
-                    if (player->getCardUsedTimes("Slash") == 1)
-                        room->setCardFlag(card, "GlobalSecondSlash");
+                    if (is_use) {
+                        if (player->getCardUsedTimes("Slash") == 1)
+                            room->setCardFlag(card, "GlobalSecondSlash");
+                    }
 
                     if (current->getPhase() == Player::Play) {
-                        if (player->getCardUsedTimes(".|play")==0) {
-                            room->setCardFlag(card, "GlobalFirstUsedCardinPlay");
+
+                        if (is_use) {
+                            room->addPlayerMark(player, "GlobalPlayCardUsedTimes");
+                            if (player->getMark("GlobalPlayCardUsedTimes") == 1)
+                                room->setCardFlag(card, "GlobalFirstUsedCardinPlay");
                         }
 
                     }
@@ -317,6 +326,8 @@ public:
                     room->setPlayerMark(p, "Global_DamagePiont_Round", 0);
                     room->setPlayerMark(p, "Global_InjuredPiont_Round", 0);
 
+                    room->setPlayerMark(p, "AnalepticUsedTimes", 0);
+
 
                 }
             }
@@ -326,6 +337,7 @@ public:
                 room->setPlayerMark(p, "Global_InjuredTimes_Phase", 0);
                 room->setPlayerMark(p, "Global_DamageTimes_Phase", 0);
                 room->setPlayerProperty(p, "Global_DamagePlayers_Phase", QVariant());
+                room->setPlayerMark(player, "GlobalPlayCardUsedTimes", 0);
             }
         }
     }

@@ -169,7 +169,7 @@ bool Collateral::targetsFeasible(const QList<const Player *> &targets, const Pla
     return targets.length() == 2;
 }
 
-bool Collateral::targetFilter(const QList<const Player *> &targets,
+bool Collateral::targetRated(const QList<const Player *> &targets,
     const Player *to_select, const Player *Self) const
 {
     if (!targets.isEmpty()) {
@@ -278,6 +278,11 @@ ExNihilo::ExNihilo(Suit suit, int number)
     target_fixed = true;
 }
 
+bool ExNihilo::targetRated(const QList<const Player *> &targets, const Player *, const Player *) const
+{
+    return targets.isEmpty();
+}
+
 void ExNihilo::onUse(Room *room, const CardUseStruct &card_use) const
 {
     CardUseStruct use = card_use;
@@ -304,7 +309,7 @@ Duel::Duel(Suit suit, int number)
     setObjectName("duel");
 }
 
-bool Duel::targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
+bool Duel::targetRated(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
 {
     int total_num = 1 + Sanguosha->correctCardTarget(TargetModSkill::ExtraTarget, Self, this);
     if (targets.length() >= total_num)
@@ -424,7 +429,7 @@ Snatch::Snatch(Suit suit, int number)
     setObjectName("snatch");
 }
 
-bool Snatch::targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
+bool Snatch::targetRated(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
 {
     int total_num = 1 + Sanguosha->correctCardTarget(TargetModSkill::ExtraTarget, Self, this, to_select);
     if (targets.length() >= total_num)
@@ -573,7 +578,7 @@ Dismantlement::Dismantlement(Suit suit, int number)
     setObjectName("dismantlement");
 }
 
-bool Dismantlement::targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
+bool Dismantlement::targetRated(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
 {
     int total_num = 1 + Sanguosha->correctCardTarget(TargetModSkill::ExtraTarget, Self, this);
     if (targets.length() >= total_num)
@@ -668,7 +673,7 @@ QString IronChain::getSubtype() const
     return "damage_spread";
 }
 
-bool IronChain::targetFilter(const QList<const Player *> &targets, const Player *, const Player *Self) const
+bool IronChain::targetRated(const QList<const Player *> &targets, const Player *, const Player *Self) const
 {
     int total_num = 2 + Sanguosha->correctCardTarget(TargetModSkill::ExtraTarget, Self, this);
     if (targets.length() >= total_num)
@@ -891,7 +896,7 @@ bool KnownBoth::isAvailable(const Player *player) const
         || (can_rec && !player->isCardLimited(this, Card::MethodRecast));
 }
 
-bool KnownBoth::targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
+bool KnownBoth::targetRated(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
 {
     if (Self->isCardLimited(this, Card::MethodUse))
         return false;
@@ -1063,7 +1068,7 @@ BefriendAttacking::BefriendAttacking(Card::Suit suit, int number) : SingleTarget
     setObjectName("befriend_attacking");
 }
 
-bool BefriendAttacking::targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
+bool BefriendAttacking::targetRated(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
 {
     int total_num = 1 + Sanguosha->correctCardTarget(TargetModSkill::ExtraTarget, Self, this);
     if (targets.length() >= total_num)
@@ -1140,7 +1145,7 @@ FireAttack::FireAttack(Card::Suit suit, int number)
     setObjectName("fire_attack");
 }
 
-bool FireAttack::targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
+bool FireAttack::targetRated(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
 {
     int total_num = 1 + Sanguosha->correctCardTarget(TargetModSkill::ExtraTarget, Self, this);
     if (targets.length() >= total_num)
@@ -1234,7 +1239,7 @@ Indulgence::Indulgence(Suit suit, int number)
     judge.reason = objectName();
 }
 
-bool Indulgence::targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
+bool Indulgence::targetRated(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
 {
     return targets.isEmpty() && to_select != Self;
 }
@@ -1258,7 +1263,7 @@ SupplyShortage::SupplyShortage(Card::Suit suit, int number)
     judge.reason = objectName();
 }
 
-bool SupplyShortage::targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
+bool SupplyShortage::targetRated(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
 {
     if (!targets.isEmpty() || to_select == Self) return false;
 

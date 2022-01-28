@@ -36,6 +36,7 @@ public:
     virtual void onUse(Room *room, const CardUseStruct &card_use) const;
     virtual void onEffect(const CardEffectStruct &effect) const;
 
+    virtual bool targetRated(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const;
     virtual bool targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const;
     virtual bool isAvailable(const Player *player) const;
 
@@ -88,6 +89,8 @@ class Peach : public BasicCard
 public:
     Q_INVOKABLE Peach(Card::Suit suit, int number, bool is_transferable = false);
     virtual QString getSubtype() const;
+
+    virtual bool targetRated(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const;
     virtual void onUse(Room *room, const CardUseStruct &card_use) const;
     virtual void onEffect(const CardEffectStruct &effect) const;
     virtual bool isAvailable(const Player *player) const;
@@ -100,6 +103,8 @@ class Analeptic : public BasicCard
 public:
     Q_INVOKABLE Analeptic(Card::Suit suit, int number, bool is_transfer = false);
     virtual QString getSubtype() const;
+
+    virtual bool targetRated(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const;
 
     static bool IsAvailable(const Player *player, const Card *analeptic = NULL);
 

@@ -713,9 +713,14 @@ bool Card::targetsFeasible(const QList<const Player *> &targets, const Player *)
         return !targets.isEmpty();
 }
 
-bool Card::targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
+bool Card::targetRated(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
 {
     return targets.isEmpty() && to_select != Self;
+}
+
+bool Card::targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
+{
+    return targetRated(targets, to_select, Self);
 }
 
 bool Card::targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self, int &maxVotes) const

@@ -618,7 +618,7 @@ Drowning::Drowning(Suit suit, int number)
     setObjectName("drowning");
 }
 
-bool Drowning::targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
+bool Drowning::targetRated(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
 {
     int total_num = 1 + Sanguosha->correctCardTarget(TargetModSkill::ExtraTarget, Self, this);
     if (targets.length() >= total_num)
@@ -695,6 +695,11 @@ BurningCamps::BurningCamps(Card::Suit suit, int number, bool is_transferable)
     transferable = is_transferable;
 }
 
+bool BurningCamps::targetRated(const QList<const Player *> &targets, const Player *, const Player *) const
+{
+    return targets.isEmpty();
+}
+
 bool BurningCamps::isAvailable(const Player *player) const
 {
     if (player->getNextAlive() == player) return false;
@@ -755,7 +760,7 @@ QString LureTiger::getSubtype() const
     return "lure_tiger";
 }
 
-bool LureTiger::targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
+bool LureTiger::targetRated(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
 {
     int total_num = 2 + Sanguosha->correctCardTarget(TargetModSkill::ExtraTarget, Self, this);
     if (targets.length() >= total_num)
@@ -860,7 +865,7 @@ FightTogether::FightTogether(Card::Suit suit, int number)
     target_fixed = false;
 }
 
-bool FightTogether::targetFilter(const QList<const Player *> &targets, const Player *, const Player *Self) const
+bool FightTogether::targetRated(const QList<const Player *> &targets, const Player *, const Player *Self) const
 {
     QList<const Player *> all_players = Self->getAliveSiblings();
     all_players << Self;
@@ -1029,7 +1034,7 @@ QString AllianceFeast::getSubtype() const
     return "alliance_feast";
 }
 
-bool AllianceFeast::targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
+bool AllianceFeast::targetRated(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
 {
     if (!targets.isEmpty()) return false;
     return to_select->hasShownOneGeneral() && !Self->isFriendWith(to_select);
@@ -1157,6 +1162,11 @@ ThreatenEmperor::ThreatenEmperor(Suit suit, int number)
     transferable = true;
 }
 
+bool ThreatenEmperor::targetRated(const QList<const Player *> &targets, const Player *to_select, const Player *) const
+{
+    return (targets.isEmpty() && to_select->isBigKingdomPlayer());
+}
+
 void ThreatenEmperor::onUse(Room *room, const CardUseStruct &card_use) const
 {
     CardUseStruct use = card_use;
@@ -1232,6 +1242,11 @@ ImperialOrder::ImperialOrder(Suit suit, int number)
     : GlobalEffect(suit, number)
 {
     setObjectName("imperial_order");
+}
+
+bool ImperialOrder::targetRated(const QList<const Player *> &targets, const Player *to_select, const Player *) const
+{
+    return (targets.isEmpty() && !to_select->hasShownOneGeneral());
 }
 
 bool ImperialOrder::isAvailable(const Player *player) const

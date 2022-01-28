@@ -77,6 +77,8 @@ public:
     virtual QString getType() const;
     virtual CardType getTypeId() const;
 
+    virtual bool targetRated(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const;
+
     virtual bool isAvailable(const Player *player) const;
     virtual void onUse(Room *room, const CardUseStruct &card_use) const;
     virtual void use(Room *room, ServerPlayer *source, QList<ServerPlayer *> &targets) const;
@@ -125,7 +127,7 @@ public:
     }
     virtual QString getSubtype() const;
 
-    virtual bool targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const;
+    virtual bool targetRated(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const;
 };
 
 class DelayedTrick : public TrickCard
