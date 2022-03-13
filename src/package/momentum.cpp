@@ -257,8 +257,8 @@ public:
         if (player->getPhase() == Player::NotActive) {
             QList<ServerPlayer *> allplayers = room->getAlivePlayers();
             foreach (ServerPlayer *p, allplayers) {
-                room->setPlayerMark(p, "#qianxi+no_suit_red", 0);
-                room->setPlayerMark(p, "#qianxi+no_suit_black", 0);
+                room->setPlayerMark(p, "##qianxi+no_suit_red", 0);
+                room->setPlayerMark(p, "##qianxi+no_suit_black", 0);
             }
 
         }
@@ -309,7 +309,7 @@ public:
         room->doAnimate(QSanProtocol::S_ANIMATE_INDICATE, target->objectName(), victim->objectName());
 
         QString pattern = QString(".|%1|.|hand").arg(color);
-        room->addPlayerTip(victim, QString("#qianxi+no_suit_%1").arg(color));
+        room->addPlayerMark(victim, QString("##qianxi+no_suit_%1").arg(color));
         room->setPlayerCardLimitation(victim, "use,response", pattern, true);
 
         LogMessage log;
@@ -404,7 +404,7 @@ void CunsiCard::onEffect(const CardEffectStruct &effect) const
     Room *room = effect.from->getRoom();
     room->setPlayerMark(effect.from, "cunsi", 1);
     room->acquireSkill(effect.to, "yongjue", true, false);
-    room->addPlayerTip(effect.to, "#yongjue");
+    room->addPlayerMark(effect.to, "#yongjue");
     if (effect.to != effect.from)
         effect.to->drawCards(2, "cunsi");
 }

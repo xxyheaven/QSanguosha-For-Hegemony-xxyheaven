@@ -249,7 +249,7 @@ sgs.ai_skill_use_func.TenyearRendeCard = function(card, use, self)
         local exclude = false
         if self:needKongcheng(friend, true) or self:willSkipPlayPhase(friend) then
             exclude = true
-            if self:hasSkills("keji|qiaobian|shensu", friend) then
+            if self:hasKnownSkills("keji|qiaobian|shensu", friend) then
                 exclude = false
             elseif friend:getHp() - friend:getHandcardNum() >= 3 then
                 exclude = false
@@ -784,7 +784,8 @@ huoji_skill.getTurnUseCard = function(self)
 		if self.player:hasSkill("jizhi") and acard:isKindOf("TrickCard") then
 			fireValue = fireValue - 4
 		end
-		if acard:isRed() and not isCard("Peach", acard, self.player) and (self:getUseValue(acard) < fireValue or self:getOverflow() > 0) then
+		if acard:isRed() and not isCard("Peach", acard, self.player) and not acard:isKindOf("FireAttack")
+		and (self:getUseValue(acard) < fireValue or self:getOverflow() > 0) then
 			if acard:isKindOf("Slash") and self:getCardsNum("Slash") == 1 then
 				local keep
 				local dummy_use = { isDummy = true , to = sgs.SPlayerList() }

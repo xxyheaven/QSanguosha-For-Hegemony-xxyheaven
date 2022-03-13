@@ -111,7 +111,7 @@ local function huyuan_validate(self, equip_type, is_handcard)
 	if is_handcard then targets = self.friends else targets = self.friends_noself end
 	if equip_type == "SilverLion" then
 		for _, enemy in ipairs(self.enemies) do
-			if self:hasSkill("bazhen", enemy) and not enemy:getArmor() then table.insert(targets, enemy) end
+			if self:hasKnownSkill("bazhen", enemy) and not enemy:getArmor() then table.insert(targets, enemy) end
 		end
 	end
 	for _, friend in ipairs(targets) do
@@ -122,7 +122,7 @@ local function huyuan_validate(self, equip_type, is_handcard)
 				break
 			end
 		end
-		if not has_equip and not ((equip_type == "Armor" or equip_type == "SilverLion") and self:hasSkill("bazhen", friend)) then
+		if not has_equip and not ((equip_type == "Armor" or equip_type == "SilverLion") and self:hasKnownSkill("bazhen", friend)) then
 			self:sort(self.enemies, "defense")
 			for _, enemy in ipairs(self.enemies) do
 				if friend:distanceTo(enemy) == 1 and self.player:canDiscard(enemy, "he") then
@@ -197,7 +197,7 @@ sgs.ai_skill_playerchosen.huyuan = function(self, targets)
 end
 
 sgs.ai_card_intention.HuyuanCard = function(self, card, from, to)
-	if self:hasSkill("bazhen", to[1]) then
+	if self:hasKnownSkill("bazhen", to[1]) then
 		if sgs.Sanguosha:getCard(card:getEffectiveId()):isKindOf("SilverLion") then
 			sgs.updateIntention(from, to[1], 10)
 			return
@@ -407,6 +407,10 @@ sgs.ai_skill_discard.yicheng = function(self, discard_num, min_num, optional, in
 	local unpreferedCards = {}
 	local cards = sgs.QList2Table(self.player:getHandcards())
 
+	if self:needToThrowArmor() then
+		table.insert(unpreferedCards, self.player:getArmor():getId())
+	end
+
 	if self:getCardsNum("Slash") > 1 then
 		self:sortByKeepValue(cards)
 		for _, card in ipairs(cards) do
@@ -434,10 +438,6 @@ sgs.ai_skill_discard.yicheng = function(self, discard_num, min_num, optional, in
 
 	if self.player:getWeapon() and self.player:getHandcardNum() < 3 then
 		table.insert(unpreferedCards, self.player:getWeapon():getId())
-	end
-
-	if self:needToThrowArmor() then
-		table.insert(unpreferedCards, self.player:getArmor():getId())
 	end
 
 	if self.player:getOffensiveHorse() and self.player:getWeapon() then
@@ -544,7 +544,7 @@ local function will_discard_zhendu(self)
 			local slash = sgs.cloneCard("slash")
 			local trend = 3
 			if current:hasWeapon("Axe") then trend = trend - 1
-			elseif self:hasSkill(sgs.force_slash_skill, current) then trend = trend - 0.4 end
+			elseif self:hasKnownSkill(sgs.force_slash_skill, current) then trend = trend - 0.4 end
 			for _, enemy in ipairs(self.enemies) do
 				if ((enemy:getHp() < 3 and enemy:getHandcardNum() < 3) or (enemy:getHandcardNum() < 2)) and current:canSlash(enemy) and not self:slashProhibit(slash, enemy, current)
 					and self:slashIsEffective(slash, enemy, current) and sgs.isGoodTarget(enemy, self.enemies, self, true) then
@@ -602,7 +602,7 @@ sgs.weapon_range.DragonPhoenix = 2
 sgs.ai_use_priority.DragonPhoenix = 2.400
 function sgs.ai_weapon_value.DragonPhoenix(self, enemy, player)
 	local lord_liubei = sgs.findPlayerByShownSkillName("zhangwu")
-	if lord_liubei and player:getWeapon() and not self:hasSkills(sgs.lose_equip_skill, player) then
+	if lord_liubei and player:getWeapon() and not player:hasShownSkills(sgs.lose_equip_skill) then
 		return -10
 	end
 	if enemy and enemy:getHp() <= 2 and enemy:getHandcardNum() <= 2 then--效果修改

@@ -1304,6 +1304,7 @@ end
 
 
 sgs.ai_skill_use_func.QingchengCard = function(card, use, self)
+	self.qingcheng = nil
 	local zhonghui = self.room:findPlayerBySkillName("quanji")
 	if zhonghui and zhonghui:getPile("power_pile"):length() > 3 and zhonghui:hasShownAllGenerals() and self:isEnemy(zhonghui) then
 		use.card = card
@@ -1335,8 +1336,7 @@ sgs.ai_skill_use_func.QingchengCard = function(card, use, self)
 		return
 	end
 	local zhoutai = self.room:findPlayerBySkillName("buqu")
-	if zhoutai and zhoutai:hasShownAllGenerals() and ((self:isEnemy(zhoutai) and zhoutai:getPile("scars"):length() > 0 and zhoutai:getPile("scars"):length() < 4)
-	or (self:isFriend(zhoutai) and zhoutai:getPile("scars"):length() > 3)) then
+	if zhoutai and zhoutai:hasShownAllGenerals() and (self:isFriend(zhoutai) and zhoutai:getPile("scars"):length() > 3) then
 		use.card = card
 		if not use.isDummy and use.to then
 			self.qingcheng = "zhoutai"
@@ -1351,17 +1351,27 @@ sgs.ai_skill_use_func.QingchengCard = function(card, use, self)
 	self:useBasicCard(slash, dummy_use)
 	if (dummy_use.card and dummy_use.to:length() > 0) then
 		for _, p in sgs.qlist(dummy_use.to) do
-			if not p:hasShownAllGenerals() then continue end
-			if self.player:isFriendWith(p) or (self.player:getActualGeneral1():getKingdom() == p:getKingdom()) then continue end
-			local skill_table = (sgs.masochism_skill .. "|" .. sgs.defense_skill .. "|" .. sgs.save_skill):split("|")
-			for _, skill_name in ipairs(skill_table) do
-				if (p:hasShownSkill(skill_name)) then
+			if not self:isFriend(p) and p:hasShownAllGenerals() then
+				if p:hasSkill("buqu") and p:getHp() == 1 and sgs.getDefenseSlash(p, self) < 2
+				and p:getPile("scars"):length() >= 0 and p:getPile("scars"):length() < 4 then
 					use.card = card
-					if ((not use.isDummy) and use.to) then
-						self.qingcheng = (p:inHeadSkills(skill_name) and p:getGeneral():objectName() or p:getGeneral2():objectName())
-						use.to:append(p)
+					if not use.isDummy and use.to then
+						self.qingcheng = "zhoutai"
+						Global_room:writeToConsole("倾城周泰:"..self.qingcheng)
+						use.to:append(zhoutai)
 					end
 					return
+				end
+				local skill_table = (sgs.masochism_skill .. "|" .. sgs.defense_skill .. "|" .. sgs.save_skill):split("|")
+				for _, skill_name in ipairs(skill_table) do
+					if (p:hasShownSkill(skill_name)) then
+						use.card = card
+						if ((not use.isDummy) and use.to) then
+							self.qingcheng = (p:inHeadSkills(skill_name) and p:getGeneral():objectName() or p:getGeneral2():objectName())
+							use.to:append(p)
+						end
+						return
+					end
 				end
 			end
 		end
@@ -1370,11 +1380,11 @@ end
 
 sgs.ai_skill_choice.qingcheng = function(self, choices)
 	--Global_room:writeToConsole("倾城选择:"..choices)
-	if self.qingcheng then
+	local choice_table = choices:split("+")
+	if self.qingcheng and table.contains(choice_table, self.qingcheng) then
 		--Global_room:writeToConsole("倾城预选:"..self.qingcheng)
 		return self.qingcheng
 	end
-	local choice_table = choices:split("+")
 	local general1 = sgs.Sanguosha:getGeneral(choice_table[1])
 	local general2 = sgs.Sanguosha:getGeneral(choice_table[2])
 	local m = (sgs.masochism_skill .. "|" .. sgs.defense_skill .. "|" .. sgs.save_skill):split("|")
@@ -1400,8 +1410,7 @@ sgs.ai_skill_playerchosen["qingcheng_second"] = function(self, targets)
 		return gongsunyuan
 	end
 	local zhoutai = self.room:findPlayerBySkillName("buqu")
-	if zhoutai and zhoutai:hasShownAllGenerals() and ((self:isEnemy(zhoutai) and zhoutai:getPile("scars"):length() > 0 and zhoutai:getPile("scars"):length() < 4)
-	or (self:isFriend(zhoutai) and zhoutai:getPile("scars"):length() > 3)) then
+	if zhoutai and zhoutai:hasShownAllGenerals() and (self:isFriend(zhoutai) and zhoutai:getPile("scars"):length() > 3) then
 		return zhoutai
 	end
 	return sgs.ai_skill_playerchosen.zero_card_as_slash(self, targets)

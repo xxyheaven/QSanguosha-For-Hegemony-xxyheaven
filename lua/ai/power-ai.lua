@@ -1063,13 +1063,13 @@ sgs.ai_skill_use_func.GanluCard = function(card, use, self)
 
 	for _, friend in ipairs(self.friends) do
 		for _, enemy in ipairs(self.enemies) do
-			if not self:hasSkills(sgs.lose_equip_skill, enemy) then
+			if not enemy:hasShownSkills(sgs.lose_equip_skill) then
 				local ee = enemy:getEquips():length()
 				local fe = friend:getEquips():length()
 				local value = self:evaluateArmor(enemy:getArmor(),friend) - self:evaluateArmor(friend:getArmor(),enemy)
 					- self:evaluateArmor(friend:getArmor(),friend) + self:evaluateArmor(enemy:getArmor(),enemy)
 				if math.abs(ee - fe) <= lost_hp and ee > 0 and (ee > fe or ee == fe and value>0) then
-					if self:hasSkills(sgs.lose_equip_skill, friend) then
+					if friend:hasShownSkills(sgs.lose_equip_skill) then
 						use.card = card
 						if use.to then
 							use.to:append(friend)
@@ -1095,7 +1095,7 @@ sgs.ai_skill_use_func.GanluCard = function(card, use, self)
 
 	target = nil
 	for _, friend in ipairs(self.friends) do
-		if self:needToThrowArmor(friend) or (self:hasSkills(sgs.lose_equip_skill, friend)	and not friend:getEquips():isEmpty()) then
+		if self:needToThrowArmor(friend) or (friend:hasShownSkills(sgs.lose_equip_skill)	and not friend:getEquips():isEmpty()) then
 				target = friend
 				break
 		end
@@ -1772,7 +1772,7 @@ sgs.ai_skill_choice.jianan_skill = function(self, skills)
 	if (self.player:hasSkill("qiaobian") or self:willSkipDrawPhase()) and #skills > 1 then
     table.removeOne(skills, "tuxi")
   end
-  if table.contains(skills, "tuxi") then--没牌时
+  if table.contains(skills, "tuxi") and self:findTuxiTarget() then--没牌时
     if self.player:isKongcheng() then
       return "tuxi"
     end
@@ -1839,7 +1839,7 @@ sgs.ai_skill_choice.jianan_skill = function(self, skills)
       table.removeOne(skills, "duanliang")
     end
 	end
-  if table.contains(skills, "tuxi") then
+  if table.contains(skills, "tuxi") and self:findTuxiTarget() then
     return "tuxi"
   end
   if self.player:hasShownAllGenerals() and table.contains(skills, "qiaobian") then--预选时去除巧变。处理预选手牌差异？

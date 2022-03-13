@@ -75,7 +75,7 @@ public:
         room->judge(judge);
         if (room->getCardPlace(judge.card->getEffectiveId()) == Player::DiscardPile && judge.isGood()
                && room->askForChoice(dengai, objectName(), "yes+no", data, "@tuntian-gotofield:::"+judge.card->objectName()) == "yes") {
-                dengai->addToPile("field", judge.card);
+            dengai->addToPile("field", judge.card);
         }
 
         return false;

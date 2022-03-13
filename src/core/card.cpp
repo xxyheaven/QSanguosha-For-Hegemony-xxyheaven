@@ -713,14 +713,14 @@ bool Card::targetsFeasible(const QList<const Player *> &targets, const Player *)
         return !targets.isEmpty();
 }
 
-bool Card::targetRated(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
+bool Card::targetRated(const Player *to_select, const Player *Self) const
 {
-    return targets.isEmpty() && to_select != Self;
+    return to_select != Self;
 }
 
 bool Card::targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
 {
-    return targetRated(targets, to_select, Self);
+    return targets.isEmpty() && targetRated(to_select, Self);
 }
 
 bool Card::targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self, int &maxVotes) const
@@ -788,6 +788,7 @@ void Card::onUse(Room *room, const CardUseStruct &use) const
         CardMoveReason reason(CardMoveReason::S_REASON_USE, player->objectName(), QString(), card_use.card->getSkillName(), general);
         if (card_use.to.size() == 1)
             reason.m_targetId = card_use.to.first()->objectName();
+        reason.m_useStruct = card_use;
         foreach (int id, used_cards) {
             CardsMoveStruct move(id, NULL, Player::PlaceTable, reason);
             moves.append(move);
@@ -869,6 +870,7 @@ void Card::onUse(Room *room, const CardUseStruct &use) const
         DummyCard dummy(table_cardids);
         CardMoveReason reason(CardMoveReason::S_REASON_USE, player->objectName(), QString(), this->getSkillName(), this->objectName());
         if (card_use.to.size() == 1) reason.m_targetId = card_use.to.first()->objectName();
+        reason.m_useStruct = card_use;
         room->moveCardTo(&dummy, player, NULL, Player::DiscardPile, reason, true);
     }
 

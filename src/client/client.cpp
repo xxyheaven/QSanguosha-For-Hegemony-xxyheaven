@@ -1800,22 +1800,14 @@ void Client::setMark(const QVariant &mark_var)
 {
     JsonArray mark_str = mark_var.value<JsonArray>();
     if (mark_str.size() != 3) return;
-    if (!JsonUtils::isString(mark_str[0]) || !JsonUtils::isString(mark_str[1])) return;
+    if (!JsonUtils::isString(mark_str[0]) || !JsonUtils::isString(mark_str[1]) || !JsonUtils::isNumber(mark_str[2])) return;
 
     QString who = mark_str[0].toString();
     QString mark = mark_str[1].toString();
+    int value = mark_str[2].toInt();
+
     ClientPlayer *player = getPlayer(who);
-
-    if (JsonUtils::isNumber(mark_str[2])) {
-
-        int value = mark_str[2].toInt();
-
-        if (player)
-            player->setMark(mark, value);
-    } else if (JsonUtils::isBool(mark_str[2])) {
-        player->setMark(mark, mark_str[2].toBool() ? 1 : 0, true);
-    }
-
+    player->setMark(mark, value);
 }
 
 void Client::onPlayerChooseSuit(const QString &suit)

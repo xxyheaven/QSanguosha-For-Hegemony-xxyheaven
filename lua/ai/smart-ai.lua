@@ -158,10 +158,10 @@ function SetInitialTables()
 							"jiahe|xiaoji|guose|tianxiang|fanjian|buqu|xuanlue|diaodu|" ..
 							"hongfa|jijiu|luanji|wansha|jianchu|qianhuan|yigui|fudi|yongsi|"..
 							"paiyi|suzhi|shilu|huaiyi|shicai|congcha|jinfa|"..
-							"zhukou|jinghe|wanggui|boyan|kuangcai|guishu|sidi|miewu"
+							"zhukou|jinghe|guowu|shenwei|wanggui|boyan|kuangcai|guishu|sidi|miewu"
 	sgs.masochism_skill = "yiji|fankui|jieming|ganglie|fangzhu|hengjiang|jianxiong|qianhuan|zhiyu|jihun|fudi|bushi|shicai|quanji|zhaoxin|fankui_simazhao|wanggui|sidi"
 	sgs.defense_skill = "qingguo|longdan|kongcheng|niepan|bazhen|kanpo|xiangle|tianxiang|liuli|qianxun|leiji|duanchang|beige|weimu|" ..
-						"tuntian|shoucheng|yicheng|qianhuan|jizhao|hengjiang|wanwei|enyuan|buyi|keshou|qiuan|biluan|jiancai|aocai|" ..
+						"tuntian|shoucheng|yicheng|qianhuan|jizhao|wanwei|enyuan|buyi|keshou|qiuan|biluan|jiancai|aocai|" ..
 						"xibing|zhente|qiao|shejian|yusui|yuanyu|mingzhe"
 	sgs.usefull_skill = "tiandu|qiaobian|xingshang|xiaoguo|wusheng|guanxing|qicai|jizhi|kuanggu|lianhuan|huoshou|juxiang|shushen|zhiheng|keji|" ..
 						"duoshi|xiaoji|hongyan|haoshi|guzheng|zhijian|shuangxiong|guidao|guicai|xiongyi|mashu|lirang|yizhi|shengxi|" ..
@@ -169,13 +169,14 @@ function SetInitialTables()
 	sgs.attack_skill = "paoxiao|duanliang|quhu|rende|tieqi|liegong|huoji|lieren|qixi|kurou|fanjian|guose|tianyi|dimeng|duanbing|fenxun|qingnang|wushuang|" ..
 						"lijian|luanji|mengjin|kuangfu|huoshui|qingcheng|tiaoxin|shangyi|jiang|chuanxin"
 	sgs.drawcard_skill = "yingzi_sunce|yingzi_zhouyu|haoshi|yingzi_flamemap|haoshi_flamemap|shelie|jieyue|congcha|zisui"
-	sgs.force_slash_skill = "tieqi|tieqi_xh|liegong|liegong_xh|wushuang|jianchu|qianxi"
+	sgs.force_slash_skill = "tieqi|tieqi_xh|liegong|liegong_xh|wushuang|jianchu|qianxi|wushuang_lvlingqi"
 	sgs.wizard_skill = 		"guicai|guidao|tiandu|zhuwei|huanshi"
 	sgs.wizard_harm_skill = "guicai|guidao"
 	sgs.lose_equip_skill = 	"xiaoji|xuanlue"
 	sgs.need_kongcheng = 	"kongcheng"
 	sgs.save_skill = 		"jijiu|yigui|buyi|aocai"
 	sgs.exclusive_skill = 	"duanchang|buqu"
+	sgs.throw_crossbow_skill = "fankui|ganglie|fankui_simazhao|qiao"
 	sgs.drawpeach_skill =	"tuxi|qiaobian|elitegeneralflag|huaiyi|jinfa|daoshu|weimeng"
 	sgs.recover_skill =		"rende|kuanggu|zaiqi|jieyin|qingnang|shenzhi|buqu|buyi"
 	sgs.Active_cardneed_skill =		"qiaobian|duanliang|rende|paoxiao|guose|qixi|jieyin|zhiheng|tianyi|duoshi|dimeng|luanji|shuangxiong|lirang|" ..
@@ -1259,6 +1260,7 @@ function sgs.getChaofeng(player)--嘲讽值
 	if player:hasShownSkill("paiyi") then defense = defense + player:getPile("power_pile"):length() end
 	if player:hasShownSkill("zisui") then defense = defense + player:getPile("disloyalty"):length() end
 	if player:hasShownSkill("xiongnve") then defense = defense + player:getMark("#massacre") end
+	if player:hasShownSkill("sidi") then defense = defense + player:getPile("drive"):length() end
 
 --[[原技能选择直接用ai-selector的值替代
 	local m = sgs.masochism_skill:split("|")
@@ -4349,16 +4351,18 @@ function SmartAI:damageIsEffective_(damageStruct)
 
 	if to:isRemoved() then return false end
 
-	if to:hasShownSkill("mingshi") and from and not from:hasShownAllGenerals() then
+	if from and from:hasSkill("xinghuo") and nature == sgs.DamageStruct_Fire then--xinghuo是预置加伤
+		damage = damage + 1
+	end
+	if self:hasKnownSkill("mingshi", to) and from and not from:hasShownAllGenerals() then
 		damage = damage - 1
-		if damage < 1 then return false end
 	end
 	if to:getMark("#xiongnve_avoid") > 0 then
 		damage = damage - 1
-		if damage < 1 then return false end
 	end
+	if damage < 1 then return false end
 
-	if to:hasShownSkill("yuanyu") and from and not to:isAdjacentTo(from) then return false end
+	if self:hasKnownSkill("yuanyu", to) and from and not to:isAdjacentTo(from) then return false end
 
 	if to:hasArmorEffect("PeaceSpell") and nature ~= sgs.DamageStruct_Normal then return false end
 	if to:hasShownSkills("jgyuhuo_pangtong|jgyuhuo_zhuque") and nature == sgs.DamageStruct_Fire then return false end
@@ -5021,7 +5025,7 @@ function SmartAI:getSuitNum(suit_strings, include_equip, player)
 	return n
 end
 
-function SmartAI:hasSkill(skill_name, who)
+function SmartAI:hasKnownSkill(skill_name, who)
 	if not who then
 		local skill = skill_name
 		if type(skill_name) == "table" then
@@ -5042,10 +5046,16 @@ function SmartAI:hasSkill(skill_name, who)
 					checkpoint = self.player:hasSkill(s)
 				else
 					if not who:hasShownSkill(s) then checkpoint = false end
-					if self.player:getTag("KnownBoth_" .. who:objectName()):toString() ~= "" then
+					if self.player:getTag("KnownBoth_" .. who:objectName()):toString() ~= "" then--知己知彼
 						local names = self.player:getTag("KnownBoth_" .. who:objectName()):toString():split("+")
 						if not who:hasShownGeneral1() and who:canShowGeneral("h") and names[1] ~= "anjiang" and not who:isDuanchang(true) and sgs.Sanguosha:getGeneral(names[1]):hasSkill(s) then checkpoint = true end
 						if not who:hasShownGeneral2() and who:canShowGeneral("d") and names[2] ~= "anjiang" and not who:isDuanchang(false) and sgs.Sanguosha:getGeneral(names[2]):hasSkill(s) then checkpoint = true end
+					end
+					if sgs.general_shown[who:objectName()]["head"] and who:inHeadSkills(s) and who:canShowGeneral("h") and not who:isDuanchang(true) then--明置过被暗置的技能
+						checkpoint = true
+					end
+					if sgs.general_shown[who:objectName()]["deputy"] and who:inDeputySkills(s) and who:canShowGeneral("d") and not who:isDuanchang(false) then
+						checkpoint = true
 					end
 				end
 			end
@@ -5054,18 +5064,15 @@ function SmartAI:hasSkill(skill_name, who)
 	end
 end
 
-function SmartAI:hasSkills(skill_names, player)
+function SmartAI:hasKnownSkills(skill_names, player)
 	player = player or self.player
 	if type(player) == "table" then
 		for _, p in ipairs(player) do
-			if p:hasShownSkills(skill_names) then return true end
+			if self:hasKnownSkill(skill_names, p) then return true end
 		end
 		return false
 	end
-	if type(skill_names) == "string" then
-		return player:hasShownSkills(skill_names)
-	end
-	return false
+	return self:hasKnownSkill(skill_names, player)
 end
 
 function SmartAI:fillSkillCards(cards)
@@ -5078,7 +5085,7 @@ function SmartAI:fillSkillCards(cards)
 		end
 	end
 	for _, skill in ipairs(sgs.ai_skills) do
-		if self:hasSkill(skill) or HasRuleSkill(skill.name, self.player) or (skill.name == "shuangxiong" and self.player:hasFlag("shuangxiong")) then
+		if self:hasKnownSkill(skill.name) or HasRuleSkill(skill.name, self.player) then--or (skill.name == "shuangxiong" and self.player:hasFlag("shuangxiong")) 
 			local skill_card = skill.getTurnUseCard(self, #cards == 0)
 			if skill_card then table.insert(cards, skill_card) end
 		end
@@ -5499,7 +5506,7 @@ function SmartAI:trickIsEffective(card, to, from)
 		if to:hasSkills("jgjiguan_qinglong|jgjiguan_baihu|jgjiguan_zhuque|jgjiguan_xuanwu") then return false end
 		if to:hasSkills("jgjiguan_bian|jgjiguan_suanni|jgjiguan_chiwen|jgjiguan_yazi") then return false end
 	end
-	if to:hasShownSkill("weimu") and card:isBlack() then
+	if self:hasKnownSkill("weimu", to) and card:isBlack() then
 		if from:objectName() == to:objectName() and card:isKindOf("Disaster") then
 		else
 			return false
@@ -5547,7 +5554,7 @@ function SmartAI:hasEightDiagramEffect(player)
 	else
 		if player:getArmor() and player:getArmor():isKindOf("EightDiagram") then return true end
 		local skill = sgs.Sanguosha:ViewHas(player, "EightDiagram", "armor")
-		if skill and self:hasSkill(skill:objectName(), player) then return true end
+		if skill and self:hasKnownSkill(skill:objectName(), player) then return true end--八阵无法暗着发动，这样判断无意义
 	end
 end
 
@@ -6673,7 +6680,7 @@ function SmartAI:isValuableCard(card, player)
 			and (isCard("ExNihilo", card, player) or isCard("BefriendAttacking", card, player) or isCard("AllianceFeast", card, player))) then
 		return true
 	end
-	local dangerous = self:getDangerousCard(player)--player是自己时怎么还判定对我方的威胁？？
+	local dangerous = self:getDangerousCard(player)
 	if dangerous and card:getEffectiveId() == dangerous then return true end
 	local valuable = self:getValuableCard(player)
 	if valuable and card:getEffectiveId() == valuable then return true end

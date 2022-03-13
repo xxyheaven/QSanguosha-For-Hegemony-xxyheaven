@@ -2264,7 +2264,7 @@ void RoomScene::addSkillButton(const Skill *skill, const bool &head)
         connect(btn, (void (QSanSkillButton::*)())(&QSanSkillButton::skill_activated), dashboard, &Dashboard::skillButtonActivated);
         if (btn->getSkill()->objectName() == "yigui")
             connect(btn, (void (QSanSkillButton::*)())(&QSanSkillButton::skill_activated), this, &RoomScene::onYiguiActivated);
-        if (btn->getSkill()->objectName() == "huashen")
+        else if (btn->getSkill()->objectName() == "huashen")
             connect(btn, (void (QSanSkillButton::*)())(&QSanSkillButton::skill_activated), this, &RoomScene::onHuashenActivated);
         else
             connect(btn, (void (QSanSkillButton::*)())(&QSanSkillButton::skill_activated), this, &RoomScene::onSkillActivated);
@@ -2291,7 +2291,7 @@ void RoomScene::addSkillButton(const Skill *skill, const bool &head)
         if (guhuo->getSkillName() != "yigui")
             connect(btn, (void (QSanSkillButton::*)())(&QSanSkillButton::skill_activated), guhuo, &GuhuoBox::popup);
         connect(btn, (void (QSanSkillButton::*)())(&QSanSkillButton::skill_deactivated), guhuo, &GuhuoBox::clear);
-        disconnect(btn, (void (QSanSkillButton::*)())(&QSanSkillButton::skill_activated), this, &RoomScene::onSkillActivated);
+        //disconnect(btn, (void (QSanSkillButton::*)())(&QSanSkillButton::skill_activated), this, &RoomScene::onSkillActivated);
         connect(guhuo, &GuhuoBox::onButtonClick, this, &RoomScene::onSkillActivated);
     }
 
@@ -3140,9 +3140,11 @@ void RoomScene::onSkillActivated()
 {
     QSanSkillButton *button = qobject_cast<QSanSkillButton *>(sender());
     const ViewAsSkill *skill = NULL;
-    if (button)
+    if (button) {
         skill = button->getViewAsSkill();
-    else { //by Xusine
+        if (skill && guhuo_items.contains(skill->objectName()))
+            Self->tag.remove(skill->objectName());
+    } else { //by Xusine
         GuhuoBox *guhuo = qobject_cast<GuhuoBox *>(sender());
         if (guhuo) {
             skill = Sanguosha->getViewAsSkill(guhuo->getSkillName());
@@ -3161,8 +3163,11 @@ void RoomScene::onSkillActivated()
 
         const Card *card = dashboard->getPendingCard();
 
-        if (card && card->targetFixed() && card->isAvailable(Self))
-            useSelectedCard();
+        if (card && card->targetFixed() && card->isAvailable(Self)) {
+            if (!guhuo_items.contains(skill->objectName()))
+                useSelectedCard();
+        }
+
     }
 }
 

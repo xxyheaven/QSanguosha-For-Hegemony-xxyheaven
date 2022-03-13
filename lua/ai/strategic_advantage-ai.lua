@@ -942,8 +942,13 @@ sgs.ai_nullification.FightTogether = function(self, card, from, to, positive, ke
 				for _, p in sgs.qlist(targets) do
 					if p:isChained() then ed = ed + 1 else no = no + 1 end
 				end
-				if ed > 2 and ed > no and self:getCard("HegNullification") then
-					return true, false
+				if ed > 2 and ed > no then
+					if self.room:getTag("NullifyingTimes"):toInt() == 0 and self:getCard("HegNullification") then
+						return true, false
+					end
+					if self.room:getTag("NullifyingTimes"):toInt() > 0 then
+						return true, true
+					end
 				end
 			end
 		else
@@ -958,8 +963,13 @@ sgs.ai_nullification.FightTogether = function(self, card, from, to, positive, ke
 						no = no + 1
 					end
 				end
-				if no > 1 and no >= ed and self:getCard("HegNullification") then
-					return true, false
+				if no > 1 and no >= ed then
+					if self.room:getTag("NullifyingTimes"):toInt() == 0 and self:getCard("HegNullification") then
+						return true, false
+					end
+					if self.room:getTag("NullifyingTimes"):toInt() > 0 then
+						return true, true
+					end
 				end
 			end
 		end

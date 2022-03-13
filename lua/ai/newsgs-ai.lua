@@ -156,8 +156,8 @@ end
 sgs.ai_skill_playerchosen.lianyou = function(self, targets)
 	local targetlist = sgs.QList2Table(targets)
 	self:sort(targetlist, "hp", true)
-	for _, target in ipairs(targetlist) do--考虑方便火烧
-		if self:isFriendWith(target) and target:getHp() > 1 and self:isEnemy(target:getNextAlive()) then
+	for _, target in ipairs(targetlist) do--考虑方便火烧，考虑下家队列长度？
+		if self:isFriendWith(target) and target:getHp() > 1 and (self:isEnemy(target:getNextAlive()) or target:hasSkill("huoji")) then
 			return target
 		end
 	end
@@ -165,7 +165,7 @@ sgs.ai_skill_playerchosen.lianyou = function(self, targets)
 		if self:isFriendWith(target) then return target end
 	end
 	for _, target in ipairs(targetlist) do
-		if self:isFriend(target) and target:getHp() > 1 and self:isEnemy(target:getNextAlive()) then
+		if self:isFriend(target) and target:getHp() > 1 and (self:isEnemy(target:getNextAlive()) or target:hasSkill("huoji")) then
 			return target
 		end
 	end
@@ -173,6 +173,18 @@ sgs.ai_skill_playerchosen.lianyou = function(self, targets)
 		if self:isFriend(target) then return target end
 	end
 	return {}
+end
+
+sgs.ai_skill_invoke.xinghuo =  function(self, data)
+	local damage = data:toDamage()
+	if self:isFriend(damage.to) then
+		return false
+	end
+	return true
+end
+
+function sgs.ai_cardneed.xinghuo(to, card, self)
+	return card:isKindOf("BurningCamps") or isCard("FireAttack", card, to) or isCard("FireSlash", card, to)
 end
 
 --南华老仙
@@ -367,7 +379,7 @@ sgs.ai_skill_choice.jinghe_skill = function(self, choices, data)
 				min_hp = p:getHp()
 			end
 		end
-		if self.player:getHp() == min_hp and self.player:isWounded() then
+		if self.player:getHp() == min_hp and self.player:isWounded() then--帮队友回复优化/
 			return "huoqi"
 		end
 	end
@@ -508,12 +520,14 @@ sgs.ai_skill_use_func.XianshouCard = function(card, use, self)
 	for _, p in ipairs(self.friends) do
 		if self.player:isFriendWith(p) and not p:isWounded() then
 			target = p
+			break
 		end
 	end
 	if not target then
 		for _, p in ipairs(self.friends) do
 			if self:isFriend(p) and not p:isWounded() then
 				target = p
+				break
 			end
 		end
 	end
@@ -622,3 +636,36 @@ end
 function sgs.ai_cardneed.yanzheng(to, card, self)
 	return to:getHandcardNum() < 2
 end
+
+--吕玲绮
+sgs.ai_skill_invoke.guowu =  function(self, data)
+	return true--暂时简化
+end
+
+local zhuangrong_skill = {}
+zhuangrong_skill.name = "zhuangrong"
+table.insert(sgs.ai_skills, zhuangrong_skill)
+zhuangrong_skill.getTurnUseCard = function(self)
+	if self.player:hasUsed("ZhuangrongCard") or self.player:hasSkill("wushuang") then return end
+	local cards = self.player:getCards("he")
+	cards = sgs.QList2Table(cards)
+	self:sortByUseValue(cards, true)
+	for _, card in ipairs(cards) do
+		if card:getTypeId() == sgs.Card_TypeTrick and self:getUseValue(card) < 5 then--值多少合适？
+			local card_str = ("@ZhuangrongCard=%d&zhuangrong"):format(card:getId())
+			return sgs.Card_Parse(card_str)
+		end
+	end
+end
+
+sgs.ai_skill_use_func.ZhuangrongCard = function(card, use, self)
+	use.card = card
+end
+
+sgs.ai_use_priority.ZhuangrongCard = 4.2
+
+sgs.ai_skill_invoke.wushuang_lvlingqi = sgs.ai_skill_invoke.wushuang
+
+sgs.ai_cardneed.wushuang_lvlingqi = sgs.ai_cardneed.wushuang
+
+sgs.ai_skill_invoke.shenwei = true

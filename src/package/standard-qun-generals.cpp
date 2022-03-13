@@ -497,7 +497,7 @@ public:
 
     virtual bool isEnabledAtPlay(const Player *player) const
     {
-        return player->getMark("#shuangxiong+no_suit_red") + player->getMark("#shuangxiong+no_suit_black") > 0;
+        return player->getMark("##shuangxiong+no_suit_red") + player->getMark("##shuangxiong+no_suit_black") > 0;
     }
 
     virtual bool viewFilter(const Card *card) const
@@ -505,10 +505,10 @@ public:
         if (card->isEquipped()) return false;
 
         if (card->isRed())
-            return Self->getMark("#shuangxiong+no_suit_red") > 0;
+            return Self->getMark("##shuangxiong+no_suit_red") > 0;
 
         if (card->isBlack())
-            return Self->getMark("#shuangxiong+no_suit_black") > 0;
+            return Self->getMark("##shuangxiong+no_suit_black") > 0;
 
         return false;
     }
@@ -540,8 +540,8 @@ public:
     virtual void record(TriggerEvent , Room *room, ServerPlayer *player, QVariant &) const
     {
         if (player->getPhase() ==  Player::NotActive) {
-            room->setPlayerMark(player, "#shuangxiong+no_suit_red", 0);
-            room->setPlayerMark(player, "#shuangxiong+no_suit_black", 0);
+            room->setPlayerMark(player, "##shuangxiong+no_suit_red", 0);
+            room->setPlayerMark(player, "##shuangxiong+no_suit_black", 0);
             if (player->hasFlag("shuangxiong")) {
                 room->setPlayerFlag(player, "-shuangxiong");
                 if (player->hasFlag("shuangxiong_attachskill")) {
@@ -581,11 +581,11 @@ public:
         judge.patterns << ".|red" << ".|black";
         room->judge(judge);
 
-        QString pattern = "#shuangxiong+no_suit_red";
+        QString pattern = "##shuangxiong+no_suit_red";
         if (judge.pattern == ".|red")
-            pattern = "#shuangxiong+no_suit_black";
+            pattern = "##shuangxiong+no_suit_black";
 
-        room->addPlayerTip(shuangxiong, pattern);
+        room->addPlayerMark(shuangxiong, pattern);
 
         if (!shuangxiong->hasSkill(objectName(), true)) {
             room->setPlayerFlag(shuangxiong, "shuangxiong_attachskill");

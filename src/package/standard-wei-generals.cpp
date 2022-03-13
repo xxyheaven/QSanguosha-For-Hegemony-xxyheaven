@@ -312,7 +312,7 @@ public:
             if (player->getPhase() == Player::NotActive) {
                 QList<ServerPlayer *> allplayers = room->getAlivePlayers();
                 foreach (ServerPlayer *p, allplayers) {
-                    room->removePlayerTip(p, "#luoyi");
+                    room->setPlayerMark(p, "##luoyi", 0);
                 }
             }
         }
@@ -339,7 +339,7 @@ public:
 
     virtual bool effect(TriggerEvent, Room *room, ServerPlayer *player, QVariant &, ServerPlayer *) const
     {
-        room->addPlayerTip(player, "#luoyi");
+        room->addPlayerMark(player, "##luoyi");
         return false;
     }
 };
@@ -355,10 +355,10 @@ public:
 
     virtual QStringList triggerable(TriggerEvent, Room *, ServerPlayer *player, QVariant &data, ServerPlayer * &) const
     {
-        if (player != NULL && player->isAlive() && player->getMark("#luoyi") > 0) {
+        if (player != NULL && player->isAlive() && player->getMark("##luoyi") > 0) {
             DamageStruct damage = data.value<DamageStruct>();
             if (damage.card != NULL && (damage.card->isKindOf("Slash") || damage.card->isKindOf("Duel"))
-                    && !damage.chain && !damage.transfer && damage.by_user) {
+                    && !damage.chain && !damage.transfer) {
                 return QStringList(objectName());
             }
         }
@@ -1027,22 +1027,6 @@ QiangxiCard::QiangxiCard()
 {
 }
 
-bool QiangxiCard::targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
-{
-    if (!targets.isEmpty() || to_select == Self)
-        return false;
-
-    int rangefix = 0;
-    if (!subcards.isEmpty() && Self->getWeapon() && Self->getWeapon()->getId() == subcards.first()) {
-        const Weapon *card = qobject_cast<const Weapon *>(Self->getWeapon()->getRealCard());
-        rangefix += card->getRange() - 1;
-    }
-    int distance = Self->distanceTo(to_select, rangefix);
-    if (distance == -1)
-        return false;
-    return distance <= Self->getAttackRange();
-}
-
 void QiangxiCard::extraCost(Room *room, const CardUseStruct &card_use) const
 {
     if (card_use.card->getSubcards().isEmpty())
@@ -1333,7 +1317,9 @@ bool Xiaoguo::cost(TriggerEvent, Room *room, ServerPlayer *player, QVariant &, S
 bool Xiaoguo::effect(TriggerEvent, Room *room, ServerPlayer *player, QVariant &, ServerPlayer *ask_who) const
 {
     if (player->isDead()) return false;
-    if (!room->askForCard(player, ".Equip", "@xiaoguo-discard", QVariant()))
+    if (room->askForCard(player, ".Equip", "@xiaoguo-discard", QVariant()))
+        ask_who->drawCards(1, objectName());
+    else
         room->damage(DamageStruct("xiaoguo", ask_who, player));
 
     return false;

@@ -600,7 +600,10 @@ void Dashboard::selectCard(CardItem *item, bool isSelected)
 
 void Dashboard::unselectAll(const CardItem *except)
 {
-    selected = NULL;
+    if (selected != NULL) {
+        selected = NULL;
+        emit card_selected(NULL);
+    }
 
     foreach (CardItem *card_item, m_handCards) {
         if (card_item != except)
@@ -1732,33 +1735,34 @@ void Dashboard::updatePending()
     }
 
     const Card *new_pending_card = viewAsSkill->viewAs(cards);
+
+    if (new_pending_card && new_pending_card->isKindOf("Peach") && new_pending_card->getSkillName().isEmpty()
+            && RoomSceneInstance->battle_started) {
+        if (viewAsSkill->inherits("ResponseSkill")) {
+            const ResponseSkill *resp_skill = qobject_cast<const ResponseSkill *>(viewAsSkill);
+            if (resp_skill && (resp_skill->getRequest() == Card::MethodResponse || resp_skill->getRequest() == Card::MethodUse)) {
+                QString pattern = Sanguosha->currentRoomState()->getCurrentCardUsePattern();
+                if (pattern == "slash" || pattern == "jink") {
+                    Card *vs_card = Sanguosha->cloneCard(pattern, new_pending_card->getSuit(), new_pending_card->getNumber());
+                    if (vs_card) {
+                        vs_card->addSubcard(new_pending_card);
+                        vs_card->setCanRecast(false);
+                        vs_card->setSkillName("aozhan");
+                        new_pending_card = vs_card;
+                    }
+                }
+            }
+        }
+    }
+
     if (pendingCard != new_pending_card) {
         if (pendingCard && !pendingCard->parent() && (pendingCard->isVirtualCard())) {
             if (!pendingCard->isKindOf("CompanionCard") && !pendingCard->isKindOf("HalfMaxHpCard") && !pendingCard->isKindOf("FirstShowCard") && !pendingCard->isKindOf("CareermanCard"))
                 delete pendingCard;
             pendingCard = NULL;
         }
-
-        if (new_pending_card && new_pending_card->isKindOf("Peach") && new_pending_card->getSkillName().isEmpty()
-                && RoomSceneInstance->battle_started) {
-            if (viewAsSkill->inherits("ResponseSkill")) {
-                const ResponseSkill *resp_skill = qobject_cast<const ResponseSkill *>(viewAsSkill);
-                if (resp_skill && (resp_skill->getRequest() == Card::MethodResponse || resp_skill->getRequest() == Card::MethodUse)) {
-                    QString pattern = Sanguosha->currentRoomState()->getCurrentCardUsePattern();
-                    if (pattern == "slash" || pattern == "jink") {
-                        Card *vs_card = Sanguosha->cloneCard(pattern, new_pending_card->getSuit(), new_pending_card->getNumber());
-                        if (vs_card) {
-                            vs_card->addSubcard(new_pending_card);
-                            vs_card->setCanRecast(false);
-                            vs_card->setSkillName("aozhan");
-                            new_pending_card = vs_card;
-                        }
-                    }
-                }
-            }
-        }
-
         pendingCard = new_pending_card;
+
         emit card_selected(pendingCard);
     }
 }

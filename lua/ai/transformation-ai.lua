@@ -781,10 +781,10 @@ function SmartAI:getHuashenPairValue(g1, g2)
 			end
 			for _, p in sgs.qlist(self.room:getOtherPlayers(player)) do
 				if self:isFriend(p) then
-					if self:hasSkill("duoshi", p) then
+					if self:hasKnownSkill("duoshi", p) then
 						current_value = current_value + 0.4
 					end
-					if self:hasSkill("zhijian", p) then
+					if self:hasKnownSkill("zhijian", p) then
 						current_value = current_value + 0.3
 					end
 				end
@@ -1216,7 +1216,7 @@ sgs.ai_skill_invoke.zhiman = function(self, data)
 	if table.contains(can_get, target) and not self:isWeak(target) then--可以优化？
 		return true
 	end
-	if self:hasSkill(sgs.masochism_skill, target) and self.player:canGetCard(target, "e")
+	if self:hasKnownSkill(sgs.masochism_skill, target) and self.player:canGetCard(target, "e")
 	and self:needDamagedEffects(target, self.player) and not self:isWeak(target) then
 		Global_room:writeToConsole("制蛮防止卖血")
 		return true
@@ -1306,7 +1306,7 @@ sgs.ai_choicemade_filter.cardChosen.zhiman = function(self, player, promptlist)
 	if self:needToThrowArmor(target) and self.room:getCardPlace(id) == sgs.Player_PlaceEquip and card:isKindOf("Armor") then
 		intention = -intention
 	elseif self:doNotDiscard(target) then intention = -intention
-	elseif self:hasSkill(sgs.lose_equip_skill, target) and not target:getEquips():isEmpty() and
+	elseif self:hasKnownSkill(sgs.lose_equip_skill, target) and not target:getEquips():isEmpty() and
 		self.room:getCardPlace(id) == sgs.Player_PlaceEquip and card:isKindOf("EquipCard") then
 			intention = -intention
 	elseif self.room:getCardPlace(id) == sgs.Player_PlaceJudge then
@@ -1377,7 +1377,7 @@ sgs.ai_skill_use_func.SanyaoCard = function(card, use, self)
 	end
 	if not target then
 		for _, p in sgs.qlist(targets) do
-			if self:isEnemy(p) and not self:hasSkill(sgs.masochism_skill, p) and self:getOverflow() > 0 then target = p break end
+			if self:isEnemy(p) and not self:hasKnownSkill(sgs.masochism_skill, p) and self:getOverflow() > 0 then target = p break end
 		end
 	end
 
@@ -1447,7 +1447,7 @@ sgs.ai_choicemade_filter.cardChosen.xuanlue = function(self, player, promptlist)
 	if self:needToThrowArmor(target) and self.room:getCardPlace(id) == sgs.Player_PlaceEquip and card:isKindOf("Armor") then
 		intention = -intention
 	elseif self:doNotDiscard(target) then intention = -intention
-	elseif self:hasSkill(sgs.lose_equip_skill, target) and not target:getEquips():isEmpty() and
+	elseif self:hasKnownSkill(sgs.lose_equip_skill, target) and not target:getEquips():isEmpty() and
 		self.room:getCardPlace(id) == sgs.Player_PlaceEquip and card:isKindOf("EquipCard") then
 			intention = -intention
 	elseif self:getOverflow(target) > 2 then intention = 0
@@ -1655,7 +1655,7 @@ sgs.ai_skill_use["@@diaodu_equip"] = function(self, prompt)
 	end
 	for _, card in sgs.qlist(self.player:getCards("e")) do
 		for _, p in ipairs(self.friends_noself) do
-			if not self.player:isFriendWith(p) or not self:hasSkill(sgs.need_equip_skill .. "|" .. sgs.lose_equip_skill, p) then continue end
+			if not self.player:isFriendWith(p) or not self:hasKnownSkill(sgs.need_equip_skill .. "|" .. sgs.lose_equip_skill, p) then continue end
 			if card:isKindOf("Armor") and not p:getArmor() and not(card:isKindOf("PeaceSpell") and self:isWeak()) then
 				return ("@DiaoduequipCard=" .. self.player:getArmor():getEffectiveId() .. "&diaoduequip->" .. p:objectName())
 			end

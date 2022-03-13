@@ -86,9 +86,8 @@ Halberd::Halberd(Card::Suit suit, int number)
 
  bool HalberdCard::targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
  {
-     const Card *slash = Card::Parse(Self->property("halberd_slash").toString());
-     if (slash == NULL) return false;
      QStringList tos = Self->property("halberd_slash_current_targets").toString().split("+");
+     QStringList ats = Self->property("halberd_slash_available_targets").toString().split("+");
 
      foreach (const Player *t, targets) {
          if (to_select->isFriendWith(t))
@@ -101,7 +100,7 @@ Halberd::Halberd(Card::Suit suit, int number)
          }
      }
 
-     return Self->canSlash(to_select, slash);
+     return ats.contains(to_select->objectName());
  }
 
  void HalberdCard::use(Room *room, ServerPlayer *source, QList<ServerPlayer *> &targets) const
@@ -141,35 +140,25 @@ public:
     virtual QStringList triggerable(TriggerEvent, Room *room, ServerPlayer *player, QVariant &data, ServerPlayer * &) const
     {
         CardUseStruct use = data.value<CardUseStruct>();
-        if (WeaponSkill::triggerable(player) && use.card != NULL && use.card->isKindOf("Slash") && !use.card->hasFlag("slashDisableExtraTarget")) {
-            bool no_distance_limit = false, has_target = false;
-            if (use.card->hasFlag("slashNoDistanceLimit")){
-                no_distance_limit = true;
-                room->setPlayerFlag(player, "slashNoDistanceLimit");
-            }
-            foreach (ServerPlayer *p, room->getAlivePlayers()) {
-                bool has_kingdom = false;
-                foreach (ServerPlayer *t, use.to) {
-                    if (t->isFriendWith(p)) {
-                        has_kingdom = true;
+        if (WeaponSkill::triggerable(player) && use.card != NULL && use.card->isKindOf("Slash")) {
+            QList<ServerPlayer *> available_targets = room->getUseExtraTargets(use);
+
+            foreach (ServerPlayer *p, available_targets) {
+                if (!p->hasShownOneGeneral()) return QStringList(objectName());
+                bool can_select = true;
+
+                foreach (ServerPlayer *p2, use.to) {
+                    if (p->isFriendWith(p2)) {
+                        can_select = false;
                         break;
                     }
                 }
 
-                if (!has_kingdom && player->canSlash(p, use.card)) {
-                    has_target = true;
-                    break;
-                }
+                if (can_select) return QStringList(objectName());
 
-                if (use.card->targetFilter(QList<const Player *>(), p, player)) {
-                    has_target = true;
-                    break;
-                }
             }
-            if (no_distance_limit)
-                room->setPlayerFlag(player, "-slashNoDistanceLimit");
-            if (has_target)
-                return QStringList(objectName());
+
+
         }
         return QStringList();
     }
@@ -177,23 +166,22 @@ public:
     virtual bool cost(TriggerEvent, Room *room, ServerPlayer *player, QVariant &data, ServerPlayer *) const
     {
         CardUseStruct use = data.value<CardUseStruct>();
-        bool no_distance_limit = false;
-        if (use.card->hasFlag("slashNoDistanceLimit")){
-            no_distance_limit = true;
-            room->setPlayerFlag(player, "slashNoDistanceLimit");
-        }
 
-        QStringList tos;
+        QStringList tos, ats;
         foreach(ServerPlayer *t, use.to)
             tos.append(t->objectName());
+
+        QList<ServerPlayer *> available_targets = room->getUseExtraTargets(use);
+        foreach(ServerPlayer *t, available_targets)
+            ats.append(t->objectName());
+
         room->setPlayerProperty(player, "halberd_slash", use.card->toString()); // for the client (UI)
         room->setPlayerProperty(player, "halberd_slash_current_targets", tos.join("+"));
+        room->setPlayerProperty(player, "halberd_slash_available_targets", ats.join("+"));
         const Card *halberdskill = room->askForUseCard(player, "@@Halberd", "@halberd-use");
         room->setPlayerProperty(player, "halberd_slash", QString());
         room->setPlayerProperty(player, "halberd_slash_current_targets", QString());
-
-        if (no_distance_limit)
-            room->setPlayerFlag(player, "-slashNoDistanceLimit");
+        room->setPlayerProperty(player, "halberd_slash_available_targets", QString());
 
         if (halberdskill != NULL && player->tag.contains("halberd_invoke"))
             return true;
@@ -618,13 +606,15 @@ Drowning::Drowning(Suit suit, int number)
     setObjectName("drowning");
 }
 
-bool Drowning::targetRated(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
+bool Drowning::targetRated(const Player *to_select, const Player *Self) const
+{
+    return to_select->hasEquip() && to_select != Self;
+}
+
+bool Drowning::targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
 {
     int total_num = 1 + Sanguosha->correctCardTarget(TargetModSkill::ExtraTarget, Self, this);
-    if (targets.length() >= total_num)
-        return false;
-
-    return to_select->hasEquip() && to_select != Self;
+    return targets.length() < total_num && targetRated(to_select, Self);
 }
 
 void Drowning::onEffect(const CardEffectStruct &effect) const
@@ -695,9 +685,9 @@ BurningCamps::BurningCamps(Card::Suit suit, int number, bool is_transferable)
     transferable = is_transferable;
 }
 
-bool BurningCamps::targetRated(const QList<const Player *> &targets, const Player *, const Player *) const
+bool BurningCamps::targetRated(const Player *to_select, const Player *Self) const
 {
-    return targets.isEmpty();
+    return Self->getNextAlive() != Self && Self->getNextAlive()->getFormation().contains(to_select);
 }
 
 bool BurningCamps::isAvailable(const Player *player) const
@@ -760,15 +750,15 @@ QString LureTiger::getSubtype() const
     return "lure_tiger";
 }
 
-bool LureTiger::targetRated(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
+bool LureTiger::targetRated(const Player *to_select, const Player *Self) const
+{
+    return to_select != Self;
+}
+
+bool LureTiger::targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
 {
     int total_num = 2 + Sanguosha->correctCardTarget(TargetModSkill::ExtraTarget, Self, this);
-    if (targets.length() >= total_num)
-        return false;
-    if (Self->isCardLimited(this, Card::MethodUse))
-        return false;
-
-    return to_select != Self;
+    return targets.length() < total_num && targetRated(to_select, Self);
 }
 
 //void LureTiger::use(Room *room, ServerPlayer *source, QList<ServerPlayer *> &targets) const
@@ -865,21 +855,24 @@ FightTogether::FightTogether(Card::Suit suit, int number)
     target_fixed = false;
 }
 
-bool FightTogether::targetRated(const QList<const Player *> &targets, const Player *, const Player *Self) const
+bool FightTogether::targetRated(const Player *to_select, const Player *Self) const
 {
-    QList<const Player *> all_players = Self->getAliveSiblings();
-    all_players << Self;
+    ServerPlayer *target = tag["originalTarget"].value<ServerPlayer *>();
 
-    bool has_bigkingdoms = false;
-
-    foreach (const Player *p, all_players) {
-        if (p->isBigKingdomPlayer()) {
-            has_bigkingdoms = true;
-            break;
+    if (target == NULL) {
+        QList<const Player *> all_players = Self->getAliveSiblings();
+        all_players << Self;
+        bool has_bigkingdoms = false;
+        foreach (const Player *p, all_players) {
+            if (p->isBigKingdomPlayer()) {
+                has_bigkingdoms = true;
+                break;
+            }
         }
+        return has_bigkingdoms;
     }
 
-    return has_bigkingdoms && targets.isEmpty();
+    return to_select->isBigKingdomPlayer() == target->isBigKingdomPlayer();
 }
 
 bool FightTogether::targetsFeasible(const QList<const Player *> &targets, const Player *Self) const
@@ -972,6 +965,7 @@ void FightTogether::onUse(Room *room, const CardUseStruct &card_use) const
     }
     ServerPlayer *target = card_use.to.first();
 
+    tag["originalTarget"] = QVariant::fromValue(target);
 
     QList<ServerPlayer *> targets, voids, all = room->getAllPlayers();
     if (!source->isCardLimited(this, handling_method)) {
@@ -1034,10 +1028,22 @@ QString AllianceFeast::getSubtype() const
     return "alliance_feast";
 }
 
-bool AllianceFeast::targetRated(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
+bool AllianceFeast::targetRated(const Player *to_select, const Player *Self) const
 {
-    if (!targets.isEmpty()) return false;
-    return to_select->hasShownOneGeneral() && !Self->isFriendWith(to_select);
+    if (!to_select->hasShownOneGeneral()) return false;
+    if (to_select == Self) return true;
+
+    ServerPlayer *target = tag["originalTarget"].value<ServerPlayer *>();
+
+    if (target == NULL)
+        return !to_select->isFriendWith(Self);
+
+    return to_select->isFriendWith(target);
+}
+
+bool AllianceFeast::targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
+{
+    return targets.isEmpty() && targetRated(to_select, Self) && to_select != Self;
 }
 
 void AllianceFeast::onUse(Room *room, const CardUseStruct &card_use) const
@@ -1048,6 +1054,9 @@ void AllianceFeast::onUse(Room *room, const CardUseStruct &card_use) const
         targets << source;
     if (card_use.to.length() == 1) {
         ServerPlayer *target = card_use.to.first();
+
+        tag["originalTarget"] = QVariant::fromValue(target);
+
         QList<ServerPlayer *> other_players = room->getOtherPlayers(source);
         foreach (ServerPlayer *player, other_players) {
             if (!target->isFriendWith(player))
@@ -1162,9 +1171,9 @@ ThreatenEmperor::ThreatenEmperor(Suit suit, int number)
     transferable = true;
 }
 
-bool ThreatenEmperor::targetRated(const QList<const Player *> &targets, const Player *to_select, const Player *) const
+bool ThreatenEmperor::targetRated(const Player *to_select, const Player *Self) const
 {
-    return (targets.isEmpty() && to_select->isBigKingdomPlayer());
+    return to_select->isBigKingdomPlayer() && to_select == Self;
 }
 
 void ThreatenEmperor::onUse(Room *room, const CardUseStruct &card_use) const
@@ -1244,9 +1253,9 @@ ImperialOrder::ImperialOrder(Suit suit, int number)
     setObjectName("imperial_order");
 }
 
-bool ImperialOrder::targetRated(const QList<const Player *> &targets, const Player *to_select, const Player *) const
+bool ImperialOrder::targetRated(const Player *to_select, const Player *) const
 {
-    return (targets.isEmpty() && !to_select->hasShownOneGeneral());
+    return !to_select->hasShownOneGeneral();
 }
 
 bool ImperialOrder::isAvailable(const Player *player) const
@@ -1254,7 +1263,7 @@ bool ImperialOrder::isAvailable(const Player *player) const
     bool invoke = !player->hasShownOneGeneral();
     if (!invoke) {
         foreach (const Player *p, player->getAliveSiblings()) {
-            if (!p->hasShownOneGeneral() && !player->isProhibited(p, this)) {
+            if (targetRated(p, player) && !player->isProhibited(p, this)) {
                 invoke = true;
                 break;
             }

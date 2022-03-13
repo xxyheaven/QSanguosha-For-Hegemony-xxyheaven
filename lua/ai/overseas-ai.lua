@@ -383,3 +383,5 @@ sgs.ai_skill_playerchosen.hongyuan = function(self, targets)
 end
 
 sgs.ai_skill_invoke.mingzhe = true
+
+--全琮

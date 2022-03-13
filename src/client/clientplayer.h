@@ -52,7 +52,7 @@ public:
     virtual void addCard(const Card *card, Place place);
     virtual void addKnownHandCard(const Card *card);
     virtual bool isLastHandCard(const Card *card, bool contain = false) const;
-    virtual void setMark(const QString &mark, int value, bool is_tip = false);
+    virtual void setMark(const QString &mark, int value);
 
     virtual QStringList getBigKingdoms(const QString &reason, MaxCardsType::MaxCardsCount type = MaxCardsType::Min) const;
 
@@ -67,7 +67,7 @@ private:
 signals:
     void pile_changed(const QString &name);
     void count_changed(const QString &name, int value);
-    void tip_changed(const QString &name, bool is_add);
+    void tip_changed(const QString &name, bool is_add = false);
     void drank_changed();
     void action_taken();
     //void skill_state_changed(const QString &skill_name);

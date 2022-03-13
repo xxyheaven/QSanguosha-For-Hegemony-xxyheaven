@@ -1090,7 +1090,7 @@ public:
     virtual TriggerList triggerable(TriggerEvent, Room *room, ServerPlayer *player, QVariant &) const
     {
         TriggerList skill_list;
-        if (player == NULL || player->isDead() || !player->hasShownOneGeneral() || player->getPhase() != Player::Start) return skill_list;
+        if (player == NULL || player->isDead() || player->getPhase() != Player::Start || !player->hasShownOneGeneral()) return skill_list;
         QList<ServerPlayer *> shixies = room->findPlayersBySkillName("lixia");
         foreach (ServerPlayer *shixie, shixies) {
             if (!player->isFriendWith(shixie) && shixie->hasEquip() && shixie->hasShownSkill("lixia"))
@@ -1144,7 +1144,7 @@ public:
         choices << "draw%from:"+ shixie->objectName() << "losehp";
         QStringList all_choices = choices;
         all_choices << "discard";
-        if (player->forceToDiscard(2, true, true).length() > 1)
+        if (player->forceToDiscard(2, false, true).length() > 1)
             choices << "discard";
 
         QString choice = room->askForChoice(player, "lixia_effect", choices.join("+"), QVariant(), "@lixia-choose:" + shixie->objectName(), all_choices.join("+"));
@@ -1154,7 +1154,7 @@ public:
         if (choice == "losehp")
             room->loseHp(player);
         if (choice == "discard")
-            room->askForDiscard(player, "lixia_discard", 2, 2, false, true);
+            room->askForDiscard(player, "lixia_discard", 2, 2);
         return false;
     }
 
@@ -1356,7 +1356,7 @@ public:
     virtual void record(TriggerEvent , Room *room, ServerPlayer *player, QVariant &) const
     {
         if (player->getPhase() == Player::NotActive) {
-            room->removePlayerTip(player, "#pozhen");
+            room->setPlayerMark(player, "##pozhen", 0);
         }
     }
 
@@ -1386,7 +1386,7 @@ public:
 
     virtual bool effect(TriggerEvent, Room *room, ServerPlayer *player, QVariant &, ServerPlayer *xushu) const
     {
-        room->addPlayerTip(player, "#pozhen");
+        room->addPlayerMark(player, "##pozhen");
         room->setPlayerCardLimitation(player, "use,response,recast", ".|.|.|hand", true);
         QList<ServerPlayer *> all_players = room->getOtherPlayers(xushu), targets, alls = room->getAlivePlayers();
         bool can_discard = false;
@@ -1803,7 +1803,7 @@ public:
          foreach (QString name, target_list) {
              ServerPlayer *target = room->findPlayerbyobjectName(name, true);
              if (target) {
-                 room->removePlayerTip(target, "#zhidao");
+                 room->setPlayerMark(target, "##zhidao", 0);
                  room->setFixedDistance(player, target, -1);
              }
          }
@@ -1849,7 +1849,7 @@ public:
         room->setPlayerProperty(player, "zhidao_targets", assignee_list.join("+"));
 
         room->setFixedDistance(player, target, 1);
-        room->addPlayerTip(target, "#zhidao");
+        room->addPlayerMark(target, "##zhidao");
 
         return false;
     }
@@ -2292,9 +2292,8 @@ RuleTheWorld::RuleTheWorld(Card::Suit suit, int number)
     target_fixed = false;
 }
 
-bool RuleTheWorld::targetRated(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
+bool RuleTheWorld::targetRated(const Player *to_select, const Player *Self) const
 {
-    if (!targets.isEmpty()) return false;
     int x = Self->getHp();
     QList<const Player *> players = Self->getAliveSiblings();
     foreach (const Player *p, players) {
@@ -2368,9 +2367,14 @@ Conquering::Conquering(Suit suit, int number)
     target_fixed = false;
 }
 
-bool Conquering::targetRated(const QList<const Player *> &, const Player *, const Player *) const
+bool Conquering::targetRated(const Player *, const Player *) const
 {
     return true;
+}
+
+bool Conquering::targetFilter(const QList<const Player *> &, const Player *to_select, const Player *Self) const
+{
+    return targetRated(to_select, Self);
 }
 
 void Conquering::onUse(Room *room, const CardUseStruct &card_use) const
@@ -2481,7 +2485,7 @@ ConsolidateCountry::ConsolidateCountry(Suit suit, int number)
     target_fixed = true;
 }
 
-bool ConsolidateCountry::targetRated(const QList<const Player *> &, const Player *, const Player *) const
+bool ConsolidateCountry::targetRated(const Player *, const Player *) const
 {
     return true;
 }
@@ -2726,7 +2730,7 @@ public:
             }
         } else if (triggerEvent == CardUsed) {
             CardUseStruct use = data.value<CardUseStruct>();
-            if (use.card->getTypeId() == Card::TypeTrick)
+            if (use.card->getTypeId() == Card::TypeTrick && !use.card->isKindOf("ThreatenEmperor"))
                 return QStringList(objectName());
         } else if (triggerEvent == CardsMoveOneTime) {
             QVariantList move_datas = data.toList();
@@ -3636,9 +3640,9 @@ public:
                 room->setPlayerProperty(player, "xiongnve_adddamage", QVariant());
                 room->setPlayerProperty(player, "xiongnve_extraction", QVariant());
                 room->setPlayerProperty(player, "xiongnve_nolimit", QVariant());
-                room->setPlayerMark(player, "#xiongnve", 0);
+                room->setPlayerMark(player, "##xiongnve", 0);
             } else if (player->getPhase() == Player::RoundStart) {
-                room->setPlayerMark(player, "#xiongnve_avoid", 0);
+                room->setPlayerMark(player, "##xiongnve_avoid", 0);
             }
         }
     }
@@ -3731,7 +3735,7 @@ public:
                 room->setPlayerProperty(player, "xiongnve_nolimit", kingdoms.join("+"));
             }
 
-            room->addPlayerTip(player, "#xiongnve");
+            room->addPlayerMark(player, "##xiongnve");
 
         } else if (triggerEvent == EventPhaseEnd && huashens.length() > 1) {
 
@@ -3753,7 +3757,7 @@ public:
             room->setPlayerProperty(player, "massacre_pile", huashens.join("+"));
             room->setPlayerMark(player, "#massacre", huashens.length());
 
-            room->addPlayerTip(player, "#xiongnve_avoid");
+            room->addPlayerMark(player, "##xiongnve_avoid");
         }
 
         return false;
@@ -3782,7 +3786,7 @@ public:
             kingdoms = player->property("xiongnve_extraction").toString().split("+");
             if (target == NULL || !player->canGetCard(target, "he")) return QStringList();
         } else if (triggerEvent == DamageInflicted) {
-            if (damage.from && damage.from != player && player->getMark("#xiongnve_avoid") > 0)
+            if (damage.from && damage.from != player && player->getMark("##xiongnve_avoid") > 0)
                 return QStringList(objectName());
             return QStringList();
         }
@@ -3871,11 +3875,11 @@ public:
                     }
                 }
                 if (remove_mark)
-                    room->setPlayerMark(p1, "#congcha", 0);
+                    room->setPlayerMark(p1, "##congcha", 0);
             }
         } else if (triggerEvent == GeneralShown || triggerEvent == DFDebut) {
             if (!player->hasShownOneGeneral() || player->getMark("HaventShowGeneral") == 0 || player->getMark("HaventShowGeneral2") == 0) return;
-            room->setPlayerMark(player, "#congcha", 0);
+            room->setPlayerMark(player, "##congcha", 0);
             QList<ServerPlayer *> alls = room->getAlivePlayers();
             foreach (ServerPlayer *p, alls) {
                 if (!p->hasShownOneGeneral()) continue;
@@ -3953,7 +3957,7 @@ public:
             player->tag["congcha_target"] = target_list;
             ServerPlayer *to = room->findPlayerbyobjectName(target_name);
             if (to && !to->hasShownOneGeneral()) {
-                room->addPlayerTip(to, "#congcha");
+                room->addPlayerMark(to, "##congcha");
                 QStringList list = player->tag["congcha_draw_targets"].toStringList();
                 list << to->objectName();
                 player->tag["congcha_targets"] = list;
@@ -4168,6 +4172,11 @@ public:
     {
         return !player->hasUsed("JinfaCard");
     }
+
+    virtual int getEffectIndex(const ServerPlayer *, const Card *card) const
+    {
+        return (card->getTypeId() == Card::TypeSkill) ? -1 : 0;
+    }
 };
 
 class Xishe : public TriggerSkill
@@ -4261,7 +4270,7 @@ public:
         if (room->askForChoice(huangzu, "transform_xishe", "yes+no", QVariant(), "@transform-ask:::xishe") == "yes") {
             room->broadcastSkillInvoke("transform", huangzu->isMale());
             room->addPlayerMark(huangzu, "xishetransformUsed");
-            room->transformDeputyGeneral(huangzu, false);
+            room->transformDeputyGeneral(huangzu, QString(), false);
         }
         return false;
     }
@@ -4424,7 +4433,7 @@ public:
             QList<ServerPlayer *> owners = room->findPlayersBySkillName(objectName());
             TriggerList skill_list;
             foreach (ServerPlayer *owner, owners)
-                if (!owner->isNude() && player->isFriendWith(owner))
+                if (!owner->isKongcheng() && player->isFriendWith(owner))
                     skill_list.insert(owner, QStringList(objectName()));
             return skill_list;
         }

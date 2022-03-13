@@ -155,7 +155,7 @@ public:
     virtual bool targetFixed() const;
     virtual bool targetsFeasible(const QList<const Player *> &targets, const Player *Self) const;
     // @todo: the following two functions should be merged into one.
-    virtual bool targetRated(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const;
+    virtual bool targetRated(const Player *to_select, const Player *Self) const;
     virtual bool targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const;
     virtual bool targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self,
         int &maxVotes) const;

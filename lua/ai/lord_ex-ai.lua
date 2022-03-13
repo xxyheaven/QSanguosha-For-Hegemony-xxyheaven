@@ -174,7 +174,7 @@ sgs.ai_skill_choice.midao = function(self, choices, data)
       fire_value = fire_value + (self:isFriend(p) and 2 or -2)
     end
     if p:isChained() then
-      fire_value = fire_value + (self:isFriend(p) and -0.5 or 0.5)--调小0.5，1会出现装太平和被锁时值相等的情况，多少合适？
+      fire_value = fire_value + (self:isFriend(p) and -0.5 or 0.5)--考虑全场的连环角色！
       thunder_value = thunder_value + (self:isFriend(p) and -0.5 or 0.5)
     end
   end
@@ -981,8 +981,8 @@ sgs.ai_skill_use_func.PaiyiCard = function(card, use, self)
 	  if not target then
 		  for _, enemy in ipairs(self.enemies) do
 			  if enemy:getHp() == 1 and self:isWeak(enemy)
-				and not self:hasSkills(sgs.masochism_skill, enemy)
-        and not enemy:hasSkill("jijiu")
+				and not enemy:hasShownSkills(sgs.masochism_skill)
+        and not enemy:hasShownSkill("jijiu")
 				and self:damageIsEffective(enemy, nil, self.player)
 				and not (self:needDamagedEffects(enemy, self.player) or self:needToLoseHp(enemy))
 				and enemy:getHandcardNum() + self.player:getPile("power_pile"):length() - 1 > self.player:getHandcardNum() then
@@ -1305,55 +1305,56 @@ sgs.ai_skill_invoke.xiongnve = function(self, data)
     end
   end
   if data:toString() == "defence"  then
+    if self.player:getMark("#xiongnve_avoid") > 0 then
+      return false
+    end
     if self:isWeak() or self.player:getHp() < 2 then
       return true
     end
-    if self.player:isWounded() then
-      if not self.player:faceUp() then--翻面两回合效果
-        return true
+    if not self.player:faceUp() then--翻面两回合效果
+      return true
+    end
+    local useless_num = 0
+    local generals = self.player:property("massacre_pile"):toString():split("+")
+    local xiongnve_kingdom = {["wei"] = {}, ["shu"] = {}, ["wu"] = {}, ["qun"] = {}, ["careerist"] = {}, ["double"] = {}}
+    for _, name in ipairs(generals) do
+      local general = sgs.Sanguosha:getGeneral(name)
+      if not general:isDoubleKingdoms() then
+        table.insert(xiongnve_kingdom[general:getKingdom()],name)
+      else
+        table.insert(xiongnve_kingdom["double"],name)
       end
-      local useless_num = 0
-      local generals = self.player:property("massacre_pile"):toString():split("+")
-      local xiongnve_kingdom = {["wei"] = {}, ["shu"] = {}, ["wu"] = {}, ["qun"] = {}, ["careerist"] = {}, ["double"] = {}}
-      for _, name in ipairs(generals) do
-        local general = sgs.Sanguosha:getGeneral(name)
-        if not general:isDoubleKingdoms() then
-          table.insert(xiongnve_kingdom[general:getKingdom()],name)
-        else
-          table.insert(xiongnve_kingdom["double"],name)
+    end
+    local kingdoms = {wei = 0, shu = 0, wu = 0, qun = 0, careerist = 0}--计算势力的人数，正是敌人，负是队友
+    for _, p in sgs.qlist(self.room:getOtherPlayers(self.player)) do
+      if p:hasShownOneGeneral() then--非暗将
+        local p_kingdom = p:getKingdom()
+        if p_kingdom == "god" then
+          p_kingdom = "careerist"
         end
+        kingdoms[p_kingdom] = kingdoms[p_kingdom] + (self:isFriend(p) and -1 or 1)
       end
-      local kingdoms = {wei = 0, shu = 0, wu = 0, qun = 0, careerist = 0}--计算势力的人数，正是敌人，负是队友
-      for _, p in sgs.qlist(self.room:getOtherPlayers(self.player)) do
-        if p:hasShownOneGeneral() then--非暗将
-          local p_kingdom = p:getKingdom()
-          if p_kingdom == "god" then
-            p_kingdom = "careerist"
-          end
-          kingdoms[p_kingdom] = kingdoms[p_kingdom] + (self:isFriend(p) and -1 or 1)
-        end
+    end
+    for key, value in pairs(kingdoms) do
+      if value == 0 and #xiongnve_kingdom[key] > 0 then
+        useless_num = useless_num + #xiongnve_kingdom[key]
       end
-      for key, value in pairs(kingdoms) do
-        if value == 0 and #xiongnve_kingdom[key] > 0 then
-          useless_num = useless_num + #xiongnve_kingdom[key]
-        end
-        if value > 0 and #xiongnve_kingdom[key] > math.min(value*2, 5) then
-          useless_num = useless_num + #xiongnve_kingdom[key] - value
-        end
+      if value > 0 and #xiongnve_kingdom[key] > math.min(value*2, 5) then
+        useless_num = useless_num + #xiongnve_kingdom[key] - value
       end
-      for _, name in ipairs(xiongnve_kingdom["double"]) do
-        local general = sgs.Sanguosha:getGeneral(name)
-			  local double_kingdoms = general:getKingdoms()
-        if kingdoms[double_kingdoms[1]] == 0 and kingdoms[double_kingdoms[2]] == 0 then
-          useless_num = useless_num + 1
-        end
+    end
+    for _, name in ipairs(xiongnve_kingdom["double"]) do
+      local general = sgs.Sanguosha:getGeneral(name)
+      local double_kingdoms = general:getKingdoms()
+      if kingdoms[double_kingdoms[1]] == 0 and kingdoms[double_kingdoms[2]] == 0 then
+        useless_num = useless_num + 1
       end
-      if useless_num > 1 and (self.player:getLostHp() > 1 or self.player:getHp() < 3) then
-        return true
-      end
-      if useless_num > 4 then
-        return true
-      end
+    end
+    if useless_num > 1 and (self.player:getLostHp() > 1 or self.player:getHp() < 3) then
+      return true
+    end
+    if useless_num > (self.player:isWounded() and 4 or 6) then
+      return true
     end
   end
 	return false
@@ -2284,7 +2285,8 @@ qingyin_skill.getTurnUseCard = function(self)
   --Global_room:writeToConsole("进入刘巴技能:" .. self.player:objectName())
   local count = 0
 	for _, friend in ipairs(self.friends) do
-		if self.player:isFriendWith(friend) and (friend:getHp() <= 1 or (friend:getHp() <= 2 and friend:getHandcardNum() < 2) or friend:getLostHp() > 2) then
+		if self.player:isFriendWith(friend) and not friend:isRemoved()--有canRecover函数就好了
+    and (friend:getHp() <= 1 or (friend:getHp() <= 2 and friend:getHandcardNum() < 2) or friend:getLostHp() > 2) then
       count = count + 1
 		end
 	end
@@ -2532,11 +2534,18 @@ sgs.ai_skill_choice["rule_the_world"] = function(self, choices, data)
   local target = data:toPlayer()
   if self:isFriend(target) then
     return "cancel"
-  elseif self:slashIsEffective(sgs.cloneCard("slash"), target, self.player) then
-    for _, choice in ipairs(choices) do
-      if choice:startsWith("slash") then
-        return choice
-      end
+  elseif self:slashIsEffective(sgs.cloneCard("slash"), target, self.player) and not self.player:isKongcheng() then
+    local cards = self.player:getHandcards()
+    cards = sgs.QList2Table(cards)
+    self:sortByKeepValue(cards)
+    if not self:isWeak() or not (isCard("Peach", cards[1], self.player)
+      or (isCard("Analeptic", cards[1], self.player) and self.player:getHp() == 1)) then
+        Global_room:writeToConsole("号令天下杀")
+        for _, choice in ipairs(choices) do
+          if choice:startsWith("slash") then
+            return choice
+          end
+        end
     end
   else
     for _, choice in ipairs(choices) do
@@ -2546,6 +2555,10 @@ sgs.ai_skill_choice["rule_the_world"] = function(self, choices, data)
     end
   end
 	return choices[math.random(1, #choices)]
+end
+
+sgs.ai_skill_discard["rule_the_world"] = function(self, discard_num, min_num, optional, include_equip)
+  return self:askForDiscard("dummy_reason", 1, 1, false, false)
 end
 
 sgs.ai_nullification.RuleTheWorld = function(self, card, from, to, positive, keep)
@@ -2602,7 +2615,7 @@ sgs.ai_nullification.Conquering = function(self, card, from, to, positive, keep)
   end
   if keep then return false end
 	if positive then
-		if self:isEnemy(to) and self:getCard("HegNullification") then
+		if self:isEnemy(to) then
       local num = 0
       for _, p in sgs.qlist(targets) do
         if p:isFriendWith(to) then
@@ -2610,7 +2623,12 @@ sgs.ai_nullification.Conquering = function(self, card, from, to, positive, keep)
         end
       end
       if num > 1 then
-        return true, false
+        if self.room:getTag("NullifyingTimes"):toInt() == 0 and self:getCard("HegNullification") then
+          return true, false
+        end
+        if self.room:getTag("NullifyingTimes"):toInt() > 0 then
+          return true, true
+        end
       end
     end
 	else
@@ -2808,7 +2826,7 @@ sgs.ai_nullification.Chaos = function(self, card, from, to, positive, keep)
   end
   if keep then return false end
 	if positive then
-		if self:isFriendWith(to) and self:getCard("HegNullification") then
+		if self:isFriendWith(to)then
       local num = 0
       for _, p in sgs.qlist(targets) do
         if p:isFriendWith(to) then
@@ -2816,7 +2834,12 @@ sgs.ai_nullification.Chaos = function(self, card, from, to, positive, keep)
         end
       end
       if num > 1 then
-        return true, false
+        if self.room:getTag("NullifyingTimes"):toInt() == 0 and self:getCard("HegNullification") then
+          return true, false
+        end
+        if self.room:getTag("NullifyingTimes"):toInt() > 0 then
+          return true, true
+        end
       end
     end
 	else

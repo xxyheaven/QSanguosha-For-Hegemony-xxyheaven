@@ -2231,8 +2231,15 @@ const Card *Room::askForSinglePeach(ServerPlayer *player, ServerPlayer *dying)
         card = NULL;
     if (card != NULL)
         card = card->validateInResponse(player);
-    else
+    else {
+
+        QVariant decisionData = QVariant::fromValue(QString("peach:%1:%2:")
+            .arg(dying->objectName())
+            .arg(1 - dying->getHp()));
+        thread->trigger(ChoiceMade, this, player, decisionData);
+
         return NULL;
+    }
 
     const Card *result = NULL;
     if (card) {
@@ -2249,6 +2256,7 @@ const Card *Room::askForSinglePeach(ServerPlayer *player, ServerPlayer *dying)
         result = card;
     } else
         result = askForSinglePeach(player, dying);
+
     return result;
 }
 
@@ -2502,18 +2510,7 @@ void Room::addPlayerTip(ServerPlayer *player, const QString &mark)
     JsonArray arg;
     arg << player->objectName();
     arg << mark;
-    arg << true;
-    doBroadcastNotify(S_COMMAND_SET_MARK, arg);
-}
-
-void Room::removePlayerTip(ServerPlayer *player, const QString &mark)
-{
-    player->setMark(mark, 0);
-
-    JsonArray arg;
-    arg << player->objectName();
-    arg << mark;
-    arg << false;
+    arg << 1;
     doBroadcastNotify(S_COMMAND_SET_MARK, arg);
 }
 
@@ -3014,7 +3011,7 @@ void Room::transformDeputyGeneral(ServerPlayer *player, const QString &_name, bo
 
     }
 
-    handleUsedGeneral("-" + player->getActualGeneral2Name());
+    //handleUsedGeneral("-" + player->getActualGeneral2Name());
     handleUsedGeneral(general_name);
 
     player->removeGeneral(false);
@@ -5228,15 +5225,22 @@ QVariant Room::cheakMoveData(QVariant data)
             QList<int> remove_ids;
             foreach (int id, move.card_ids) {
                 const Card *card = Sanguosha->getCard(id);
-                if (card->isKindOf("ImperialOrder") && (move.reason.m_reason != CardMoveReason::S_REASON_USE || move.reason.m_eventName != "imperial_order")) {
 
-                    setTag("ImperialOrderInvoke", true);
-                    setTag("ImperialOrderCard", QVariant::fromValue(card));
+                if (card->isKindOf("ImperialOrder")) {
+                    bool remove = true;
+                    if (move.reason.m_reason == CardMoveReason::S_REASON_USE) {
+                        CardUseStruct use = move.reason.m_useStruct;
+                        if (use.card != NULL && use.card->isKindOf("ImperialOrder"))
+                            remove = false;
+                    }
 
-                    remove_ids << id;
+                    if (remove) {
+                        setTag("ImperialOrderInvoke", true);
+                        setTag("ImperialOrderCard", QVariant::fromValue(card));
 
+                        remove_ids << id;
+                    }
                 }
-
                 if (card_names.contains(card->getClassName()))
                     remove_ids << id;
             }
@@ -7885,7 +7889,7 @@ QList<ServerPlayer *> Room::getUseExtraTargets(CardUseStruct card_use, bool dist
 
     foreach (ServerPlayer *p, m_alivePlayers) {
         if (use.to.contains(p) || isProhibited(use.from, p, use.card)) continue;
-        if (use.card->targetRated(QList<const Player *>(), p, use.from))
+        if (use.card->targetRated(p, use.from))
             targets.append(p);
     }
 

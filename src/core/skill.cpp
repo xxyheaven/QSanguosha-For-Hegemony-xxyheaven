@@ -854,6 +854,11 @@ DetachEffectSkill::DetachEffectSkill(const QString &skillname, const QString &pi
     events << EventLoseSkill;
 }
 
+QString DetachEffectSkill::getPileName() const
+{
+    return pile_name;
+}
+
 QStringList DetachEffectSkill::triggerable(TriggerEvent, Room *, ServerPlayer *target, QVariant &data, ServerPlayer * &) const
 {
     if (target && data.toString().split(":").first() == name)

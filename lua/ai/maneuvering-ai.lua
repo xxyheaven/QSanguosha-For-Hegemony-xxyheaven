@@ -182,7 +182,7 @@ function SmartAI:shouldUseAnaleptic(target, card_use)
 	if self.player:hasWeapon("Axe") and self.player:getCardCount(true) > 4 then
 		return true
 	end
-	if self.player:hasSkill("wushuang") then
+	if self.player:hasSkills("wushuang|wushuang_lvlingqi") then
 		if getKnownCard(target, target, "Jink", true, "he") >= 2 then return false end
 		return getCardsNum("Jink", target, self.player) < 2
 	end
@@ -237,7 +237,7 @@ function SmartAI:searchForAnaleptic(use, enemy, slash)
 	if card_str then return sgs.Card_Parse(card_str) end
 
 	for _, anal in ipairs(cards) do
-		if (anal:getClassName() == "Analeptic") and not (anal:getEffectiveId() == slash:getEffectiveId()) then
+		if (anal:getClassName() == "Analeptic") and anal:getEffectiveId() ~= slash:getEffectiveId() then
 			return anal
 		end
 	end
@@ -370,16 +370,19 @@ function SmartAI:isGoodChainTarget_(damageStruct)
 	local card = damageStruct.card
 
 	if card and card:isKindOf("Slash") then
-		nature = card:isKindOf("FireSlash") and sgs.DamageStruct_Fire
-					or card:isKindOf("ThunderSlash") and sgs.DamageStruct_Thunder
-					or sgs.DamageStruct_Normal
+		nature = sgs.Slash_Natures[card:getClassName()]
 		damage = self:hasHeavySlashDamage(from, card, to, true)
-	elseif nature == sgs.DamageStruct_Fire then
+	end
+	if nature == sgs.DamageStruct_Fire then
 		if to:getMark("@gale") > 0 then damage = damage + 1 end
 	end
 
 	if not self:damageIsEffective_(damageStruct) then return end
 	if card and card:isKindOf("TrickCard") and not self:trickIsEffective(card, to, self.player) then return end
+
+	if nature == sgs.DamageStruct_Fire and from:hasSkill("xinghuo") then
+		damage = damage + 1
+	end
 
 	local jiaren_zidan = sgs.findPlayerByShownSkillName("jgchiying")
 	if jiaren_zidan and jiaren_zidan:isFriendWith(to) then
@@ -564,6 +567,12 @@ sgs.ai_skill_cardask["@fire-attack"] = function(self, data, pattern, target)
 	local convert = { [".S"] = "spade", [".D"] = "diamond", [".H"] = "heart", [".C"] = "club"}
 	local card
 
+	if self.fireattack_onlyview then
+		self.fireattack_onlyview = nil
+		Global_room:writeToConsole("火攻只看手牌")
+		return "."
+	end
+
 	self:sortByUseValue(cards, true)
 
 	for _, acard in ipairs(cards) do
@@ -589,12 +598,12 @@ sgs.ai_skill_cardask["@fire-attack"] = function(self, data, pattern, target)
 	end
 	if not card then
 		self.player:setTag("AI_FireAttack_NoSuit", sgs.QVariant(convert[pattern]))
+		Global_room:writeToConsole("火攻失败记录花色")
 	end
 	return card and card:getId() or "."
 end
 
-function SmartAI:useCardFireAttack(fire_attack, use)--对明牌没花色的打火计？？
-
+function SmartAI:useCardFireAttack(fire_attack, use)
 	local lack = {
 		spade = true,
 		club = true,
@@ -602,12 +611,15 @@ function SmartAI:useCardFireAttack(fire_attack, use)--对明牌没花色的打�
 		diamond = true,
 	}
 
-	local cards = self.player:getHandcards()
-	local canDis = {}
-	for _, card in sgs.qlist(cards) do
+	local can_FireAttack_self = false
+	for _, card in sgs.qlist(self.player:getHandcards()) do
 		if card:getEffectiveId() ~= fire_attack:getEffectiveId() then
-			table.insert(canDis, card)
 			lack[card:getSuitString()] = false
+
+			if not can_FireAttack_self and (not isCard("Peach", card, self.player) or self:getCardsNum("Peach") >= 3)
+			and (not isCard("Analeptic", card, self.player) or self:getCardsNum("Analeptic") >= 2) then
+				can_FireAttack_self = true
+			end
 		end
 	end
 
@@ -623,20 +635,24 @@ function SmartAI:useCardFireAttack(fire_attack, use)--对明牌没花色的打�
 
 	self:sort(self.enemies, "defense")
 
-	local can_attack = function(enemy)
+	local can_fire_attack = function(enemy)
 		if self.player:hasFlag("FireAttackFailed_" .. enemy:objectName()) then
 			return false
 		end
-		--[[触发顺序有误
-		local damage = 1
-		if not enemy:hasArmorEffect("SilverLion") then
-			if enemy:hasArmorEffect("Vine") then damage = damage + 1 end
+		local known, hassuit = 0, false
+		for _, c in sgs.qlist(enemy:getHandcards()) do
+			if sgs.cardIsVisible(c, enemy, self.player) then
+				known = known + 1
+				if not lack[c:getSuitString()] then
+					hassuit = true
+				end
+			end
 		end
-		if enemy:hasShownSkill("mingshi") and not self.player:hasShownAllGenerals() then
-			damage = damage - 1
-		end]]
-		return self:objectiveLevel(enemy) > 3 and not enemy:isKongcheng()--and damage > 0
-				and self:damageIsEffective(enemy, sgs.DamageStruct_Fire, self.player) and not self:cantbeHurt(enemy, self.player)--, damage
+		if known == enemy:getHandcardNum() and not hassuit then--已知无花色
+			return false
+		end
+		return self:objectiveLevel(enemy) > 3 and not enemy:isKongcheng()
+				and self:damageIsEffective(enemy, sgs.DamageStruct_Fire, self.player) and not self:cantbeHurt(enemy, self.player)
 				and self:trickIsEffective(fire_attack, enemy)
 				and sgs.isGoodTarget(enemy, self.enemies, self)
 				and (not (enemy:hasShownSkill("jianxiong") and not self:isWeak(enemy)) and not self:needDamagedEffects(enemy, self.player)
@@ -645,16 +661,8 @@ function SmartAI:useCardFireAttack(fire_attack, use)--对明牌没花色的打�
 
 	local enemies, targets = {}, {}
 	for _, enemy in ipairs(self.enemies) do
-		if can_attack(enemy) then
+		if can_fire_attack(enemy) then
 			table.insert(enemies, enemy)
-		end
-	end
-
-	local can_FireAttack_self
-	for _, card in ipairs(canDis) do
-		if (not isCard("Peach", card, self.player) or self:getCardsNum("Peach") >= 3) and not self.player:hasArmorEffect("IronArmor")
-			and (not isCard("Analeptic", card, self.player) or self:getCardsNum("Analeptic") >= 2) and not self.player:hasSkill("enyuan") then
-			can_FireAttack_self = true
 		end
 	end
 
@@ -670,6 +678,10 @@ function SmartAI:useCardFireAttack(fire_attack, use)--对明牌没花色的打�
 		else
 			local leastHP = 1
 			if self.player:hasArmorEffect("Vine") then leastHP = leastHP + 1 end
+			if self.player:hasSkill("enyuan") then leastHP = leastHP + 1 end
+			if self.player:hasSkill("congjian") then leastHP = leastHP + 1 end
+			if self.player:hasShownSkill("gongqing") and self.player:getAttackRange() > 3 then leastHP = leastHP + 1 end
+			if self.player:hasSkill("xinghuo") then leastHP = leastHP + 1 end
 			if self.player:getHp() > leastHP then
 				table.insert(targets, self.player)
 			elseif self:getCardsNum("Peach") + self:getCardsNum("Analeptic") > self.player:getHp() - leastHP then
@@ -692,15 +704,35 @@ function SmartAI:useCardFireAttack(fire_attack, use)--对明牌没花色的打�
 
 	if ((suitnum == 2 and lack.diamond == false) or suitnum <= 1)
 		and self:getOverflow() <= ((self.player:hasSkill("jizhi") and not fire_attack:isVirtualCard()) and -2 or 0)
-		and #targets == 0 then return end
+		and #targets == 0 then
+			return
+	end
 
 	for _, enemy in ipairs(enemies) do
 		local damage = 1
-		if not enemy:hasArmorEffect("SilverLion") then
-			if enemy:hasArmorEffect("Vine") then damage = damage + 1 end
+		if self.player:hasSkill("xinghuo") then
+			damage = damage + 1
 		end
 		if enemy:hasShownSkill("mingshi") and not self.player:hasShownAllGenerals() then
 			damage = damage - 1
+		end
+		if enemy:getMark("#xiongnve_avoid") > 0 then
+			damage = damage - 1
+		end
+		local gongqing_avoid = false
+		if enemy:hasShownSkill("gongqing") then
+			if self.player:getAttackRange() < 3 then
+				gongqing_avoid = true
+			end
+			if self.player:getAttackRange() > 3 then
+				damage = damage + 1
+			end
+		end
+		if enemy:hasArmorEffect("SilverLion") or gongqing_avoid then
+			damage = 1
+		end
+		if enemy:hasArmorEffect("Vine") then
+			damage = damage + 1
 		end
 		if self:damageIsEffective(enemy, sgs.DamageStruct_Fire, self.player) and damage > 1 then
 			if not table.contains(targets, enemy) then table.insert(targets, enemy) end
@@ -708,6 +740,28 @@ function SmartAI:useCardFireAttack(fire_attack, use)--对明牌没花色的打�
 	end
 	for _, enemy in ipairs(enemies) do
 		if not table.contains(targets, enemy) then table.insert(targets, enemy) end
+	end
+
+	self.fireattack_onlyview = nil
+	if self.player:isLastHandCard(fire_attack) and (self:needKongcheng() or self.player:getMark("@firstshow") + self.player:getMark("@careerist") > 0) then
+		self.fireattack_onlyview = true
+	end
+	if #targets == 0 and self:getOverflow() > 0 then
+		self.fireattack_onlyview = true
+	end
+	if self.fireattack_onlyview then
+		if #targets == 0 and #self.enemies > 0 then
+			for _,p in ipairs(self.enemies) do
+				table.insert(targets, p)
+				break
+			end
+		end
+		if #targets == 0 then
+			for _,p in sgs.qlist(self.room:getOtherPlayers(self.player)) do
+				table.insert(targets, p)
+				break
+			end
+		end
 	end
 
 	if #targets > 0 then
@@ -751,9 +805,10 @@ sgs.ai_cardshow.fire_attack = function(self, requestor)
 	end
 	local nosuit = requestor:getTag("AI_FireAttack_NoSuit"):toString()
 	if nosuit ~= "" then--来源上一次火攻失败处理，过回合在filterEvent处理
+		Global_room:writeToConsole("火攻失败展示")
 		requestor:removeTag("AI_FireAttack_NoSuit")
 		for _, card in ipairs(cards) do
-			if card:getSuitString() == nosuit  then
+			if card:getSuitString() == nosuit then
 				return card
 			end
 		end

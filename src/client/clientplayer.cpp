@@ -225,7 +225,7 @@ void ClientPlayer::setFlags(const QString &flag)
     //emit skill_state_changed(flag);
 }
 
-void ClientPlayer::setMark(const QString &mark, int value, bool is_tip)
+void ClientPlayer::setMark(const QString &mark, int value)
 {
     if (marks[mark] == value)
         return;
@@ -235,12 +235,7 @@ void ClientPlayer::setMark(const QString &mark, int value, bool is_tip)
         emit drank_changed();
 
     if (mark.startsWith("#")) {
-        QString new_mark = mark.mid(1);
-        if (is_tip)
-            emit tip_changed(new_mark, value > 0 ? true : false);
-        else
-            emit count_changed(new_mark, value);
-
+        emit tip_changed(mark);
     }
 
     if (!mark.startsWith("@"))

@@ -2152,22 +2152,12 @@ zhijian_skill.getTurnUseCard = function(self)
 	return sgs.Card_Parse("@ZhijianCard=.&zhijian")
 end
 
-sgs.ai_skill_use_func.ZhijianCard = function(card, use, self)
+sgs.ai_skill_use_func.ZhijianCard = function(zjcard, use, self)
 	local equips = {}
 	for _, card in sgs.qlist(self.player:getHandcards()) do
 		if card:isKindOf("Armor") or card:isKindOf("Weapon") then
-			if not self:getSameEquip(card) then
-			elseif card:isKindOf("GudingBlade") and self:getCardsNum("Slash") > 0 then
-				local HeavyDamage
-				local slash = self:getCard("Slash")
-				for _, enemy in ipairs(self.enemies) do
-					if self.player:canSlash(enemy, slash, true) and not self:slashProhibit(slash, enemy)
-						and self:slashIsEffective(slash, enemy) and enemy:isKongcheng() then
-							HeavyDamage = true
-							break
-					end
-				end
-				if not HeavyDamage then table.insert(equips, card) end
+			if card:isKindOf("Crossbow") and self:getCardsNum("Slash") > 2 then
+			elseif not self:getSameEquip(card) then
 			else
 				table.insert(equips, card)
 			end
@@ -2234,7 +2224,7 @@ sgs.ai_skill_exchange.guzheng = function(self, pattern, max_num, min_num, expand
 	end
 
 	local invoke = (self:isFriend(who) and not (who:hasSkill("kongcheng") and who:isKongcheng()))
-					or (#card_ids >= 2 and #card_ids <= 3 and not self:hasSkills(sgs.cardneed_skill, who)) or #card_ids > 3
+					or (#card_ids >= 2 and #card_ids <= 3 and not who:hasShownSkills(sgs.cardneed_skill)) or #card_ids > 3
 					or (self:isEnemy(who) and who:hasSkill("kongcheng") and who:isKongcheng())
 	if not invoke then return {} end
 
@@ -2334,7 +2324,7 @@ sgs.ai_skill_exchange.guzheng = function(self, pattern, max_num, min_num, expand
 		self:sortByKeepValue(new_cards)
 		local valueless, slash
 		for _, card in ipairs (new_cards) do
-			if card:isKindOf("Lightning") and not self:hasSkills(sgs.wizard_harm_skill, who) then
+			if card:isKindOf("Lightning") and not who:hasShownSkills(sgs.wizard_harm_skill) then
 				return {card:getEffectiveId()}
 			end
 

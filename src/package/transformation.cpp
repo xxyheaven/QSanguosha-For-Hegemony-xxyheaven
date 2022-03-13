@@ -418,7 +418,7 @@ public:
                     bool can_invoke = true;
                     QStringList assignee_list = player->property("usecard_targets").toString().split("+");
                     foreach (ServerPlayer *to, room->getAllPlayers(true)) {
-                        if (assignee_list.contains(to->objectName()) && to->hasShownOneGeneral() && !huanghou->isFriendWith(to)) {
+                        if (assignee_list.contains(to->objectName()) && !huanghou->isFriendWith(to)) {
                             can_invoke = false;
                             break;
                         }
@@ -1252,44 +1252,6 @@ public:
 
 //shamoke
 
-class JiliRecord : public TriggerSkill
-{
-public:
-    JiliRecord() : TriggerSkill("#jili-record")
-    {
-        events << CardUsed << CardResponded << EventPhaseChanging;
-        global = true;
-    }
-
-    virtual void record(TriggerEvent triggerEvent, Room *room, ServerPlayer *player, QVariant &data) const
-    {
-        if (triggerEvent == CardUsed || triggerEvent == CardResponded) {
-            const Card *card = NULL;
-            if (triggerEvent == CardUsed)
-                card = data.value<CardUseStruct>().card;
-            else if (triggerEvent == CardResponded)
-                card = data.value<CardResponseStruct>().m_card;
-            if (card == NULL) return;
-
-            if (card->getTypeId() != Card::TypeSkill)
-                room->addPlayerMark(player, "jili");
-        } else if (triggerEvent == EventPhaseChanging) {
-            PhaseChangeStruct change = data.value<PhaseChangeStruct>();
-            if (change.to == Player::NotActive) {
-                foreach (ServerPlayer *p, room->getAlivePlayers()) {
-                    room->setPlayerMark(p, "jili", 0);
-                }
-            }
-        }
-    }
-
-    virtual QStringList triggerable(TriggerEvent, Room *, ServerPlayer *, QVariant &, ServerPlayer* &) const
-    {
-        return QStringList();
-    }
-
-};
-
 class Jili : public TriggerSkill
 {
 public:
@@ -1308,7 +1270,8 @@ public:
                 card = data.value<CardResponseStruct>().m_card;
             if (card == NULL) return QStringList();
 
-            if (card->getTypeId() != Card::TypeSkill && player->getMark("jili") == player->getAttackRange()) {
+            int x = player->getCardUsedTimes(".") + player->getCardRespondedTimes(".");
+            if (card->getTypeId() != Card::TypeSkill && x == player->getAttackRange()) {
                 return QStringList(objectName());
             }
         }
@@ -2424,8 +2387,6 @@ TransformationPackage::TransformationPackage()
 
     General *Shamoke = new General(this, "shamoke", "shu"); // Shu
     Shamoke->addSkill(new Jili);
-    Shamoke->addSkill(new JiliRecord);
-    insertRelatedSkills("jili", "#jili-record");
 
     General *Masu = new General(this, "masu", "shu", 3);
     Masu->addSkill(new Sanyao);

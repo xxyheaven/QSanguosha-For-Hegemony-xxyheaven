@@ -184,9 +184,8 @@ void Slash::onEffect(const CardEffectStruct &card_effect) const
     effect.from->getRoom()->slashEffect(effect);
 }
 
-bool Slash::targetRated(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
+bool Slash::targetRated(const Player *to_select, const Player *Self) const
 {
-    int slash_targets = 1 + Sanguosha->correctCardTarget(TargetModSkill::ExtraTarget, Self, this, to_select);
     bool distance_limit = ((1 + Sanguosha->correctCardTarget(TargetModSkill::DistanceLimit, Self, this, to_select)) < 500);
     if (Self->hasFlag("slashNoDistanceLimit"))
         distance_limit = false;
@@ -200,13 +199,14 @@ bool Slash::targetRated(const QList<const Player *> &targets, const Player *to_s
     if (Self->getOffensiveHorse() && subcards.contains(Self->getOffensiveHorse()->getId()))
         rangefix += 1;
 
-    if (!Self->canSlash(to_select, this, distance_limit, rangefix, targets)) return false;
-    return targets.length() < slash_targets;
+    return Self->canSlash(to_select, this, distance_limit, rangefix);
 }
 
 bool Slash::targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
 {
-    if (!targetRated(targets, to_select, Self)) return false;
+    int slash_targets = 1 + Sanguosha->correctCardTarget(TargetModSkill::ExtraTarget, Self, this, to_select);
+
+    if (!targetRated(to_select, Self)) return false;
     if (targets.isEmpty()) {
         QList<const Player *> all_players = Self->getSiblings();
         all_players.append(Self);
@@ -216,7 +216,8 @@ bool Slash::targetFilter(const QList<const Player *> &targets, const Player *to_
             }
         }
     }
-    return true;
+
+    return targets.length() < slash_targets;
 }
 
 NatureSlash::NatureSlash(Suit suit, int number, DamageStruct::Nature nature)
@@ -276,9 +277,9 @@ QString Peach::getSubtype() const
     return "recover_card";
 }
 
-bool Peach::targetRated(const QList<const Player *> &targets, const Player *to_select, const Player *) const
+bool Peach::targetRated(const Player *to_select, const Player *) const
 {
-    return !hasFlag("UsedBySecondWay") && targets.isEmpty() && to_select->isWounded();
+    return !hasFlag("UsedBySecondWay") && to_select->isWounded();
 }
 
 void Peach::onUse(Room *room, const CardUseStruct &card_use) const
@@ -319,9 +320,9 @@ QString Analeptic::getSubtype() const
     return "buff_card";
 }
 
-bool Analeptic::targetRated(const QList<const Player *> &targets, const Player *, const Player *) const
+bool Analeptic::targetRated(const Player *, const Player *) const
 {
-    return !hasFlag("UsedBySecondWay") && targets.isEmpty();
+    return !hasFlag("UsedBySecondWay");
 }
 
 bool Analeptic::IsAvailable(const Player *player, const Card *analeptic)

@@ -922,7 +922,7 @@ sgs.ai_skill_invoke.anyong =  function(self, data)
   local chained_invoke = false
 
   if target:isChained() and damageStruct.nature ~= sgs.DamageStruct_Normal then
-    local tDamageNum = damageCount(target ,original_num)
+    local tDamageNum = damageCount(target ,original_num)--考虑初次传导伤害
     local enemy_dnum = self:isEnemy(target) and tDamageNum or 0
     local friend_dnum = self:isFriend(target) and tDamageNum or 0
     local neutrality_dum = (not self:isFriend(target) and not self:isEnemy(target)) and tDamageNum or 0
@@ -930,12 +930,12 @@ sgs.ai_skill_invoke.anyong =  function(self, data)
     for _, p in sgs.qlist(self.room:getOtherPlayers(target)) do
       if p:isChained() then
         damageStruct.to = p
-        if from:hasSkill("xinghuo") and damageStruct.nature == sgs.DamageStruct_Fire then--xinghuo是预置加伤可连续传导
-          tDamageNum = tDamageNum + 1
-        end
-        damageStruct.damage = tDamageNum
         if self:damageIsEffective_(damageStruct) then
-          local damage_num = damageCount(p, tDamageNum, true)--考虑初次传导伤害
+          if from:hasSkill("xinghuo") and damageStruct.nature == sgs.DamageStruct_Fire then--xinghuo是预置加伤可连续传导
+            tDamageNum = tDamageNum + 1
+          end
+          damageStruct.damage = tDamageNum
+          local damage_num = damageCount(p, tDamageNum, true)
           if self:isEnemy(p) then
             enemy_dnum = enemy_dnum + damage_num
           elseif self:isFriend(p) then

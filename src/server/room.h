@@ -109,7 +109,6 @@ public:
     void addPlayerMark(ServerPlayer *player, const QString &mark, int add_num = 1);
     void removePlayerMark(ServerPlayer *player, const QString &mark, int remove_num = 1);
     void addPlayerTip(ServerPlayer *player, const QString &mark);
-    void removePlayerTip(ServerPlayer *player, const QString &mark);
     void setPlayerCardLimitation(ServerPlayer *player, const QString &limit_list, const QString &pattern, bool single_turn);
     void removePlayerCardLimitation(ServerPlayer *player, const QString &limit_list, const QString &pattern);
     void clearPlayerCardLimitation(ServerPlayer *player, bool single_turn);

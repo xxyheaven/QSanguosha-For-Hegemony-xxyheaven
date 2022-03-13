@@ -236,16 +236,19 @@ public:
                     if (current->getPhase() == Player::Play) {
                         QVariantList card_list = player->tag[tag3_name].toList();
 
-                        bool xibing = true;
-                        foreach (QVariant card_data, card_list) {
-                            const Card *card = card_data.value<const Card *>();
-                            if (card && card->isBlack() && (card->isNDTrick() || card->isKindOf("Slash"))) {
-                                xibing = false;
-                                break;
+                        if (is_use) {
+                            bool xibing = true;
+                            foreach (QVariant card_data, card_list) {
+                                const Card *card = card_data.value<const Card *>();
+                                if (card && card->isBlack() && (card->isNDTrick() || card->isKindOf("Slash"))) {
+                                    xibing = false;
+                                    break;
+                                }
                             }
+                            if (xibing && card->isBlack() && (card->isNDTrick() || card->isKindOf("Slash")))
+                                room->setCardFlag(card, "GlobalXiBing");
+
                         }
-                        if (xibing && card->isBlack() && (card->isNDTrick() || card->isKindOf("Slash")))
-                            room->setCardFlag(card, "GlobalXiBing");
 
                         card_list << QVariant::fromValue(card);
                         player->tag[tag3_name] = card_list;

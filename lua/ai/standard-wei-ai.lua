@@ -826,13 +826,13 @@ function SmartAI:moveField(player, flag, froms, tos)
 
 	if flag:match("e") then
 		for _, friend in ipairs(from_friends_noself) do
-			if not friend:getCards("e"):isEmpty() and self:hasSkills(sgs.lose_equip_skill, friend) and card_for_qiaobian(self, friend, ".", flag, to_friends, to_enemies) then
+			if not friend:getCards("e"):isEmpty() and self:hasKnownSkills(sgs.lose_equip_skill, friend) and card_for_qiaobian(self, friend, ".", flag, to_friends, to_enemies) then
 				return friend, card_for_qiaobian(self, friend, "card", flag, to_friends, to_enemies), card_for_qiaobian(self, friend, "target", flag, to_friends, to_enemies)
 			end
 		end
 		local targets = {}
 		for _, enemy in ipairs(self.enemies) do
-			if not self:hasSkills(sgs.lose_equip_skill, enemy) and card_for_qiaobian(self, enemy, ".", flag, to_friends, to_enemies) then
+			if not self:hasKnownSkills(sgs.lose_equip_skill, enemy) and card_for_qiaobian(self, enemy, ".", flag, to_friends, to_enemies) then
 				table.insert(targets, enemy)
 			end
 		end

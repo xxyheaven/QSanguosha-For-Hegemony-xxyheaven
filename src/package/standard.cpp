@@ -71,9 +71,9 @@ Card::CardType EquipCard::getTypeId() const
     return TypeEquip;
 }
 
-bool EquipCard::targetRated(const QList<const Player *> &targets, const Player *, const Player *) const
+bool EquipCard::targetRated(const Player *, const Player *) const
 {
-    return targets.isEmpty();
+    return true;
 }
 
 bool EquipCard::isAvailable(const Player *player) const
@@ -258,7 +258,7 @@ QString SingleTargetTrick::getSubtype() const
     return "single_target_trick";
 }
 
-bool SingleTargetTrick::targetRated(const QList<const Player *> &, const Player *, const Player *) const
+bool SingleTargetTrick::targetRated(const Player *, const Player *) const
 {
     return true;
 }

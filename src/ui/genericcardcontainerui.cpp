@@ -501,73 +501,6 @@ void PlayerCardContainer::updatePile(const QString &pile_name)
     }
 }
 
-void PlayerCardContainer::updateCount(const QString &pile_name, int value)
-{
-    ClientPlayer *player = (ClientPlayer *)sender();
-    if (!player)
-        player = m_player;
-    if (!player) return;
-
-    int new_length = 0;
-    if (value == 0) {
-        if (_m_privatePiles.contains(pile_name)) {
-            delete _m_privatePiles[pile_name];
-            _m_privatePiles[pile_name] = NULL;
-            _m_privatePiles.remove(pile_name);
-        }
-    } else {
-        // create a new pile if necessary
-        QPushButton *button;
-        if (!_m_privatePiles.contains(pile_name)) {
-            button = new QPushButton;
-            button->setObjectName(pile_name);
-            button->setProperty("private_pile", "true");
-            button->setStyleSheet("background-color:#444444");
-            QGraphicsProxyWidget *button_widget = new QGraphicsProxyWidget(_getPileParent());
-            button_widget->setObjectName(pile_name);
-            button_widget->setWidget(button);
-            _m_privatePiles[pile_name] = button_widget;
-        } else
-            button = (QPushButton *)(_m_privatePiles[pile_name]->widget());
-
-        QString text = Sanguosha->translate(pile_name);
-
-        text.append(QString("[%1]").arg(value));
-
-        QFontMetrics fontMetrics(button->font());
-        new_length = fontMetrics.width(text) + 4;
-        button->setText(text);
-        button->setMenu(NULL);
-
-        if (pile_name == "massacre") {
-
-            disconnect(button, &QPushButton::pressed, this, &PlayerCardContainer::showPile);
-            connect(button, &QPushButton::pressed, this, &PlayerCardContainer::showPile);
-
-            disconnect(button, &QPushButton::released, this, &PlayerCardContainer::hidePile);
-            connect(button, &QPushButton::released, this, &PlayerCardContainer::hidePile);
-        }
-
-
-    }
-
-    QPoint start = _m_layout->m_privatePileStartPos;
-    QPoint step = _m_layout->m_privatePileStep;
-    QSize size = _m_layout->m_privatePileButtonSize;
-    QList<QGraphicsProxyWidget *> widgets = _m_privatePiles.values();
-    QPoint coordinate = start;
-
-    for (int i = widgets.length()-1; i >= 0; i--) {
-        QGraphicsProxyWidget *widget = widgets[i];
-        if (widget->objectName() == pile_name)
-            widget->resize(QSize(new_length, size.height()));
-        if (coordinate.x() + widget->size().width() > 142)
-            coordinate = QPoint(start.x(), coordinate.y() + step.y() + size.height());
-        widget->setPos(coordinate);
-        coordinate += QPoint(widget->size().width() + step.x(), 0);
-    }
-}
-
 void PlayerCardContainer::updateTip(const QString &pile_name, bool add_in)
 {
     ClientPlayer *player = (ClientPlayer *)sender();
@@ -575,39 +508,130 @@ void PlayerCardContainer::updateTip(const QString &pile_name, bool add_in)
         player = m_player;
     if (!player) return;
 
+    QString mark_name = pile_name.mid(1);
+    if (mark_name.startsWith("#"))
+        mark_name = mark_name.mid(1);
+
+    int count = player->getMark(pile_name);
+
     int new_length = 0;
-    if (add_in) {
+
+    if (count > 0 || add_in) {
         QPushButton *button;
-        if (!_m_privatePiles.contains(pile_name)) {
+        if (!_m_privatePiles.contains(mark_name)) {
             button = new QPushButton;
-            button->setObjectName(pile_name);
+            button->setObjectName(mark_name);
             button->setProperty("private_pile", "true");
             button->setStyleSheet("background-color:#444444");
             QGraphicsProxyWidget *button_widget = new QGraphicsProxyWidget(_getPileParent());
-            button_widget->setObjectName(pile_name);
+            button_widget->setObjectName(mark_name);
             button_widget->setWidget(button);
-            _m_privatePiles[pile_name] = button_widget;
+            _m_privatePiles[mark_name] = button_widget;
+        } else {
+            button = qobject_cast<QPushButton *>((_m_privatePiles[mark_name]->widget()));
+            if (button == NULL)
+                qWarning("PlayerCardContainer::updatePile: button == NULL");
         }
 
-        QStringList mark_names = pile_name.split("+");
-        QString text;
+        QStringList mark_names = mark_name.split("+");
+        QString text, dest, arg, arg2, arg3, _arg = "arg:", _arg2 = "arg2:", _arg3 = "arg3:", new_new_mark;
         foreach (QString name, mark_names) {
-            if (name.endsWith("-Clear") || name.endsWith("-PlayClear") || name.endsWith("-Keep"))
-                text.append(Sanguosha->translate(name.split("-").first()));
-            else if (name.endsWith("_lun"))
-                text.append(Sanguosha->translate(name.split("_").first()));
-            else
+            if (name.startsWith("#")) {
+                if (dest.isEmpty()) {
+                    if ((name.endsWith("Clear") && name.contains("-")) || name.endsWith("-Keep"))
+                        dest = name.mid(1).split("-").first();
+                    else if (name.endsWith("_lun"))
+                        dest = name.mid(1).split("_").first();
+                    else
+                        dest = name.mid(1);
+                }
+                continue;
+            }
+            else if (name.startsWith(_arg)) {
+                if (arg.isEmpty()) {
+                    if ((name.endsWith("Clear") && name.contains("-")) || name.endsWith("-Keep"))
+                        arg = name.mid(1).split("-").first();
+                    else if (name.endsWith("_lun"))
+                        arg = name.mid(1).split("_").first();
+                    else
+                        arg =  name.mid(1);
+                }
+                continue;
+            }
+            else if (name.startsWith(_arg2)) {
+                if (arg2.isEmpty()) {
+                    if ((name.endsWith("Clear") && name.contains("-")) || name.endsWith("-Keep"))
+                        arg2 = name.mid(1).split("-").first();
+                    else if (name.endsWith("_lun"))
+                        arg2 = name.mid(1).split("_").first();
+                    else
+                        arg2 =  name.mid(1);
+                }
+                continue;
+            }
+            else if (name.startsWith(_arg3)) {
+                if (arg3.isEmpty()) {
+                    if ((name.endsWith("Clear") && name.contains("-")) || name.endsWith("-Keep"))
+                        arg3 = name.mid(1).split("-").first();
+                    else if (name.endsWith("_lun"))
+                        arg3 = name.mid(1).split("_").first();
+                    else
+                        arg3 =  name.mid(1);
+                }
+                continue;
+            }
+            if ((name.endsWith("Clear") && name.contains("-")) || name.endsWith("-Keep")) {
+                QString f_name = name.split("-").first();
+                text.append(Sanguosha->translate(f_name));
+                new_new_mark.append(f_name).append("+");
+            } else if (name.endsWith("_lun")) {
+                QString f_name = name.split("_").first();
+                text.append(Sanguosha->translate(f_name));
+                new_new_mark.append(f_name).append("+");
+            } else {
                 text.append(Sanguosha->translate(name));
+                new_new_mark.append(name).append("+");
+            }
         }
-        QFontMetrics fontMetrics(button->font());
-        new_length = fontMetrics.width(text) + 4;
+
+        if (!pile_name.startsWith("##"))
+            text.append(QString("[%1]").arg(count));
         button->setText(text);
 
+        if (new_new_mark.endsWith("+"))
+            new_new_mark.chop(1);
+
+        QString translate = Sanguosha->translate(":&" + new_new_mark);
+        if (translate != ":&" + new_new_mark) {
+            if (!dest.isEmpty() && ClientInstance->getPlayerName(dest) != dest)
+                translate.replace("%dest", ClientInstance->getPlayerName(dest));
+            if (!arg.isEmpty() && ClientInstance->getPlayerName(arg) != arg)
+                translate.replace("%arg", ClientInstance->getPlayerName(arg));
+            if (!arg2.isEmpty() && ClientInstance->getPlayerName(arg2) != arg2)
+                translate.replace("%arg2", ClientInstance->getPlayerName(arg2));
+            if (!arg3.isEmpty() && ClientInstance->getPlayerName(arg3) != arg3)
+                translate.replace("%arg3", ClientInstance->getPlayerName(arg3));
+            if (translate.contains("%src+1"))
+                translate.replace("%src+1", QString::number(player->getMark(pile_name) + 1));
+            else
+                translate.replace("%src", QString::number(player->getMark(pile_name)));
+            button->setToolTip(translate);
+        } else {
+            if (!dest.isEmpty() && ClientInstance->getPlayerName(dest) != dest) {
+                translate = Sanguosha->translate(":&commonmarktooltip");
+                translate.replace("%dest", ClientInstance->getPlayerName(dest));
+                button->setToolTip(translate);
+            }
+        }
+
+        QFontMetrics fontMetrics(button->font());
+        new_length = fontMetrics.width(text) + 4;
+
     } else {
-        if (_m_privatePiles.contains(pile_name)) {
-            delete _m_privatePiles[pile_name];
-            _m_privatePiles[pile_name] = NULL;
-            _m_privatePiles.remove(pile_name);
+        if (_m_privatePiles.contains(mark_name)) {
+            delete _m_privatePiles[mark_name];
+            _m_privatePiles[mark_name] = NULL;
+            _m_privatePiles.remove(mark_name);
         }
     }
 
@@ -619,7 +643,7 @@ void PlayerCardContainer::updateTip(const QString &pile_name, bool add_in)
 
     for (int i = widgets.length()-1; i >= 0; i--) {
         QGraphicsProxyWidget *widget = widgets[i];
-        if (widget->objectName() == pile_name)
+        if (widget->objectName() == mark_name)
             widget->resize(QSize(new_length, size.height()));
         if (coordinate.x() + widget->size().width() > 142)
             coordinate = QPoint(start.x(), coordinate.y() + step.y() + size.height());
@@ -843,7 +867,6 @@ void PlayerCardContainer::setPlayer(ClientPlayer *player)
         connect(player, &ClientPlayer::duanchang_invoked, this, &PlayerCardContainer::refresh);
 
         connect(player, &ClientPlayer::pile_changed, this, &PlayerCardContainer::updatePile);
-        connect(player, &ClientPlayer::count_changed, this, &PlayerCardContainer::updateCount);
         connect(player, &ClientPlayer::tip_changed, this, &PlayerCardContainer::updateTip);
 
         connect(player, &ClientPlayer::kingdom_changed, _m_roleComboBox, &RoleComboBox::fix);

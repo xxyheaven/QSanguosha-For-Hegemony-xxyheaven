@@ -164,6 +164,9 @@ void GameRule::onPhaseProceed(ServerPlayer *player) const
         Q_ASSERT(false);
     }
     case Player::RoundStart:{
+        //ask for show general(s)
+        bool change = (player->getMark("HaventShowGeneral") > 0 && player->getMark("Global_RoundCount") == 1);
+        player->askForGeneralShow("GameRule_AskForGeneralShow", true, true, true, true, change);
         break;
     }
     case Player::Start: {
@@ -373,21 +376,11 @@ bool GameRule::effect(TriggerEvent triggerEvent, Room *room, ServerPlayer *playe
 #ifndef QT_NO_DEBUG
             if (player->isAlive() && !player->getAI() && player->askForSkillInvoke("userdefine:playNormally")) {
                 room->addPlayerMark(player, "Global_RoundCount");
-
-                //ask for show general(s)
-                bool change = (player->getMark("HaventShowGeneral") > 0 && player->getMark("Global_RoundCount") == 1);
-                player->askForGeneralShow("GameRule_AskForGeneralShow", true, true, true, true, change);
-
                 player->play();
             }
 #endif
         } else if (player->isAlive()) {
             room->addPlayerMark(player, "Global_RoundCount");
-
-            //ask for show general(s)
-            bool change = (player->getMark("HaventShowGeneral") > 0 && player->getMark("Global_RoundCount") == 1);
-            player->askForGeneralShow("GameRule_AskForGeneralShow", true, true, true, true, change);
-
             player->play();
         }
 
@@ -583,6 +576,12 @@ bool GameRule::effect(TriggerEvent triggerEvent, Room *room, ServerPlayer *playe
     case EventLoseSkill: {
         QString skill_name = data.toString().split(":").first();
         const Skill *skill = Sanguosha->getSkill(skill_name);
+
+        if (skill->getFrequency() == Skill::Limited && !skill->getLimitMark().isEmpty()
+                && !player->ownSkill(skill_name)) {
+            room->setPlayerMark(player, skill->getLimitMark(), 0);
+        }
+
         bool refilter = skill->inherits("FilterSkill");
 
         if (!refilter && skill->inherits("TriggerSkill")) {

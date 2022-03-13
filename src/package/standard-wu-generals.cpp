@@ -1769,23 +1769,12 @@ public:
     virtual QStringList triggerable(TriggerEvent, Room *room, ServerPlayer *player, QVariant &data, ServerPlayer * &) const
     {
         CardUseStruct use = data.value<CardUseStruct>();
-        if (TriggerSkill::triggerable(player) && use.card != NULL && use.card->isKindOf("Slash") && !use.card->hasFlag("slashDisableExtraTarget")) {
-            bool no_distance_limit = false, has_target = false;
-            if (use.card->hasFlag("slashNoDistanceLimit")){
-                no_distance_limit = true;
-                room->setPlayerFlag(player, "slashNoDistanceLimit");
+        if (TriggerSkill::triggerable(player) && use.card != NULL && use.card->isKindOf("Slash")) {
+            QList<ServerPlayer *> targets = room->getUseExtraTargets(use);
+            foreach (ServerPlayer *p, targets) {
+                if (player->distanceTo(p) == 1)
+                    return QStringList(objectName());
             }
-            foreach (ServerPlayer *p, room->getAlivePlayers()) {
-                if (use.to.contains(p) || room->isProhibited(player, p, use.card)) continue;
-                if (use.card->targetFilter(QList<const Player *>(), p, player) && player->distanceTo(p) == 1) {
-                    has_target = true;
-                    break;
-                }
-            }
-            if (no_distance_limit)
-                room->setPlayerFlag(player, "-slashNoDistanceLimit");
-            if (has_target)
-                return QStringList(objectName());
         }
         return QStringList();
     }
@@ -1793,21 +1782,13 @@ public:
     virtual bool cost(TriggerEvent, Room *room, ServerPlayer *player, QVariant &data, ServerPlayer *) const
     {
         CardUseStruct use = data.value<CardUseStruct>();
-        QList<ServerPlayer *> available_targets;
-        bool no_distance_limit = false;
-        if (use.card->hasFlag("slashNoDistanceLimit")){
-            no_distance_limit = true;
-            room->setPlayerFlag(player, "slashNoDistanceLimit");
-        }
-        foreach (ServerPlayer *p, room->getAlivePlayers()) {
-            if (use.to.contains(p) || room->isProhibited(player, p, use.card)) continue;
-            if (use.card->targetFilter(QList<const Player *>(), p, player) && player->distanceTo(p) == 1)
+        QList<ServerPlayer *> available_targets, targets = room->getUseExtraTargets(use);
+        foreach (ServerPlayer *p, targets) {
+            if (player->distanceTo(p) == 1)
                 available_targets << p;
         }
-        if (no_distance_limit)
-            room->setPlayerFlag(player, "-slashNoDistanceLimit");
-        if (available_targets.isEmpty())
-            return false;
+        if (available_targets.isEmpty()) return false;
+
         ServerPlayer *target = room->askForPlayerChosen(player, available_targets, objectName(), "duanbing-invoke", true, true);
         if (target) {
             player->tag["duanbing-target"] = QVariant::fromValue(target);

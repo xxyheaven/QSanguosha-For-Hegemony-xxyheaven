@@ -121,6 +121,7 @@ sufei								5
 jianggan							7
 zhouyi								8
 nanhualaoxian						9
+lvlingqi							9
 huaxin								9
 luyusheng							6
 zongyux								5
@@ -132,6 +133,7 @@ beimihu								8
 caozhen								10
 liaohua								7
 zhugejin							7
+quancong							6
 duyu								9
 
 

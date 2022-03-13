@@ -53,16 +53,17 @@ void GuhuoBox::popup()
         RoomSceneInstance->current_guhuo_box->clear();
     }
     //if (Sanguosha->currentRoomState()->getCurrentCardUseReason() == CardUseStruct::CARD_USE_REASON_PLAY) {
-        RoomSceneInstance->getDasboard()->unselectAll();
-        RoomSceneInstance->getDasboard()->stopPending();
-        RoomSceneInstance->getDasboard()->disableAllCards();
+        //RoomSceneInstance->getDasboard()->unselectAll();
+        //RoomSceneInstance->getDasboard()->stopPending();
+        //RoomSceneInstance->getDasboard()->disableAllCards();
     //}
     //if (play_only && Sanguosha->currentRoomState()->getCurrentCardUseReason() != CardUseStruct::CARD_USE_REASON_PLAY) {
         //emit onButtonClick();
         //return;
     //}
 
-    Self->tag.remove(skill_name);
+    RoomSceneInstance->getDasboard()->disableAllCards();
+
     RoomSceneInstance->current_guhuo_box = this;
 
     maxcardcount = 0;
@@ -241,12 +242,13 @@ void GuhuoBox::clear()
 {
     RoomSceneInstance->current_guhuo_box = NULL;
 
-    if (sender() != NULL && Self->tag[skill_name] == sender()->objectName() && Sanguosha->getViewAsSkill(skill_name) != NULL)
-        RoomSceneInstance->getDasboard()->updatePending();
-    else if (Sanguosha->currentRoomState()->getCurrentCardUseReason() == CardUseStruct::CARD_USE_REASON_PLAY) {
-        RoomSceneInstance->getDasboard()->stopPending();
-        RoomSceneInstance->getDasboard()->enableCards();
-    }
+//    if (sender() != NULL && Self->tag[skill_name] == sender()->objectName() && Sanguosha->getViewAsSkill(skill_name) != NULL)
+//        RoomSceneInstance->getDasboard()->updatePending();
+//    else if (Sanguosha->currentRoomState()->getCurrentCardUseReason() == CardUseStruct::CARD_USE_REASON_PLAY) {
+//        RoomSceneInstance->getDasboard()->stopPending();
+//        RoomSceneInstance->getDasboard()->enableCards();
+//        RoomSceneInstance->doCancelButton();
+//    }
 
     if (!isVisible())
         return;
