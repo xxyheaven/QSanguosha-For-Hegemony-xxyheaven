@@ -2219,8 +2219,15 @@ const Card *Room::askForSinglePeach(ServerPlayer *player, ServerPlayer *dying)
         arg << peaches;
         bool success = doRequest(player, S_COMMAND_ASK_PEACH, arg, true);
         JsonArray clientReply = player->getClientReply().value<JsonArray>();
-        if (!success || clientReply.isEmpty() || !JsonUtils::isString(clientReply[0]))
+        if (!success || clientReply.isEmpty() || !JsonUtils::isString(clientReply[0])) {
+
+            QVariant decisionData = QVariant::fromValue(QString("peach:%1:%2:")
+                .arg(dying->objectName())
+                .arg(1 - dying->getHp()));
+            thread->trigger(ChoiceMade, this, player, decisionData);
+
             return NULL;
+        }
 
         card = Card::Parse(clientReply[0].toString());
     }

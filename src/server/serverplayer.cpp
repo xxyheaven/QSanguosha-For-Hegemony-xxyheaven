@@ -85,7 +85,7 @@ void ServerPlayer::broadcastSkillInvoke(const Card *card) const
         int index = skill->getEffectIndex(this, card);
         if (index == 0) return;
 
-        if ((index == -1 && skill->getSources().isEmpty()) || index == -2) {
+        if (index == -2) {
             if (card->getCommonEffectName().isNull())
                 broadcastSkillInvoke(card->objectName());
             else
@@ -1867,6 +1867,8 @@ void ServerPlayer::showGeneral(bool head_general, bool trigger_event, bool sendL
             room->setPlayerProperty(this, "role", role);
         }
     }
+
+    room->broadcastProperty(this, "kingdom");
 
     if (sendLog) {
         LogMessage log;

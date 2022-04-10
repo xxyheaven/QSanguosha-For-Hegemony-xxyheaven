@@ -160,7 +160,7 @@ sgs.ai_view_as.jijiu = function(card, player, card_place)
 	local number = card:getNumberString()
 	local card_id = card:getEffectiveId()
 	if (card_place ~= sgs.Player_PlaceSpecial or player:getHandPile():contains(card_id)) and card:isRed() and player:getPhase() == sgs.Player_NotActive
-		and not player:hasFlag("Global_PreventPeach") and (player:getMark("@qianxi_red") <= 0 or card:isEquipped()) then
+		and not player:hasFlag("Global_PreventPeach") and (player:getMark("##qianxi+no_suit_red") == 0 or card:isEquipped()) then
 		return ("peach:jijiu[%s:%s]=%d&jijiu"):format(suit, number, card_id)
 	end
 end
@@ -589,9 +589,9 @@ local shuangxiong_skill = {}
 shuangxiong_skill.name = "shuangxiong"
 table.insert(sgs.ai_skills, shuangxiong_skill)
 shuangxiong_skill.getTurnUseCard = function(self)
-	if self.player:getMark("#shuangxiong+no_suit_black") + self.player:getMark("#shuangxiong+no_suit_red") == 0 then return nil end
-	local black_mark = self.player:getMark("#shuangxiong+no_suit_black")
-	local red_mark = self.player:getMark("#shuangxiong+no_suit_red")
+	if self.player:getMark("##shuangxiong+no_suit_black") + self.player:getMark("##shuangxiong+no_suit_red") == 0 then return nil end
+	local black_mark = self.player:getMark("##shuangxiong+no_suit_black")
+	local red_mark = self.player:getMark("##shuangxiong+no_suit_red")
 
 	local cards = self.player:getCards("h")
 	for _, id in sgs.qlist(self.player:getHandPile()) do
@@ -984,7 +984,7 @@ function sgs.ai_slash_prohibit.leiji(self, from, to, card)
 	if from:hasShownSkill("jianchu") and (to:hasEquip() or to:getCardCount(true) == 1) then
 		return false
 	end
-	if (to:getMark("#qianxi+no_suit_red") + to:getMark("#qianxi+no_suit_black") > 0) and (not self:hasEightDiagramEffect(to) or IgnoreArmor(from, to)) then
+	if (to:getMark("##qianxi+no_suit_red") + to:getMark("##qianxi+no_suit_black") > 0) and (not self:hasEightDiagramEffect(to) or IgnoreArmor(from, to)) then
 		return false
 	end
 	local hcard = to:getHandcardNum()

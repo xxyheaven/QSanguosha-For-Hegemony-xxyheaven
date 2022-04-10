@@ -132,19 +132,19 @@ function sgs.getDefenseSlash(player, self)
 	local jink = sgs.cloneCard("jink")
 	if player:isCardLimited(jink, sgs.Card_MethodUse) then defense = 0 end
 
-	if player:getMark("#qianxi+no_suit_red") > 0 then
+	if player:getMark("##qianxi+no_suit_red") > 0 then
 		if player:hasShownSkill("qingguo") then
 			defense = defense - 0.5
 		else
 			defense = 0
 		end
-	elseif player:getMark("#qianxi+no_suit_black") > 0 then
+	elseif player:getMark("##qianxi+no_suit_black") > 0 then
 		if player:hasShownSkill("qingguo") then
 			defense = defense - 1
 		end
 	end
 
-	if player:getMark("#boyan") > 0 or player:getMark("command4_effect") > 0 then
+	if player:getMark("##boyan") > 0 or player:getMark("command4_effect") > 0 then
 		defense = 0
 	end
 
@@ -858,8 +858,7 @@ sgs.ai_skill_playerchosen.zero_card_as_slash = function(self, targets)
 	if #canAvoidSlash > 0 then return canAvoidSlash[1] end
 	if #arrBestHp > 0 then return arrBestHp[1] end
 
-	self:sort(targetlist, "defenseSlash")
-	targetlist = sgs.reverse(targetlist)
+	self:sort(targetlist, "defenseSlash", true)
 	for _, target in ipairs(targetlist) do
 		if target:objectName() ~= self.player:objectName() and not self:isFriend(target) and not table.contains(forbidden, target) then
 			return target
@@ -963,8 +962,8 @@ function SmartAI:canHit(to, from, conservative)
 			if card:isBlack() then hasBlack = true end
 		end
 	end
-	if to:getMark("@qianxi_red") > 0 and not hasBlack then return true end
-	if to:getMark("@qianxi_black") > 0 and not hasRed then return true end
+	if to:getMark("##qianxi+no_suit_red") > 0 and not hasBlack then return true end
+	if to:getMark("##qianxi+no_suit_black") > 0 and not hasRed then return true end
 	if not conservative and self:hasHeavySlashDamage(from, nil, to) then conservative = true end
 	if not conservative and self:hasEightDiagramEffect(to) and not IgnoreArmor(from, to) then return false end
 	local need_double_jink = from and from:hasShownSkill("wushuang")
@@ -2420,8 +2419,7 @@ function SmartAI:useCardSnatchOrDismantlement(card, use)
 	local enemies = {}
 	if #self.enemies == 0 and self:getOverflow() > 0 then
 		enemies = self:exclude(enemies, card)
-		self:sort(enemies, "defense")
-		enemies = sgs.reverse(enemies)
+		self:sort(enemies, "defense", true)
 		local temp = {}
 		for _, enemy in ipairs(enemies) do
 			if self:trickIsEffective(card, enemy) then
@@ -3677,8 +3675,7 @@ function SmartAI:useCardKnownBoth(KnownBoth, use)
 	end
 
 	if total_num > targets:length() then
-		self:sort(self.enemies, "handcard")
-		sgs.reverse(self.enemies)
+		self:sort(self.enemies, "handcard", true)
 		for _, enemy in ipairs(self.enemies) do
 			if KnownBoth:targetFilter(targets, enemy, self.player) and enemy:getHandcardNum() - self:getKnownNum(enemy, self.player) > 3 and not targets:contains(enemy)
 				and self:trickIsEffective(KnownBoth, enemy, self.player) then
@@ -3690,8 +3687,7 @@ function SmartAI:useCardKnownBoth(KnownBoth, use)
 		end
 	end
 	if total_num > targets:length() and not targets:isEmpty() then
-		self:sort(self.friends_noself, "handcard")
-		self.friends_noself = sgs.reverse(self.friends_noself)
+		self:sort(self.friends_noself, "handcard", true)
 		for _, friend in ipairs(self.friends_noself) do
 			if self:getKnownNum(friend, self.player) ~= friend:getHandcardNum() and KnownBoth:targetFilter(targets, friend, self.player) and not targets:contains(friend)
 				and self:trickIsEffective(KnownBoth, friend, self.player) then

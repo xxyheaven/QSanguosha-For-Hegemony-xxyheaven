@@ -1714,6 +1714,7 @@ void StandardPackage::addShuGenerals()
 
     General *guanyu = new General(this, "guanyu", "shu", 5); // SHU 002
     guanyu->addSkill(new Wusheng);
+    guanyu->addCompanion("zhangfei");
 
     General *zhangfei = new General(this, "zhangfei", "shu"); // SHU 003
     zhangfei->addSkill(new Paoxiao);

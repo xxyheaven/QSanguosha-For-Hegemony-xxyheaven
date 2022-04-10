@@ -404,7 +404,7 @@ void CunsiCard::onEffect(const CardEffectStruct &effect) const
     Room *room = effect.from->getRoom();
     room->setPlayerMark(effect.from, "cunsi", 1);
     room->acquireSkill(effect.to, "yongjue", true, false);
-    room->addPlayerMark(effect.to, "#yongjue");
+    room->addPlayerMark(effect.to, "##yongjue");
     if (effect.to != effect.from)
         effect.to->drawCards(2, "cunsi");
 }

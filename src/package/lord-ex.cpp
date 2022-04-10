@@ -3021,7 +3021,7 @@ public:
         TriggerList skill_list;
         CardUseStruct use = data.value<CardUseStruct>();
         if (player == NULL || player->isDead()) return skill_list;
-        if (use.card->getTypeId() != Card::TypeSkill && use.to.size() > 1) {
+        if (use.card->getTypeId() != Card::TypeSkill && use.to.length() > 1) {
             QList<ServerPlayer *> xuyous = room->findPlayersBySkillName(objectName());
             foreach (ServerPlayer *xuyou, xuyous) {
                 if (player->isFriendWith(xuyou))

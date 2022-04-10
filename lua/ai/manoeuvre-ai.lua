@@ -294,7 +294,10 @@ end
 sgs.ai_skill_invoke.chengshang = true
 
 --祢衡
-sgs.ai_skill_invoke.kuangcai = false
+sgs.ai_skill_invoke.kuangcai = function(self, data)
+  --暂缺getCardUsedTimes函数，无法判断使用牌数
+  return true
+end
 
 function sgs.ai_cardneed.kuangcai(to, card, self)
 	return card:isKindOf("Slash") or card:isKindOf("Analeptic") or card:isKindOf("Halberd") or to:hasWeapon("Spear")
@@ -888,7 +891,7 @@ sgs.ai_skill_invoke.anyong =  function(self, data)
     if tp:hasShownSkill("mingshi") and not from:hasShownAllGenerals() then
       n = n - 1
     end
-    if tp:getMark("#xiongnve_avoid") > 0 then
+    if tp:getMark("##xiongnve_avoid") > 0 then
       n = n - 1
     end
     local gongqing_avoid = false
@@ -959,3 +962,135 @@ sgs.ai_skill_invoke.anyong =  function(self, data)
   end
 	return false
 end
+
+--羊祜
+sgs.ai_skill_invoke.mingde = function(self, data)
+  if not self:willShowForDefence() then
+    return false
+  end
+  local target = data:toPlayer()
+  --暂时用不到
+  --local use = self.player:getTag("MingdeUsedata"):toCardUse()
+  --local card = use.card
+  if target and self:isFriend(target) then
+    if self:needToThrowArmor(target) then
+      return true
+    end
+    return false
+  end
+  return true
+end
+
+local qizhan_skill = {}
+qizhan_skill.name = "qizhan"
+table.insert(sgs.ai_skills, qizhan_skill)
+qizhan_skill.getTurnUseCard = function(self)
+	if self.player:hasUsed("QizhanCard") then return end
+	return sgs.Card_Parse("@QizhanCard=.&qizhan")
+end
+
+sgs.ai_skill_use_func.QizhanCard = function(card, use, self)
+  local target
+
+  local compare_func = function(a, b)
+    local amax = self:getOverflow(a,true)
+    local bmax = self:getOverflow(b,true)
+    if amax == bmax then
+      return a:getHandcardNum() < b:getHandcardNum()
+    else
+      return amax < bmax
+    end
+	end
+
+  table.sort(self.enemies, compare_func)
+  if #self.enemies == 0 then
+    local targets = {}
+    for _, p in sgs.qlist(self.room:getAlivePlayers()) do
+      if not self.player:willBeFriendWith(p) then
+        table.insert(targets, p)
+      end
+    end
+    table.sort(targets, compare_func)
+    target = targets[1]
+  else
+    target = self.enemies[1]
+  end
+  if target and self:isFriend(target) and
+  (math.min(self.player:getHandcardNum(), self:getOverflow(self.player,true))
+    > math.min(target:getHandcardNum() + 1, self:getOverflow(target,true))) then
+    target = nil
+  end
+  if target then
+    Global_room:writeToConsole("期战目标:"..sgs.Sanguosha:translate(target:getGeneralName()).."/"..sgs.Sanguosha:translate(target:getGeneral2Name()))
+	  use.card = card
+    if use.to then
+      use.to:append(target)
+    end
+  end
+end
+
+sgs.ai_use_priority.QizhanCard = 2
+
+sgs.ai_skill_choice.qizhan = function(self, choices, data)
+  local target = data:toPlayer()
+  if self:isFriend(target) then
+    return "yes"
+  end
+  return "no"
+end
+
+local qizhanzongheng_skill = {}
+qizhanzongheng_skill.name = "qizhanzongheng"
+table.insert(sgs.ai_skills, qizhanzongheng_skill)
+qizhanzongheng_skill.getTurnUseCard = function(self)
+	if self.player:hasUsed("QizhanZonghengCard") or self.player:isNude() then return end
+  local target
+
+  local compare_func = function(a, b)
+    local amax = self:getOverflow(a,true)
+    local bmax = self:getOverflow(b,true)
+    if amax == bmax then
+      return a:getHandcardNum() < b:getHandcardNum()
+    else
+      return amax < bmax
+    end
+	end
+
+  table.sort(self.enemies, compare_func)
+  if #self.enemies == 0 then
+    local targets = {}
+    for _, p in sgs.qlist(self.room:getAlivePlayers()) do
+      if not self.player:isFriendWith(p) then
+        table.insert(targets, p)
+      end
+    end
+    table.sort(targets, compare_func)
+    target = targets[1]
+  else
+    target = self.enemies[1]
+  end
+  if target and self:isEnemy(target) and--有确定目标才弃牌
+  (math.min(self.player:getHandcardNum(), self:getOverflow(self.player,true))
+    > math.min(target:getHandcardNum() + 1, self:getOverflow(target,true))
+    or self:getOverflow() > 0) then
+    self.qzzh_target = target
+    local cards = self.player:getCards("he")
+    cards = sgs.QList2Table(cards)
+    self:sortByUseValue(cards, true)
+    return sgs.Card_Parse("@QizhanZonghengCard=" .. cards[1]:getEffectiveId() .."&qizhanzongheng")
+  end
+end
+
+sgs.ai_skill_use_func.QizhanZonghengCard = function(card, use, self)
+  if self.qzzh_target then
+    local target = self.qzzh_target
+    self.qzzh_target = nil
+    Global_room:writeToConsole("期战纵横目标:"..sgs.Sanguosha:translate(target:getGeneralName()).."/"..sgs.Sanguosha:translate(target:getGeneral2Name()))
+	  use.card = card
+    if use.to then
+      use.to:append(target)
+    end
+  end
+end
+
+sgs.ai_use_priority.QizhanZonghengCard = 2

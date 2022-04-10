@@ -2386,7 +2386,7 @@ public:
         if (player->getMark("#guowu") > 2) {
             CardUseStruct use = data.value<CardUseStruct>();
             if ((use.card->isKindOf("Slash") || use.card->isNDTrick())) {
-                QList<ServerPlayer *> targets = room->getUseExtraTargets(use, true);
+                QList<ServerPlayer *> targets = room->getUseExtraTargets(use);
                 if (!targets.isEmpty())
                     return QStringList(objectName());
 
@@ -2398,7 +2398,7 @@ public:
     virtual bool cost(TriggerEvent , Room *room, ServerPlayer *player, QVariant &data, ServerPlayer *) const
     {
         CardUseStruct use = data.value<CardUseStruct>();
-        QList<ServerPlayer *> targets = room->getUseExtraTargets(use, true);
+        QList<ServerPlayer *> targets = room->getUseExtraTargets(use);
         if (!targets.isEmpty()) {
 
             player->tag["GuowuUsedata"] = data;        //for AI

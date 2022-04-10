@@ -627,6 +627,15 @@ void PlayerCardContainer::updateTip(const QString &pile_name, bool add_in)
         QFontMetrics fontMetrics(button->font());
         new_length = fontMetrics.width(text) + 4;
 
+        if (mark_name == "massacre") {
+
+            disconnect(button, &QPushButton::pressed, this, &PlayerCardContainer::showPile);
+            connect(button, &QPushButton::pressed, this, &PlayerCardContainer::showPile);
+
+            disconnect(button, &QPushButton::released, this, &PlayerCardContainer::hidePile);
+            connect(button, &QPushButton::released, this, &PlayerCardContainer::hidePile);
+        }
+
     } else {
         if (_m_privatePiles.contains(mark_name)) {
             delete _m_privatePiles[mark_name];

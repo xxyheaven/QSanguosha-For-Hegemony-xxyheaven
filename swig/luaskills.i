@@ -263,8 +263,8 @@ class LuaTargetModSkill: public TargetModSkill {
 public:
     LuaTargetModSkill(const char *name, const char *pattern);
 
-    virtual int getResidueNum(const Player *from, const Card *card) const;
-    virtual int getDistanceLimit(const Player *from, const Card *card) const;
+    virtual int getResidueNum(const Player *from, const Card *card, const Player *to) const;
+    virtual int getDistanceLimit(const Player *from, const Card *card, const Player *to) const;
     virtual int getExtraTargetNum(const Player *from, const Card *card) const;
 
     LuaFunction residue_func;
@@ -1117,7 +1117,7 @@ int LuaMaxCardsSkill::getFixed(const Player *target) const
     return extra;
 }
 
-int LuaTargetModSkill::getResidueNum(const Player *from, const Card *card) const
+int LuaTargetModSkill::getResidueNum(const Player *from, const Card *card, const Player *to) const
 {
     if (residue_func == 0)
         return 0;
@@ -1129,8 +1129,9 @@ int LuaTargetModSkill::getResidueNum(const Player *from, const Card *card) const
     SWIG_NewPointerObj(L, this, SWIGTYPE_p_LuaTargetModSkill, 0);
     SWIG_NewPointerObj(L, from, SWIGTYPE_p_Player, 0);
     SWIG_NewPointerObj(L, card, SWIGTYPE_p_Card, 0);
+    SWIG_NewPointerObj(L, to, SWIGTYPE_p_Player, 0);
 
-    int error = lua_pcall(L, 3, 1, 0);
+    int error = lua_pcall(L, 4, 1, 0);
     if (error) {
         Error(L);
         return 0;
@@ -1142,7 +1143,7 @@ int LuaTargetModSkill::getResidueNum(const Player *from, const Card *card) const
     return residue;
 }
 
-int LuaTargetModSkill::getDistanceLimit(const Player *from, const Card *card) const
+int LuaTargetModSkill::getDistanceLimit(const Player *from, const Card *card, const Player *to) const
 {
     if (distance_limit_func == 0)
         return 0;
@@ -1154,8 +1155,9 @@ int LuaTargetModSkill::getDistanceLimit(const Player *from, const Card *card) co
     SWIG_NewPointerObj(L, this, SWIGTYPE_p_LuaTargetModSkill, 0);
     SWIG_NewPointerObj(L, from, SWIGTYPE_p_Player, 0);
     SWIG_NewPointerObj(L, card, SWIGTYPE_p_Card, 0);
+    SWIG_NewPointerObj(L, to, SWIGTYPE_p_Player, 0);
 
-    int error = lua_pcall(L, 3, 1, 0);
+    int error = lua_pcall(L, 4, 1, 0);
     if (error) {
         Error(L);
         return 0;

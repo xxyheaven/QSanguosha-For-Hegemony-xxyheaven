@@ -473,7 +473,7 @@ quanjin_skill.getTurnUseCard = function(self, inclusive)
   if not self.player:hasUsed("QuanjinCard") then
     local can_quanjin = false
     for _, p in sgs.qlist(self.room:getAlivePlayers()) do
-      if p:getMark("Global_InjuredTimes_Phase") > 0 then
+      if p:getMark("Global_InjuredTimes_Phase") > 0 and p:objectName() ~= self.player:objectName() then
         can_quanjin = true
       end
     end
@@ -497,7 +497,7 @@ sgs.ai_skill_use_func.QuanjinCard= function(qjcard, use, self)
     if card_num > maxcard_num then
       maxcard_num = card_num
     end
-    if p:getMark("Global_InjuredTimes_Phase") > 0 then
+    if p:getMark("Global_InjuredTimes_Phase") > 0 and p:objectName() ~= self.player:objectName() then
       if card_num > maxhurt_num  then
         maxhurt_num = card_num
         maxcard_hurt = p
@@ -983,7 +983,7 @@ sgs.ai_skill_use_func.PaiyiCard = function(card, use, self)
 			  if enemy:getHp() == 1 and self:isWeak(enemy)
 				and not enemy:hasShownSkills(sgs.masochism_skill)
         and not enemy:hasShownSkill("jijiu")
-				and self:damageIsEffective(enemy, nil, self.player)
+				and self:damageIsEffective(enemy, nil, self.player) and not self:cantbeHurt(enemy)
 				and not (self:needDamagedEffects(enemy, self.player) or self:needToLoseHp(enemy))
 				and enemy:getHandcardNum() + self.player:getPile("power_pile"):length() - 1 > self.player:getHandcardNum() then
 				  target = enemy
@@ -1305,7 +1305,10 @@ sgs.ai_skill_invoke.xiongnve = function(self, data)
     end
   end
   if data:toString() == "defence"  then
-    if self.player:getMark("#xiongnve_avoid") > 0 then
+    if self.player:getMark("ThreatenEmperorExtraTurn") > 0 then--连续回合
+      return false
+    end
+    if self.player:getMark("##xiongnve_avoid") > 0 then
       return false
     end
     if self:isWeak() or self.player:getHp() < 2 then

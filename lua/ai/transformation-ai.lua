@@ -1455,6 +1455,15 @@ sgs.ai_choicemade_filter.cardChosen.xuanlue = function(self, player, promptlist)
 	sgs.updateIntention(player, target, intention)
 end
 
+sgs.xuanlue_keep_value = {--相当于过河拆桥
+	Weapon = 3.44,
+	Armor = 3.45,
+	OffensiveHorse = 3.44,
+	DefensiveHorse = 3.44,
+	SixDragons = 3.45,
+	Treasure = 3.45
+}
+
 sgs.ai_cardneed.xuanlue = sgs.ai_cardneed.equip
 
 local yongjin_skill = {}

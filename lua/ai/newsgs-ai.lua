@@ -438,7 +438,7 @@ function sgs.ai_slash_prohibit.leiji_tianshu(self, from, to, card)
 	if from:hasShownSkill("jianchu") and (to:hasEquip() or to:getCardCount(true) == 1) then
 		return false
 	end
-	if (to:getMark("#qianxi+no_suit_red") + to:getMark("#qianxi+no_suit_black") > 0) and (not self:hasEightDiagramEffect(to) or IgnoreArmor(from, to)) then
+	if (to:getMark("##qianxi+no_suit_red") + to:getMark("##qianxi+no_suit_black") > 0) and (not self:hasEightDiagramEffect(to) or IgnoreArmor(from, to)) then
 		return false
 	end
 	local hcard = to:getHandcardNum()
@@ -642,11 +642,86 @@ sgs.ai_skill_invoke.guowu =  function(self, data)
 	return true--暂时简化
 end
 
+sgs.ai_skill_playerchosen["#guowu_effect"] = function(self, targets, max_num, min_num)
+	local use = self.player:getTag("GuowuUsedata"):toCardUse()
+	local card = use.card
+	Global_room:writeToConsole("吕玲绮额外选择："..sgs.Sanguosha:translate(card:objectName()))
+	local result = {}
+	local targetlist = sgs.QList2Table(targets)
+	if card:isKindOf("Slash") then
+		self:sort(targetlist, "defenseSlash")
+		for _, target in ipairs(targetlist) do
+			if self:isEnemy(target) and not self:slashProhibit(card, target) and sgs.isGoodTarget(target, targetlist, self) and self:slashIsEffective(card, target)
+			and not table.contains(result, target) and #result < max_num then
+				table.insert(result, target)
+			end
+		end
+	end
+	if card:isKindOf("ExNihilo") then
+		self:sort(targetlist, "handcard")
+		for _, target in ipairs(targetlist) do
+			if self:isFriendWith(target) and #result < max_num and not table.contains(result, target) then
+		  		table.insert(result, target)
+			end
+		end
+		for _, target in ipairs(targetlist) do
+			if self:isFriend(target) and #result < max_num and not table.contains(result, target) then
+		  		table.insert(result, target)
+			end
+		end
+	end
+	if card:isKindOf("BefriendAttacking") then
+		self:sort(targetlist, "handcard")
+		for _, target in ipairs(targetlist) do
+			if self:isFriend(target) and #result < max_num and not table.contains(result, target) then
+		  		table.insert(result, target)
+			end
+		end
+		for _, target in ipairs(targetlist) do
+			if #result < max_num and not table.contains(result, target) then
+		  		table.insert(result, target)
+			end
+		end
+	end
+	if card:isKindOf("Dismantlement") or card:isKindOf("Snatch") then
+		local method = card:isKindOf("Snatch") and sgs.Card_MethodGet or sgs.Card_MethodDiscard
+		local extratargets = self:findPlayerToDiscard("hej", false, method, targets, true)
+		for _, target in ipairs(extratargets) do
+			if #result < max_num and not table.contains(result, target) then
+		  		table.insert(result, target)
+			end
+		end
+	end
+	if card:isKindOf("Duel") or card:isKindOf("Drowning") then--决斗详细？
+		self:sort(targetlist, "hp")
+		for _, target in ipairs(targetlist) do
+			if self:isEnemy(target) and #result < max_num and not table.contains(result, target) then
+		  		table.insert(result, target)
+			end
+		end
+		for _, target in ipairs(targetlist) do
+			if not self:isFriendWith(target) and #result < max_num and not table.contains(result, target) then
+		  		table.insert(result, target)
+			end
+		end
+	end
+	if card:isKindOf("TrickCard") and (not self:slashIsAvailable() or self:getCardsNum("Slash") == 0) then--其他锦囊暂不考虑
+		for _, target in ipairs(targetlist) do
+			if #result < max_num and not table.contains(result, target) then
+		  		table.insert(result, target)
+			end
+		end
+	end
+	Global_room:writeToConsole("吕玲绮额外目标数:"..#result)
+	return result
+end
+
 local zhuangrong_skill = {}
 zhuangrong_skill.name = "zhuangrong"
 table.insert(sgs.ai_skills, zhuangrong_skill)
 zhuangrong_skill.getTurnUseCard = function(self)
 	if self.player:hasUsed("ZhuangrongCard") or self.player:hasSkill("wushuang") then return end
+	if (not self:slashIsAvailable() or self:getCardsNum("Slash") == 0) and self:getCardsNum("Duel") == 0  then return end
 	local cards = self.player:getCards("he")
 	cards = sgs.QList2Table(cards)
 	self:sortByUseValue(cards, true)

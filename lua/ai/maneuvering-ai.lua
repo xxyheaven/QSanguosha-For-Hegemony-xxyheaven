@@ -192,7 +192,7 @@ function SmartAI:shouldUseAnaleptic(target, card_use)
 	if self.player:hasShownSkill("jianchu") and (target:hasEquip() or target:getCardCount(true) == 1) then
 		return true
 	end
-	if target:getMark("#qianxi+no_suit_red") > 0 and not target:hasShownSkill("qingguo") then
+	if target:getMark("##qianxi+no_suit_red") > 0 and not target:hasShownSkill("qingguo") then
 		return true
 	end
 	if self.player:hasWeapon("DragonPhoenix") and target:getCardCount(true) == 1 then
@@ -716,7 +716,7 @@ function SmartAI:useCardFireAttack(fire_attack, use)
 		if enemy:hasShownSkill("mingshi") and not self.player:hasShownAllGenerals() then
 			damage = damage - 1
 		end
-		if enemy:getMark("#xiongnve_avoid") > 0 then
+		if enemy:getMark("##xiongnve_avoid") > 0 then
 			damage = damage - 1
 		end
 		local gongqing_avoid = false

@@ -154,7 +154,7 @@ sgs.ai_skill_use["@@jieyue"] = function(self, prompt, method)
     return "."
   end
   if self:willSkipDrawPhase()
-  and not (self.player:hasSkill("qiaobian") and self.player:getHandcardNum() == 1)
+  and not (self.player:hasSkill("qiaobian") and self.player:getHandcardNum() < 2)
   and not (self.player:hasSkill("elitegeneralflag") and self.player:getHandcardNum() < 3) then
     return "."
   end

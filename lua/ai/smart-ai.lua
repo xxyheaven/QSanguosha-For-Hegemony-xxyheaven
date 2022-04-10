@@ -184,7 +184,7 @@ function SetInitialTables()
 	sgs.notActive_cardneed_skill =	"guicai|xiaoguo|kanpo|guidao|beige|jijiu|liuli|tianxiang|zhendu|qianhuan|keshou|fudi|shejian|huanshi"
 	sgs.cardneed_skill =  	sgs.Active_cardneed_skill .. "|" .. sgs.notActive_cardneed_skill
 	sgs.use_lion_skill =	"duanliang|guicai|guidao|lijian|qingcheng|zhiheng|qixi|fenxun|kurou|diaogui|quanji|jinfa|xishe"
-	sgs.need_equip_skill = 	"shensu|beige|huyuan|qingcheng|xiaoji|zhijian|xuanlue|diaodu"
+	sgs.need_equip_skill = 	"shensu|huyuan|beige|qingcheng|xiaoji|xuanlue|diaodu"
 	sgs.judge_reason =		"bazhen|EightDiagram|supply_shortage|indulgence|lightning|leiji|beige|tieqi|luoshen|ganglie|tuntian"
 
 	sgs.rule_skill = "transfer|aozhan|companion|halfmaxhp|firstshow|careerman|showhead|showdeputy"
@@ -2756,7 +2756,7 @@ end
 sgs.ai_skill_discard.gamerule = function(self, discard_num)
 	local cards = sgs.QList2Table(self.player:getHandcards())
 	if self.player:getMark("ThreatenEmperorExtraTurn") > 0 then--挟天子连续回合，失效？？
-		Global_room:writeToConsole("挟天子连续回合弃牌")
+		Global_room:writeToConsole("挟天子连续回合弃牌："..sgs.Sanguosha:translate(self.player:getGeneralName()).."/"..sgs.Sanguosha:translate(self.player:getGeneral2Name()))
 		self:sortByUseValue(cards,true)
 	else
 		self:sortByKeepValue(cards)
@@ -3543,7 +3543,7 @@ function SmartAI:hasHeavySlashDamage(from, slash, to, getValue)
 	elseif from:getMark("drank") > 0 then
 		dmg = dmg + from:getMark("drank")
 	end
-	if from:getMark("#luoyi") > 0 then dmg = dmg + 1 end
+	if from:getMark("##luoyi") > 0 then dmg = dmg + 1 end
 --[[
 	if from:hasShownSkill("fengshix") then
 		local data = sgs.QVariant()--技能触发需要构造data，注意self写法，invoke里缺信息，换写法
@@ -4357,7 +4357,7 @@ function SmartAI:damageIsEffective_(damageStruct)
 	if self:hasKnownSkill("mingshi", to) and from and not from:hasShownAllGenerals() then
 		damage = damage - 1
 	end
-	if to:getMark("#xiongnve_avoid") > 0 then
+	if to:getMark("##xiongnve_avoid") > 0 then
 		damage = damage - 1
 	end
 	if damage < 1 then return false end
@@ -5472,7 +5472,7 @@ function SmartAI:getAoeValue(card)
 		return -100
 	end
 
-	if attacker:hasShownSkill("jizhi") or aoedraw or attacker:getActualGeneral1():getKingdom() == "careerist" then
+	if attacker:hasShownSkills("jizhi|wangxi") or aoedraw or attacker:getActualGeneral1():getKingdom() == "careerist" then
 		good = good + 10
 	end
 	if attacker:hasShownSkill("luanji") then good = good + 5 * isEffective_E end

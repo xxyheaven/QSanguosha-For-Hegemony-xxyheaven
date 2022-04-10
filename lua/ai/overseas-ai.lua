@@ -385,3 +385,66 @@ end
 sgs.ai_skill_invoke.mingzhe = true
 
 --全琮
+
+
+--郭淮
+sgs.ai_skill_playerchosen.jingce = sgs.ai_skill_playerchosen.damage--选择目标怎样合适？
+
+sgs.ai_skill_choice.startcommand_jingce = sgs.ai_skill_choice.startcommand_to
+
+sgs.ai_skill_choice["docommand_jingce"] = function(self, choices, data)
+  local source = data:toPlayer()
+  local index = self.player:getMark("command_index")
+  local is_enemy = self:isEnemy(source)
+  local is_friend = self:isFriend(source)
+  if index == 1 then
+    if not is_enemy and not is_friend then
+      return "yes"
+    end
+    if is_friend and not self:isWeak(source) then
+      for _, p in ipairs(self.enemies) do
+        if p:getHp() == 1 and self:isWeak(p) and self:isEnemy(source, p) then
+          return "yes"
+        end
+      end
+    end
+  end
+  if index == 5 and not self.player:faceUp() then
+    return "yes"
+  end
+  if is_enemy then
+    if index == 2 then
+      return "yes"
+    end
+    if index == 3 and self.player:hasSkill("hongfa") and not self.player:getPile("heavenly_army"):isEmpty() then
+      return "yes"
+    end
+    if index == 4 then
+      if self.player:getMark("command4_effect") > 0 then
+        return "yes"
+      end
+      local has_peach = false
+      for _, c in sgs.qlist(self.player:getHandcards()) do
+        if isCard("Peach", c, self.player) then--有实体卡桃可回血
+          has_peach = true
+        end
+      end
+      if has_peach then
+        for _, p in ipairs(self.friends) do
+          if p:getHp() == 1 and self:isWeak(p) and source:canSlash(self.player, nil, true) then
+            return "no"
+          end
+        end
+      end
+      if not source:canSlash(self.player, nil, true) then
+        return "yes"
+      end
+    end
+    if index == 6 and self.player:getEquips():length() < 3 and self.player:getHandcardNum() < 3 then
+      return "yes"
+    end
+  end
+  return "no"
+end
+
+sgs.ai_skill_playerchosen["command_jingce"] = sgs.ai_skill_playerchosen.damage

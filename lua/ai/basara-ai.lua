@@ -563,7 +563,7 @@ sgs.ai_skill_choice.GameRule_AskForGeneralShow = function(self, choices)
 		end
 	end
 
-	if self.player:getMark("#congcha") > 0 then--聪察队友
+	if self.player:getMark("##congcha") > 0 then--聪察队友
 		--Global_room:writeToConsole("聪察:有标记")
 		local panjun = sgs.findPlayerByShownSkillName("congcha")
 		if panjun then
@@ -734,7 +734,7 @@ sgs.ai_skill_use_func.CompanionCard= function(card, use, self)
 			nofreindweak = false
 		end
 	end
-	if self:getOverflow() > 2 and self.player:getHp() == 1 and nofreindweak then
+	if self:getOverflow() > 2 and self.player:getHp() == 1 and nofreindweak and sgs.cloneCard("peach"):isAvailable(self.player) then
 		--Global_room:writeToConsole("桃回复")
 		use.card = sgs.Card_Parse(card_str)
 		return
@@ -953,7 +953,7 @@ sgs.ai_skill_use_func.CareermanCard= function(card, use, self)
 			nofreindweak = false
 		end
 	end
-	if self:getOverflow() > 2 and self.player:getHp() == 1 and nofreindweak then
+	if self:getOverflow() > 2 and self.player:getHp() == 1 and nofreindweak and sgs.cloneCard("peach"):isAvailable(self.player) then
 		--Global_room:writeToConsole("野心家标记回复")
 		self.careerman_case = 3
 		use.card = sgs.Card_Parse(card_str)

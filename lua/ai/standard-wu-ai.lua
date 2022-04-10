@@ -786,7 +786,7 @@ guose_skill.getTurnUseCard = function(self, inclusive)
 
 --[[修改了木马的使用价值
 	if self.player:hasTreasure("WoodenOx") and not self.player:getPile("wooden_ox"):isEmpty() then
-		table.removeOne(cards,self.player:getTreasure())
+		table.removeOne(cards,sgs.Sanguosha:getCard(self.player:getTreasure():getEffectiveId()))
 	end
 ]]
 	local card
@@ -1344,14 +1344,14 @@ sgs.ai_skill_playerchosen.yinghun_sunjian = function(self, targets)
 	elseif #self.friends > 1 then
 		self:sort(self.friends_noself, "handcard")
 		for _, friend in ipairs(self.friends_noself) do
-			if friend:hasShownSkills(sgs.lose_equip_skill) and friend:hasEquip() then
+			if friend:hasShownSkills(sgs.lose_equip_skill) and friend:hasEquip() and not self:willSkipPlayPhase(friend) then
 				yinghun_friend = friend
 				break
 			end
 		end
 		if not yinghun_friend then
 			for _, friend in ipairs(self.friends_noself) do
-				if friend:hasShownSkill("tuntian") then
+				if friend:hasShownSkill("tuntian") and not self:willSkipPlayPhase(friend) then
 					yinghun_friend = friend
 					break
 				end
@@ -1359,7 +1359,7 @@ sgs.ai_skill_playerchosen.yinghun_sunjian = function(self, targets)
 		end
 		if not yinghun_friend then
 			for _, friend in ipairs(self.friends_noself) do
-				if self:needToThrowArmor(friend) then
+				if self:needToThrowArmor(friend) and not self:willSkipPlayPhase(friend) then
 					yinghun_friend = friend
 					break
 				end
@@ -1372,7 +1372,7 @@ sgs.ai_skill_playerchosen.yinghun_sunjian = function(self, targets)
 			end
 			if not weakf then
 				for _, friend in ipairs(self.friends_noself) do
-					if self:isWeak(friend) then
+					if self:isWeak(friend) and not self:willSkipPlayPhase(friend) then
 						weakf = true
 						break
 					end
@@ -1606,8 +1606,7 @@ sgs.ai_skill_use["@@tianxiang"] = function(self, data, method)
 		if #targets == 0 and dmg.from then table.insert(targets, dmg.from) end
 		if #targets == 0 then table.insert(targets, self.player:getNextAlive()) end
 		if #targets > 0 then
-			self:sort(targets, "hp")
-			targets = sgs.reverse(targets)
+			self:sort(targets, "hp", true)
 			return "@TianxiangCard=" .. card_id .. "&tianxiang->" .. targets[1]:objectName()
 		end
 	end
@@ -2171,7 +2170,7 @@ sgs.ai_skill_use_func.ZhijianCard = function(zjcard, use, self)
 	local select_equip, target
 	for _, friend in ipairs(self.friends_noself) do
 		for _, equip in ipairs(equips) do
-			if not self:getSameEquip(equip, friend) and friend:hasShownSkills(sgs.need_equip_skill .. "|" .. sgs.lose_equip_skill) then
+			if not self:getSameEquip(equip, friend) and friend:hasShownSkills(sgs.need_equip_skill) then
 				target = friend
 				select_equip = equip
 				break

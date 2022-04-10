@@ -4811,11 +4811,11 @@ void RoomScene::surrender()
         return;
     }
 
-    if (!Self->hasShownOneGeneral()) return;
+    if (!Self->hasShownGeneral1()) return;
     const Player *enemy = Self->getAliveSiblings().first();
     if (Self->isFriendWith(enemy)) return;
     foreach (const Player *p, Self->getAliveSiblings()) {
-        if (!p->hasShownOneGeneral() || !p->isFriendWith(enemy)) return;
+        if (!p->hasShownGeneral1() || !p->isFriendWith(enemy)) return;
     }
 
     QMessageBox::StandardButton button;

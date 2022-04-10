@@ -573,7 +573,7 @@ sgs.ai_skill_cardask["@tieji-discard"] = function(self, data, pattern, target, t
 	if self.player:hasTreasure("WoodenOx") and self.player:getTreasure():getSuitString() == arg and not self.player:getPile("wooden_ox"):isEmpty() then
 		for _,id in sgs.qlist(self.player:getPile("wooden_ox")) do
 			if sgs.Sanguosha:getCard(id):isKindOf("Peach") or (sgs.Sanguosha:getCard(id):isKindOf("Analeptic") and self.player:getHp() == 1) then
-				table.removeOne(cards,self.player:getTreasure())
+				table.removeOne(cards,sgs.Sanguosha:getCard(self.player:getTreasure():getEffectiveId()))
 				break
 			end
 		end
@@ -997,8 +997,7 @@ sgs.ai_skill_invoke.fangquan = function(self, data)
 		end
 	end
 	if all_peaches >= 2 and self:getOverflow() <= 0 then return false end
-	self:sortByKeepValue(cards)
-	cards = sgs.reverse(cards)
+	self:sortByKeepValue(cards, true)
 
 	for i = #cards, 1, -1 do
 		local card = cards[i]
@@ -1017,8 +1016,7 @@ sgs.ai_skill_invoke.fangquan = function(self, data)
 		return true
 	end
 
-	self:sort(self.friends_noself, "handcard")
-	self.friends_noself = sgs.reverse(self.friends_noself)
+	self:sort(self.friends_noself, "handcard", true)
 	for _, target in ipairs(self.friends_noself) do--怎样优化一下目标？
 		if target:hasShownSkills("zhiheng|" .. sgs.priority_skill .. "|shensu") and (not self:willSkipPlayPhase(target) or target:hasShownSkill("shensu")) then
 			self.fangquan_target = target
@@ -1041,8 +1039,7 @@ sgs.ai_skill_use["@@fangquan_ask"] = function(self, prompt)
 	if in_handcard then return self.fangquan_card_str end
 
 	local cards = sgs.QList2Table(self.player:getHandcards())
-	self:sortByKeepValue(cards)
-	cards = sgs.reverse(cards)
+	self:sortByKeepValue(cards, true)
 
 	if self.fangquan_target then
 		for i = #cards, 1, -1 do
