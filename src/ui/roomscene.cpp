@@ -2673,8 +2673,10 @@ void RoomScene::updateStatus(Client::Status oldStatus, Client::Status newStatus)
                 Sanguosha->currentRoomState()->getCurrentCardUsePattern());
         }
         foreach (TransferButton *button, dashboard->getTransferButtons()) {
-            button->setEnabled(enabled);
-            if (enabled)
+            const Card *to_select = button->getCardItem()->getCard();
+            bool view_filter = Sanguosha->getTransfer()->viewFilter(QList<const Card *>(), to_select);
+            button->setEnabled(enabled && view_filter);
+            if (enabled && view_filter)
                 button->getCardItem()->setTransferable(true);
         }
     }
@@ -4731,7 +4733,7 @@ void RoomScene::showIndicator(const QString &from, const QString &to)
     QPointF start = obj1->sceneBoundingRect().center();
     QPointF finish = obj2->sceneBoundingRect().center();
 
-    IndicatorItem *indicator = new IndicatorItem(start, finish, ClientInstance->getPlayer(from));
+    IndicatorItem *indicator = new IndicatorItem(start, finish, ClientInstance->getPlayer(from), 5);
 
     qreal x = qMin(start.x(), finish.x());
     qreal y = qMin(start.y(), finish.y());

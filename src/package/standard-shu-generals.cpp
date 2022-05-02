@@ -200,7 +200,26 @@ public:
         slash->addSubcard(originalCard->getId());
         slash->setSkillName(objectName());
         slash->setShowSkill(objectName());
+        if (slash->getSuit() == Card::Diamond)
+            slash->setFlags("Global_NoDistanceChecking");
         return slash;
+    }
+};
+
+class WushengTargetMod : public TargetModSkill
+{
+public:
+    WushengTargetMod() : TargetModSkill("#wusheng-target")
+    {
+    }
+
+    virtual int getDistanceLimit(const Player *from, const Card *card, const Player *) const
+    {
+        if ((from->hasShownSkill("wusheng") || (from->hasShownSkill("wusheng_xh")))
+                && card->getSuit() == Card::Diamond)
+            return 1000;
+        else
+            return 0;
     }
 };
 
@@ -899,11 +918,10 @@ public:
     virtual QStringList triggerable(TriggerEvent, Room *, ServerPlayer *player, QVariant &data, ServerPlayer* &) const
     {
         CardUseStruct use = data.value<CardUseStruct>();
-        if (TriggerSkill::triggerable(player) && player->getPhase() == Player::Play && use.card != NULL && use.card->isKindOf("Slash")) {
+        if (TriggerSkill::triggerable(player) && use.card != NULL && use.card->isKindOf("Slash")) {
             QStringList targets;
             foreach (ServerPlayer *to, use.to) {
-                int handcard_num = to->getHandcardNum();
-                if (handcard_num >= player->getHp() || handcard_num <= player->getAttackRange())
+                if (to->getHp() >= player->getHp())
                     targets << to->objectName();
             }
             if (!targets.isEmpty())
@@ -921,14 +939,19 @@ public:
         return false;
     }
 
-    virtual bool effect(TriggerEvent, Room *, ServerPlayer *target, QVariant &data, ServerPlayer *huangzhong) const
+    virtual bool effect(TriggerEvent, Room *room, ServerPlayer *target, QVariant &data, ServerPlayer *huangzhong) const
     {
         CardUseStruct use = data.value<CardUseStruct>();
-        QVariantList jink_list = huangzhong->tag["Jink_" + use.card->toString()].toList();
-
-        doLiegong(target, use, jink_list);
-
-        huangzhong->tag["Jink_" + use.card->toString()] = jink_list;
+        QString choice = room->askForChoice(huangzhong, objectName(), "nojink+adddamage", data, "@liegong-choice::"+ target->objectName());
+        if (choice == "nojink") {
+            QVariantList jink_list = huangzhong->tag["Jink_" + use.card->toString()].toList();
+            doLiegong(target, use, jink_list);
+            huangzhong->tag["Jink_" + use.card->toString()] = jink_list;
+        } else if (choice == "adddamage") {
+            QStringList AddDamage_List = use.card->tag["AddDamage_List"].toStringList();
+            AddDamage_List << target->objectName();
+            use.card->setTag("AddDamage_List", AddDamage_List);
+        }
         return false;
     }
 
@@ -941,6 +964,22 @@ private:
         log.from = target;
         target->getRoom()->sendLog(log);
         jink_list[index] = 0;
+    }
+};
+
+class LiegongTargetMod : public TargetModSkill
+{
+public:
+    LiegongTargetMod() : TargetModSkill("#liegong-target")
+    {
+    }
+
+    virtual int getDistanceLimit(const Player *from, const Card *, const Player *to) const
+    {
+        if ((from->hasShownSkill("liegong") || from->hasShownSkill("liegong_xh")) && to && from->getHandcardNum() >= to->getHandcardNum())
+            return 10000;
+        else
+            return 0;
     }
 };
 
@@ -964,7 +1003,6 @@ public:
         return 0;
     }
 };
-
 
 class Kuanggu : public TriggerSkill
 {
@@ -1285,73 +1323,93 @@ public:
     }
 };
 
-class Zaiqi : public PhaseChangeSkill
+class Zaiqi : public TriggerSkill
 {
 public:
-    Zaiqi() : PhaseChangeSkill("zaiqi")
+    Zaiqi() : TriggerSkill("zaiqi")
     {
-        frequency = Frequent;
+        events << EventPhaseEnd;
     }
 
     virtual QStringList triggerable(TriggerEvent, Room *, ServerPlayer *menghuo, QVariant &, ServerPlayer* &) const
     {
-        if (!PhaseChangeSkill::triggerable(menghuo))
+        if (!TriggerSkill::triggerable(menghuo))
             return QStringList();
 
-        if (menghuo->getPhase() == Player::Draw && menghuo->isWounded())
+        if (menghuo->getPhase() == Player::Discard && menghuo->getMark("GlobalZaiqiCount") > 0)
             return QStringList(objectName());
         return QStringList();
     }
 
     virtual bool cost(TriggerEvent, Room *room, ServerPlayer *player, QVariant &, ServerPlayer *) const
     {
-        if (player->askForSkillInvoke(this)) {
-            room->broadcastSkillInvoke(objectName(), player);
-            return true;
+        int x = player->getMark("GlobalZaiqiCount");
+
+        QList<ServerPlayer *> targets, allplayers = room->getAlivePlayers();
+
+        foreach (ServerPlayer *p, allplayers) {
+            if (player->isFriendWith(p))
+                targets << p;
+        }
+
+        if (!targets.isEmpty()) {
+
+            QList<ServerPlayer *> choosees = room->askForPlayersChosen(player, targets, objectName(),
+                    0, x, "@zaiqi-target:::" + QString::number(x), true);
+
+            if (choosees.length() > 0) {
+                room->broadcastSkillInvoke(objectName(), player);
+                QStringList target_list = player->tag["zaiqi_target"].toStringList();
+                QStringList names;
+                foreach (ServerPlayer *p, choosees) {
+                    names << p->objectName();
+                }
+                target_list << names.join("+");
+                player->tag["zaiqi_target"] = target_list;
+
+                return true;
+            }
+
+
         }
 
         return false;
     }
 
-    virtual bool onPhaseChange(ServerPlayer *menghuo) const
+    virtual bool effect(TriggerEvent, Room *room, ServerPlayer *player, QVariant &, ServerPlayer *) const
     {
-        Room *room = menghuo->getRoom();
+        QStringList target_list = player->tag["zaiqi_target"].toStringList();
+        if (target_list.isEmpty()) return false;
+        QStringList target_names = target_list.takeLast().split("+");
+        player->tag["zaiqi_target"] = target_list;
 
-        int x = menghuo->getLostHp();
-        QList<int> ids = room->getNCards(x, false);
-        CardsMoveStruct move(ids, menghuo, Player::PlaceTable,
-            CardMoveReason(CardMoveReason::S_REASON_TURNOVER, menghuo->objectName(), "zaiqi", QString()));
-        room->moveCardsAtomic(move, true);
-
-        room->getThread()->delay();
-        room->getThread()->delay();
-
-        QList<int> card_to_throw;
-        QList<int> card_to_gotback;
-        for (int i = 0; i < x; i++) {
-            if (Sanguosha->getCard(ids[i])->getSuit() == Card::Heart)
-                card_to_throw << ids[i];
-            else
-                card_to_gotback << ids[i];
-        }
-        if (!card_to_throw.isEmpty()) {
-            DummyCard dummy(card_to_throw);
-
-            RecoverStruct recover;
-            recover.who = menghuo;
-            recover.recover = card_to_throw.length();
-            room->recover(menghuo, recover);
-
-            CardMoveReason reason(CardMoveReason::S_REASON_NATURAL_ENTER, menghuo->objectName(), "zaiqi", QString());
-            room->throwCard(&dummy, reason, NULL);
-        }
-        if (!card_to_gotback.isEmpty()) {
-            DummyCard dummy2(card_to_gotback);
-            CardMoveReason reason(CardMoveReason::S_REASON_GOTBACK, menghuo->objectName());
-            room->obtainCard(menghuo, &dummy2, reason);
+        QList<ServerPlayer *> targets;
+        foreach (QString name, target_names) {
+            ServerPlayer *target = room->findPlayerbyobjectName(name);
+            if (target)
+                targets << target;
         }
 
-        return true;
+        room->sortByActionOrder(targets);
+
+        foreach (ServerPlayer *p, targets) {
+            QStringList choices;
+            choices << "drawcard";
+            if (player->isAlive() && player->canRecover())
+                choices << "recover";
+
+            QString choice = room->askForChoice(p, "zaiqi", choices.join("+"), QVariant(),
+                    "@zaiqi-choice:"+player->objectName(), "drawcard+recover");
+
+            if (choice == "drawcard")
+                p->drawCards(1, objectName());
+            else {
+                RecoverStruct recover;
+                recover.who = p;
+                room->recover(player, recover);
+            }
+        }
+        return false;
     }
 };
 
@@ -1787,5 +1845,6 @@ void StandardPackage::addShuGenerals()
     addMetaObject<FangquanCard>();
     addMetaObject<ShowMashu>();
 
-    skills << new RendeSlash << new LongdanSlash << new LongdanJink << new LongdanDraw << new LiegongRange << new FangquanAsk;
+    skills << new RendeSlash << new WushengTargetMod << new LongdanSlash << new LongdanJink
+           << new LongdanDraw << new LiegongTargetMod << new LiegongRange << new FangquanAsk;
 }

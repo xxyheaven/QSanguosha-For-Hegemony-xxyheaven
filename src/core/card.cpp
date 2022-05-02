@@ -860,8 +860,9 @@ void Card::onUse(Room *room, const CardUseStruct &use) const
         }
     }
 
+    if (!hasFlag("slashDisableExtraTarget"))
+        thread->trigger(TargetSelected, room, player, data);
 
-    thread->trigger(TargetChoosing, room, player, data);
     thread->trigger(CardUsed, room, player, data);
     thread->trigger(CardFinished, room, player, data);
 
@@ -1198,6 +1199,7 @@ TransferCard::TransferCard()
 {
     will_throw = false;
     mute = true;
+    handling_method = Card::MethodNone;
 }
 
 bool TransferCard::targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const

@@ -129,11 +129,13 @@ miheng								8
 fengxi								7
 dengzhi								7
 xunchen								7
+yanghu								7
 beimihu								8
-caozhen								10
+caozhen								9
 liaohua								7
 zhugejin							7
-quancong							6
+quancong							0
+guohuai								7
 duyu								9
 
 

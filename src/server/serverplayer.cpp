@@ -75,7 +75,7 @@ void ServerPlayer::broadcastSkillInvoke(const Card *card) const
 
     QString skill_name = card->getSkillName();
     const Skill *skill = Sanguosha->getSkill(skill_name);
-    if (skill == NULL) {
+    if (skill == NULL || skill_name == "aozhan") {
         if (card->getCommonEffectName().isNull())
             broadcastSkillInvoke(card->objectName());
         else
@@ -1867,8 +1867,6 @@ void ServerPlayer::showGeneral(bool head_general, bool trigger_event, bool sendL
             room->setPlayerProperty(this, "role", role);
         }
     }
-
-    room->broadcastProperty(this, "kingdom");
 
     if (sendLog) {
         LogMessage log;

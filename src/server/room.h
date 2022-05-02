@@ -160,6 +160,7 @@ public:
     static void cancelTarget(CardUseStruct &use, ServerPlayer *player);
 
     QList<ServerPlayer *> getUseExtraTargets(CardUseStruct card_use, bool distance_limited = true);
+    QList<ServerPlayer *> getUseAliveTargets(CardUseStruct card_use);
 
     // Ask a player to send a server request and returns the client response. Call is blocking until client
     // replies or server times out, whichever is earlier.

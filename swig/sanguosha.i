@@ -135,6 +135,7 @@ public:
     void setMaxHp(int max_hp);
     int getLostHp() const;
     bool isWounded() const;
+    bool canRecover() const;
     General::Gender getGender() const;
     virtual void setGender(General::Gender gender);
     bool isMale() const;
@@ -498,8 +499,8 @@ public:
 
     void copyFrom(ServerPlayer *sp);
 
-    int getCardUsedTimes(const QString &pattern);
-    int getCardRespondedTimes(const QString &pattern);
+    int getCardUsedTimes(const char *pattern);
+    int getCardRespondedTimes(const char *pattern);
 
     // static function
     static bool CompareByActionOrder(ServerPlayer *a, ServerPlayer *b);

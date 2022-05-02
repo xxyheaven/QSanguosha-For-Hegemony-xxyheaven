@@ -627,7 +627,7 @@ void PlayerCardContainer::updateTip(const QString &pile_name, bool add_in)
         QFontMetrics fontMetrics(button->font());
         new_length = fontMetrics.width(text) + 4;
 
-        if (mark_name == "massacre") {
+        if (mark_name == "massacre" || mark_name == "money") {
 
             disconnect(button, &QPushButton::pressed, this, &PlayerCardContainer::showPile);
             connect(button, &QPushButton::pressed, this, &PlayerCardContainer::showPile);
@@ -670,6 +670,14 @@ void PlayerCardContainer::showPile()
         QList<int> card_ids = player->getPile(button->objectName());
         if (button->objectName() == "huashencard" && player == Self) RoomSceneInstance->showPile(card_ids, button->objectName(), player);
         if (button->objectName() == "massacre" && player == Self) RoomSceneInstance->showPile(card_ids, button->objectName(), player);
+        if (button->objectName() == "money" && !player->property("jiansu_record").isNull()) {
+            QStringList jiansu_ids = player->property("jiansu_record").toString().split("+");
+            QList<int> _ids;
+            foreach (QString card_data, jiansu_ids) {
+                _ids << card_data.toInt();
+            }
+            RoomSceneInstance->showPile(_ids, button->objectName(), player);
+        }
         if (card_ids.isEmpty() || card_ids.contains(-1)) return;
         RoomSceneInstance->showPile(card_ids, button->objectName(), player);
     }

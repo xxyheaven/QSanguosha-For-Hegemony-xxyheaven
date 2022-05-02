@@ -244,7 +244,11 @@ TransferSkill::TransferSkill()
 
 bool TransferSkill::viewFilter(const QList<const Card *> &selected, const Card *to_select) const
 {
-    return selected.length() < 3 && (to_select->isTransferable() && Self->getHandcards().contains(to_select));
+    QStringList hongyuan_ids;
+    if (!Self->property("view_as_transferable").isNull())
+        hongyuan_ids = Self->property("view_as_transferable").toString().split("+");
+    if (!to_select->isTransferable() && !hongyuan_ids.contains(QString::number(to_select->getEffectiveId()))) return false;
+    return selected.length() < 3 && Self->getHandcards().contains(to_select);
 }
 
 const Card *TransferSkill::viewAs(const QList<const Card *> &cards) const

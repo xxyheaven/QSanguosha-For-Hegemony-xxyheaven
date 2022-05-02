@@ -600,6 +600,7 @@ enum TriggerEvent
     PlayCard,
 
     PreCardUsed,
+    TargetSelected,
     CardUsed,
     TargetChoosing, //distinguish "choose target" and "confirm target"
     TargetConfirming,

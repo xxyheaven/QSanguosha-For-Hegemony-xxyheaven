@@ -17,7 +17,6 @@
 
     Mogara
     *********************************************************************/
-
 #ifndef _INDICATOR_ITEM_H
 #define _INDICATOR_ITEM_H
 
@@ -31,8 +30,7 @@ class IndicatorItem : public QGraphicsObject
     Q_PROPERTY(QPointF finish READ getFinish WRITE setFinish)
 
 public:
-    IndicatorItem(const QPointF &start, const QPointF &real_finish, Player *from);
-    void doAnimation();
+    IndicatorItem(const QPointF &start, const QPointF &real_finish, Player *from, int level);
 
     QPointF getFinish() const;
     void setFinish(const QPointF &finish);
@@ -41,8 +39,12 @@ public:
 
     virtual QRectF boundingRect() const;
 
+public slots:
+    void doAnimation();
+
 private:
     QPointF start, finish, real_finish;
+    int level;
     QColor color;
     qreal width;
 };

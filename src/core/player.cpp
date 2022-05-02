@@ -963,45 +963,26 @@ bool Player::canDiscard(const Player *to, const QString &flags) const
     static QChar equip_flag('e');
     static QChar judging_flag('j');
 
-    QList<int> card_ids;
-    if (to->hasEquip())
-        foreach (const Card *card, to->getEquips())
-            card_ids << card->getEffectiveId();
-    QList<int> card_ids_copy = card_ids;
-    foreach (int card_id, card_ids)
-        if (!canDiscard(to, card_id))
-            card_ids_copy.removeOne(card_id);
 
-    bool hand = true;
-    bool judge = true;
-    bool equip = true;
-
-    if (flags.contains(handcard_flag) && (Sanguosha->isCardFixed(this, to, "h", Card::MethodDiscard) || to->isKongcheng()))
-        hand = false;
-
-    if (flags.contains(judging_flag) && (Sanguosha->isCardFixed(this, to, "j", Card::MethodDiscard) || to->getJudgingArea().isEmpty()))
-        judge = false;
-
-    if (flags.contains(equip_flag) && (Sanguosha->isCardFixed(this, to, "e", Card::MethodDiscard) || card_ids_copy.isEmpty()))
-        equip = false;
-
-    if (flags.contains(handcard_flag))
-        if (hand)
-            return true;
-        else if (((flags.contains(judging_flag) && judge) || (flags.contains(equip_flag) && equip)))
-            return true;
-
-    if (flags.contains(judging_flag))
-        if (judge)
-            return true;
-        else if (((flags.contains(handcard_flag) && hand) || (flags.contains(equip_flag) && equip)))
-            return true;
-
-    if (flags.contains(equip_flag))
-        if (equip)
-            return true;
-        else if (((flags.contains(judging_flag) && judge) || (flags.contains(handcard_flag) && hand)))
-            return true;
+    if (flags.contains(handcard_flag) && !Sanguosha->isCardFixed(this, to, "h", Card::MethodDiscard) && !to->isKongcheng()) {
+        if (this != to) return true;
+        foreach (const Card *card, to->getHandcards()) {
+            if (canDiscard(to, card->getEffectiveId()))
+                return true;
+        }
+    }
+    if (flags.contains(equip_flag) && !Sanguosha->isCardFixed(this, to, "e", Card::MethodDiscard) && to->hasEquip()) {
+        foreach (const Card *card, to->getEquips()) {
+            if (canDiscard(to, card->getEffectiveId()))
+                return true;
+        }
+    }
+    if (flags.contains(judging_flag) && !Sanguosha->isCardFixed(this, to, "j", Card::MethodDiscard) && !to->getJudgingArea().isEmpty()) {
+        foreach (const Card *card, to->getJudgingArea()) {
+            if (canDiscard(to, card->getEffectiveId()))
+                return true;
+        }
+    }
 
     return false;
 }

@@ -806,8 +806,9 @@ public:
 
     virtual bool effect(TriggerEvent, Room *, ServerPlayer *sunshangxiang, QVariant &, ServerPlayer *) const
     {
-        sunshangxiang->drawCards(2);
-
+        int x = 1;
+        if (sunshangxiang->getPhase() == Player::NotActive) x = 3;
+        sunshangxiang->drawCards(x, objectName());
         return false;
     }
 };
@@ -819,8 +820,7 @@ Yinghun::Yinghun(const QString &owner) : PhaseChangeSkill("yinghun_" + owner)
 QStringList Yinghun::triggerable(TriggerEvent, Room *, ServerPlayer *target, QVariant &, ServerPlayer * &) const
 {
     return (PhaseChangeSkill::triggerable(target)
-        && target->getPhase() == Player::Start
-        && target->isWounded()) ? QStringList(objectName()) : QStringList();
+        && target->getPhase() == Player::Start) ? QStringList(objectName()) : QStringList();
 }
 
 bool Yinghun::cost(TriggerEvent, Room *room, ServerPlayer *player, QVariant &, ServerPlayer *) const
@@ -851,12 +851,12 @@ bool Yinghun::onPhaseChange(ServerPlayer *sunjian) const
                 "d1tx%log:" + QString::number(x) + "+dxt1%log:" + QString::number(x));
             to->setFlags("-YinghunTarget");
             if (choice.contains("d1tx")) {
-                room->broadcastSkillInvoke(objectName(), 2, sunjian);
+                room->broadcastSkillInvoke(objectName(), (x>1)?2:1, sunjian);
 
                 to->drawCards(1);
                 room->askForDiscard(to, objectName(), x, x, false, true);
             } else {
-                room->broadcastSkillInvoke(objectName(), 1, sunjian);
+                room->broadcastSkillInvoke(objectName(), (x>1)?1:2, sunjian);
 
                 to->drawCards(x);
                 room->askForDiscard(to, objectName(), 1, 1, false, true);
@@ -916,7 +916,8 @@ public:
 
     virtual QStringList triggerable(TriggerEvent, Room *, ServerPlayer *xiaoqiao, QVariant &, ServerPlayer* &) const
     {
-        if (TriggerSkill::triggerable(xiaoqiao) && !xiaoqiao->isKongcheng())
+        if (TriggerSkill::triggerable(xiaoqiao) && !xiaoqiao->isKongcheng() &&
+                !(xiaoqiao->hasFlag("tianxiang1used") && xiaoqiao->hasFlag("tianxiang2used")))
             return QStringList(objectName());
         return QStringList();
     }
@@ -934,27 +935,42 @@ public:
         QVariantList data_list = xiaoqiao->tag["tianxiangTag"].toList();
         if (data_list.isEmpty()) return false;
         QVariant tianxiang_data = data_list.takeLast();
+        xiaoqiao->tag["tianxiangTag"] = data_list;
         CardEffectStruct effect = tianxiang_data.value<CardEffectStruct>();
         ServerPlayer *target = effect.to;
         DamageStruct damage = data.value<DamageStruct>();
         const Card *card = Sanguosha->getCard(effect.card->getEffectiveId());
-        if (damage.from && damage.from->isAlive()) {
-            QStringList choices;
+
+        QStringList choices;
+
+        if (!xiaoqiao->hasFlag("tianxiang1used") && damage.from && damage.from->isAlive())
             choices << QString("damage%from:%1%to:%2").arg(damage.from->objectName()).arg(target->objectName());
+
+        if (!xiaoqiao->hasFlag("tianxiang2used"))
             choices << QString("losehp%to:%1%log:%2").arg(target->objectName()).arg(card->objectName());
-            if (room->askForChoice(xiaoqiao, objectName(), choices.join("+"), data).startsWith("damage")) {
+
+        if (choices.isEmpty()) {
+            room->setPlayerFlag(xiaoqiao, "tianxiang1used");
+        } else {
+            QString choice;
+            if (choices.length() == 1)
+                choice = choices.first();
+            else
+                choice = room->askForChoice(xiaoqiao, objectName(), choices.join("+"), data);
+            if (choice.startsWith("damage")) {
+                room->setPlayerFlag(xiaoqiao, "tianxiang1used");
                 room->damage(DamageStruct(objectName(), damage.from, target));
                 if (target->isAlive() && target->getLostHp() > 0)
                     target->drawCards(qMin(target->getLostHp(), 5), objectName());
-                return true;
+            } else if (choice.startsWith("losehp")) {
+                room->setPlayerFlag(xiaoqiao, "tianxiang2used");
+                room->loseHp(target);
+                int id = card->getEffectiveId();
+                Player::Place place = room->getCardPlace(id);
+                if (target->isAlive() && (place == Player::DiscardPile || place == Player::DrawPile))
+                    target->obtainCard(card);
             }
         }
-        room->loseHp(target);
-        int id = card->getEffectiveId();
-        Player::Place place = room->getCardPlace(id);
-        if (target->isAlive() && (place == Player::DiscardPile || place == Player::DrawPile))
-            target->obtainCard(card);
-
         return true;
     }
 };
@@ -992,10 +1008,6 @@ public:
         return changeToHeart(originalCard->getEffectiveId());
     }
 
-    virtual int getEffectIndex(const ServerPlayer *, const Card *) const
-    {
-        return -2;
-    }
 };
 
 class Hongyan : public TriggerSkill
@@ -1011,6 +1023,30 @@ public:
     virtual QStringList triggerable(TriggerEvent, Room *, ServerPlayer *, QVariant &, ServerPlayer * &) const
     {
         return QStringList();
+    }
+
+    virtual int getEffectIndex(const ServerPlayer *, const Card *) const
+    {
+        return -2;
+    }
+};
+
+class HongyanMaxCards : public MaxCardsSkill
+{
+public:
+    HongyanMaxCards() : MaxCardsSkill("#hongyan-maxcards")
+    {
+    }
+
+    virtual int getExtra(const Player *target) const
+    {
+        if (target->hasShownSkill("hongyan")) {
+            foreach (const Card *equip, target->getEquips()) {
+                if (equip->getSuit() == Card::Heart)
+                    return 1;
+            }
+        }
+        return 0;
     }
 };
 
@@ -1758,7 +1794,7 @@ class Duanbing : public TriggerSkill
 public:
     Duanbing() : TriggerSkill("duanbing")
     {
-        events << TargetChoosing;
+        events << TargetSelected;
     }
 
     virtual bool canPreshow() const
@@ -1928,6 +1964,8 @@ void StandardPackage::addWuGenerals()
     General *xiaoqiao = new General(this, "xiaoqiao", "wu", 3, false); // WU 011
     xiaoqiao->addSkill(new Tianxiang);
     xiaoqiao->addSkill(new Hongyan);
+    xiaoqiao->addSkill(new HongyanMaxCards);
+    insertRelatedSkills("hongyan", "#hongyan-maxcards");
 
     General *taishici = new General(this, "taishici", "wu"); // WU 012
     taishici->addSkill(new Tianyi);

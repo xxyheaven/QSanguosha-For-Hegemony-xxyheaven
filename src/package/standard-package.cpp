@@ -36,10 +36,14 @@ public:
     {
     }
 
-    virtual bool isProhibited(const Player *, const Player *to, const Card *card, const QList<const Player *> &) const
+    virtual bool isProhibited(const Player *from, const Player *to, const Card *card, const QList<const Player *> &) const
     {
-        if (to->isRemoved() && card->getTypeId() != Card::TypeSkill) return true;
-        if (card->isKindOf("DelayedTrick") && to->containsTrick(card->objectName())) return true;
+        if (card->getTypeId() != Card::TypeSkill) {
+            if (to->isRemoved()) return true;
+            if (from && from->hasFlag("DisabledTargetOthers") && to != from) return true;
+            if (card->isKindOf("DelayedTrick") && to->containsTrick(card->objectName())) return true;
+        }
+
         return false;
     }
 };
@@ -109,6 +113,13 @@ public:
                             room->addPlayerMark(player, "GlobalLoseCardCount");
                         }
                     }
+                }
+                if (player->getPhase() != Player::NotActive && move.to_place == Player::DiscardPile) {
+                    foreach (int id, move.card_ids) {
+                        if (Sanguosha->getCard(id)->isRed())
+                            room->addPlayerMark(player, "GlobalZaiqiCount");
+                    }
+
                 }
             }
 
@@ -330,6 +341,8 @@ public:
                     room->setPlayerMark(p, "Global_InjuredPiont_Round", 0);
 
                     room->setPlayerMark(p, "AnalepticUsedTimes", 0);
+
+                    room->setPlayerMark(p, "GlobalZaiqiCount", 0);
 
 
                 }

@@ -401,6 +401,7 @@ void Room::killPlayer(ServerPlayer *victim, DamageStruct *reason)
 
     broadcastProperty(victim, "alive");
     broadcastProperty(victim, "role");
+    setPlayerProperty(victim, "hp", 0);
 
     doBroadcastNotify(S_COMMAND_KILL_PLAYER, victim->objectName());
 
@@ -5739,7 +5740,7 @@ void Room::doAnimate(QSanProtocol::AnimateType type, const QString &arg1, const 
 
 void Room::doBattleArrayAnimate(ServerPlayer *player, ServerPlayer *target)
 {
-    if  (getAlivePlayers().length() < 4) return;
+    if  (m_alivePlayers.length() < 4) return;
     if (!target) {
         QStringList names;
         foreach (const Player *p, player->getFormation())
@@ -7903,5 +7904,15 @@ QList<ServerPlayer *> Room::getUseExtraTargets(CardUseStruct card_use, bool dist
     if (clear_flag)
         setCardFlag(use.card, "-Global_NoDistanceChecking");
 
+    return targets;
+}
+
+QList<ServerPlayer *> Room::getUseAliveTargets(CardUseStruct card_use)
+{
+    QList<ServerPlayer *> targets;
+    foreach (ServerPlayer *p, m_alivePlayers) {
+        if (!targets.contains(p) && card_use.to.contains(p))
+            targets << p;
+    }
     return targets;
 }

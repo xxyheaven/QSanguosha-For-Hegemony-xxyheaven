@@ -461,8 +461,7 @@ void Dashboard::_addHandCard(CardItem *card_item, int index, const QString &foot
     card_item->setOuterGlowEffectEnabled(true);
 
     //Make sure that the card is a handcard.
-    if (Self->getHandcards().contains(card_item->getCard())
-        && card_item->getCard()->isTransferable()) {
+    if (Self->getHandcards().contains(card_item->getCard())) {
         card_item->setTransferable(true);
         if (card_item->getTransferButton() && !_transferButtons.contains(card_item->getTransferButton()))
             _transferButtons << card_item->getTransferButton();
@@ -1186,7 +1185,7 @@ QList<CardItem *> Dashboard::removeHandCards(const QList<int> &card_ids)
             card_item->hideFrame();
             card_item->disconnect(this);
             card_item->setOuterGlowEffectEnabled(false);
-            if (card_item->getCard()->isTransferable()) {
+            if (card_item->getTransferButton()) {
                 card_item->setTransferable(false);
                 _transferButtons.removeOne(card_item->getTransferButton());
             }

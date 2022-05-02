@@ -989,6 +989,8 @@ public:
         slash->addSubcard(originalCard->getId());
         slash->setSkillName(objectName());
         slash->setShowSkill(objectName());
+        if (slash->getSuit() == Card::Diamond)
+            slash->setFlags("Global_NoDistanceChecking");
         return slash;
     }
 };
@@ -1114,11 +1116,10 @@ public:
     virtual QStringList triggerable(TriggerEvent, Room *, ServerPlayer *player, QVariant &data, ServerPlayer* &) const
     {
         CardUseStruct use = data.value<CardUseStruct>();
-        if (TriggerSkill::triggerable(player) && player->getPhase() == Player::Play && use.card != NULL && use.card->isKindOf("Slash")) {
+        if (TriggerSkill::triggerable(player) && use.card != NULL && use.card->isKindOf("Slash")) {
             QStringList targets;
             foreach (ServerPlayer *to, use.to) {
-                int handcard_num = to->getHandcardNum();
-                if (handcard_num >= player->getHp() || handcard_num <= player->getAttackRange())
+                if (to->getHp() >= player->getHp())
                     targets << to->objectName();
             }
             if (!targets.isEmpty())
@@ -1136,14 +1137,19 @@ public:
         return false;
     }
 
-    virtual bool effect(TriggerEvent, Room *, ServerPlayer *target, QVariant &data, ServerPlayer *huangzhong) const
+    virtual bool effect(TriggerEvent, Room *room, ServerPlayer *target, QVariant &data, ServerPlayer *huangzhong) const
     {
         CardUseStruct use = data.value<CardUseStruct>();
-        QVariantList jink_list = huangzhong->tag["Jink_" + use.card->toString()].toList();
-
-        doLiegong(target, use, jink_list);
-
-        huangzhong->tag["Jink_" + use.card->toString()] = jink_list;
+        QString choice = room->askForChoice(huangzhong, objectName(), "nojink+adddamage", data, "@liegong-choice::"+ target->objectName());
+        if (choice == "nojink") {
+            QVariantList jink_list = huangzhong->tag["Jink_" + use.card->toString()].toList();
+            doLiegong(target, use, jink_list);
+            huangzhong->tag["Jink_" + use.card->toString()] = jink_list;
+        } else if (choice == "adddamage") {
+            QStringList AddDamage_List = use.card->tag["AddDamage_List"].toStringList();
+            AddDamage_List << target->objectName();
+            use.card->setTag("AddDamage_List", AddDamage_List);
+        }
         return false;
     }
 

@@ -143,7 +143,8 @@ void ArcheryAttack::onEffect(const CardEffectStruct &effect) const
     room->setEmotion(effect.from, "archery_attack");
 
     bool damage = true;
-    if (!tag["NoResponse"].toStringList().contains(effect.to->objectName()) && !tag["NoResponse"].toStringList().contains("_ALL_PLAYERS")) {
+    if (!tag["NoResponse"].toStringList().contains(effect.to->objectName()) && !tag["NoResponse"].toStringList().contains("_ALL_PLAYERS")
+            && !tag["EffectNoResponse"].toStringList().contains(effect.to->objectName()) && !tag["EffectNoResponse"].toStringList().contains("_ALL_PLAYERS")) {
 
         if (room->askForCard(effect.to,
             "jink",
@@ -329,10 +330,13 @@ void Duel::onEffect(const CardEffectStruct &effect) const
     room->setEmotion(first, "duel");
     room->setEmotion(second, "duel");
 
+    QStringList wushuang1_list = this->tag["Wushuang1_List"].toStringList();
+    QStringList wushuang2_list = this->tag["Wushuang2_List"].toStringList();
+
     forever{
         if (!first->isAlive() || tag["NoResponse"].toStringList().contains(first->objectName()) || tag["NoResponse"].toStringList().contains("_ALL_PLAYERS"))
         break;
-        if (second->getMark("WushuangTarget") > 0) {
+        if (wushuang1_list.contains(first->objectName()) || wushuang2_list.contains(second->objectName())) {
             const Card *slash = room->askForCard(first,
                 "slash",
                 "@wushuang-slash-1:" + second->objectName(),
@@ -362,9 +366,6 @@ void Duel::onEffect(const CardEffectStruct &effect) const
 
         qSwap(first, second);
     }
-
-    room->setPlayerMark(first, "WushuangTarget", 0);
-    room->setPlayerMark(second, "WushuangTarget", 0);
 
     DamageStruct damage(this, second->isAlive() ? second : NULL, first);
     if (second != effect.from)

@@ -517,6 +517,7 @@ bool GameRule::effect(TriggerEvent triggerEvent, Room *room, ServerPlayer *playe
             QList<ServerPlayer *> targets = card_use.to;
 
             if (card_use.from && !targets.isEmpty()) {
+                thread->trigger(TargetChoosing, room, card_use.from, data);
                 QList<ServerPlayer *> targets_copy = targets;
                 foreach (ServerPlayer *to, targets_copy) {
                     if (targets.contains(to)) {
@@ -797,6 +798,10 @@ bool GameRule::effect(TriggerEvent triggerEvent, Room *room, ServerPlayer *playe
     case SlashHit: {
         SlashEffectStruct effect = data.value<SlashEffectStruct>();
         int x = effect.slash->tag["addcardinality"].toInt() + effect.drank + 1;
+        QStringList AddDamage_List = effect.slash->tag["AddDamage_List"].toStringList();
+        foreach (QString name, AddDamage_List) {
+            if (name == effect.to->objectName()) x++;
+        }
         room->damage(DamageStruct(effect.slash, effect.from, effect.to, x, effect.nature));
 
         break;
@@ -844,8 +849,8 @@ bool GameRule::effect(TriggerEvent triggerEvent, Room *room, ServerPlayer *playe
                     if (p->hasShownOneGeneral()) {
                         room->setPlayerProperty(p, "role", "careerist");
                     } else {
-                        p->setRole("careerist");
-                        room->notifyProperty(p, p, "role");
+                        //p->setRole("careerist");
+                        room->notifyProperty(p, p, "role", "careerist");
                     }
                 }
             }

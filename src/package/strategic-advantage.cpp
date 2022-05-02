@@ -133,7 +133,7 @@ class HalberdSkill : public WeaponSkill
 public:
     HalberdSkill() : WeaponSkill("Halberd")
     {
-        events << TargetChoosing;
+        events << TargetSelected;
         view_as_skill = new HalberdViewAsSkill;
     }
 
