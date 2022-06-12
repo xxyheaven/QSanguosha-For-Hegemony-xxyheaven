@@ -698,7 +698,6 @@ function SmartAI:getValuableCardForGuanxing(cards, up_cards)
 					hit_num = hit_num + 1
 					if getCardsNum("Jink", enemy, self.player) < 1
 						or enemy:isKongcheng()
-						or self:canLiegong(enemy, self.player)
 						or self.player:hasShownSkills(sgs.force_slash_skill)
 						or (self.player:hasWeapon("Axe") or self:getCardsNum("Axe") > 0) and self.player:getCardCount(true) > 4
 						then

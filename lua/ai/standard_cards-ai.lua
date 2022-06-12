@@ -108,9 +108,8 @@ function sgs.getDefenseSlash(player, self)
 
 	defense = defense + knownJink * 1.2
 
-	if attacker:canSlashWithoutCrossbow() and attacker:getPhase() == sgs.Player_Play then
-		local hcard = player:getHandcardNum()
-		if attacker:hasShownSkills("liegong|liegong_xh") and (hcard >= attacker:getHp() or hcard <= attacker:getAttackRange()) then defense = 0 end
+	if self:canLiegong(player, attacker) then
+		defense = 0
 	end
 
 	local niaoxiang_BA = false
@@ -149,7 +148,7 @@ function sgs.getDefenseSlash(player, self)
 	end
 
 	if attacker:hasWeapon("DragonPhoenix") or attacker:hasSkills("tieqi|tieqi_xh") then
-		if player:getCardCount(true) == 1 then
+		if player:getCardCount(true) <= 1 then
 			defense = 0
 		elseif player:getCardCount(true) <= 3 then
 			defense = defense - 1
@@ -219,7 +218,7 @@ function sgs.getDefenseSlash(player, self)
 		end
 		return true
 	end
-	if player:getHandcardNum() == 0 and player:getHandPile():isEmpty() and not player:hasShownSkills("kongcheng") then
+	if player:isKongcheng() and player:getHandPile():isEmpty() and not player:hasShownSkills("kongcheng") then
 		if player:getHp() <= 1 then defense = defense - 2.5 end
 		if player:getHp() == 2 then defense = defense - 1.5 end
 		if not hasEightDiagram then defense = defense - 2 end
@@ -287,9 +286,9 @@ function sgs.getDefenseSlash(player, self)
 		local priority = sgs.priority_skill:split("|")
 		for _, skill in ipairs(priority) do
 			if player:hasShownSkill(skill) then
-				defense = defense - 1
+				defense = defense - 0.6
 			elseif sgs.hasNullSkill(skill, player) then
-				defense = defense - 2
+				defense = defense - 1
 			end
 		end
 
@@ -386,7 +385,7 @@ function SmartAI:slashIsEffective(slash, to, from, ignore_armor)
 		if to:hasArmorEffect("RenwangShield") and slash:isBlack() then
 			if (from:hasWeapon("DragonPhoenix") or from:hasWeapon("DoubleSword") and (from:isMale() and to:isFemale() or from:isFemale() or to:isMale()))
 				and (to:getCardCount(true) == 1 or #self:getEnemies(from) == 1) then
-			elseif from:hasShownSkill("jianchu") then
+			elseif from:hasShownSkill("jianchu") or (from:hasShownSkill("kuangfu") and not from:hasFlag("kuangfuUsed")) then--需要配合单独判断弃防具
 				return true
 			else
 				return false
@@ -396,7 +395,7 @@ function SmartAI:slashIsEffective(slash, to, from, ignore_armor)
 		if to:hasArmorEffect("Vine") and not slash:isKindOf("NatureSlash") then
 			if (from:hasWeapon("DragonPhoenix") or from:hasWeapon("DoubleSword") and (from:isMale() and to:isFemale() or from:isFemale() or to:isMale()))
 				and (to:getCardCount(true) == 1 or #self:getEnemies(from) == 1) then
-			elseif from:hasShownSkill("jianchu") then
+			elseif from:hasShownSkill("jianchu") or (from:hasShownSkill("kuangfu") and not from:hasFlag("kuangfuUsed")) then
 				return true
 			else
 				local skill_name = slash:getSkillName() or ""
@@ -514,19 +513,16 @@ function SmartAI:useCardSlash(card, use)
 	end
 
 	local function canAppendTarget(target)
-	--[[旧技能
-		if not self:isWeak(target) and self:hasKnownSkill("keji") and not self.player:hasFlag("KejiSlashInPlayPhase") and self:getOverflow() > 2
-			and self:getCardsNum("Crossbow", "he") == 0 then return end
-		if self.player:hasSkill("qingnang") and not self.player:hasUsed("QingnangCard") and self:isWeak() and self.player:getHandcardNum() <= 2
-			and (target:getHp() > 1 or getCardsNum("Peach", target, self.player) + getCardsNum("Peach", target, self.player) > 0) then return end]]
 		if self.player:hasSkill("paoxiao") then--咆哮屯杀
 			local enough_pxslash = false
 			if self:getCardsNum("Slash") > 0 then
 			  local yongjue_slash = 0
-			  for _, p in ipairs(self.friends) do
-				if p:hasShownSkill("yongjue") and self.player:isFriendWith(p) and self.player:getSlashCount() == 0 then
-				  yongjue_slash = 1
-				  break
+			  if self.player:getMark("GlobalPlayCardUsedTimes") == 0 then
+				for _, p in ipairs(self.friends) do
+					if p:hasShownSkill("yongjue") and self.player:isFriendWith(p) then--self.player:getSlashCount() == 0
+					yongjue_slash = 1
+					break
+					end
 				end
 			  end
 			  if yongjue_slash + self.player:getSlashCount() + self:getCardsNum("Slash") >= 2 then
@@ -534,7 +530,7 @@ function SmartAI:useCardSlash(card, use)
 			  end
 			end
 			if not enough_pxslash and self:getOverflow() <= 0 and not (target:getHp() == 1 and self:isWeak(target))
-			and not (self.player:hasSkill("jili") and self.player:getMark("jili") + 1 == self.player:getAttackRange()) then
+			and not (self.player:hasSkill("jili") and self.player:getCardUsedTimes(".") + self.player:getCardRespondedTimes(".") + 1 == self.player:getAttackRange()) then
 				self.room:writeToConsole("咆哮屯杀")
 				return false
 			end
@@ -909,7 +905,7 @@ sgs.ai_skill_cardask["slash-jink"] = function(self, data, pattern, target)
 
 		if self.player:getHandcardNum() == 1 and self:needKongcheng() then return getJink() end
 		if not self:hasLoseHandcardEffective() and not self.player:isKongcheng() then return getJink() end
-		if target:hasShownSkill("mengjin") then
+		--[[if target:hasShownSkill("mengjin") then
 			if self:doNotDiscard(self.player, "he", true) then return getJink() end
 			if self.player:getCardCount(true) == 1 and not self.player:getArmor() then return getJink() end
 			if self.player:hasSkills("jijiu|qingnang") and self.player:getCardCount(true) > 1 then return "." end
@@ -917,7 +913,7 @@ sgs.ai_skill_cardask["slash-jink"] = function(self, data, pattern, target)
 				and not self.player:hasSkill("tuntian") and not self:willSkipPlayPhase() then
 				return "."
 			end
-		end
+		end]]
 		if target:hasWeapon("Axe") then
 			if target:hasShownSkills(sgs.lose_equip_skill) and target:getEquips():length() > 1 and target:getCardCount(true) > 2 then return not isdummy and "." end
 			if target:getHandcardNum() - target:getHp() > 2 and not self:isWeak() and self:getOverflow() <= 0 then return not isdummy and "." end
@@ -977,7 +973,7 @@ function SmartAI:canHit(to, from, conservative)
 end
 
 function SmartAI:useCardPeach(card, use)
-	if not self.player:isWounded() then return end
+	if not self.player:canRecover() then return end
 
 	local mustusepeach = false
 	local peaches = 0
@@ -1034,7 +1030,8 @@ function SmartAI:useCardPeach(card, use)
 		use.card = card
 		return
 	end
-	if not mustusepeach and not overflow and self.player:hasSkills("hunshang|yinghun_sunjian") then
+	if not mustusepeach and not overflow and (self.player:hasSkill("hunshang")
+			or (self.player:hasSkill("yinghun_sunjian") and self.player:getHp() + 1 < self.player:getMaxHp())) then
 		return
 	end
 
@@ -1211,7 +1208,7 @@ end
 function sgs.ai_slash_weaponfilter.QinggangSword(self, enemy, player)
 	if player:distanceTo(enemy) > math.max(sgs.weapon_range.QinggangSword, player:getAttackRange()) then return end
 	if enemy:getArmor() and enemy:hasArmorEffect(enemy:getArmor():objectName())
-		and (sgs.card_lack[enemy:objectName()] == 1 or getCardsNum("Jink", enemy, self.player) < 1) then
+		and (sgs.card_lack[enemy:objectName()]["Jink"] == 1 or getCardsNum("Jink", enemy, self.player) < 1) then
 		return true
 	end
 end
@@ -1232,7 +1229,6 @@ sgs.ai_skill_invoke.IceSword = function(self, data)
 		if damage.damage > 1 or self:hasHeavySlashDamage(self.player, damage.card, target) then return false end
 		if target:hasShownSkill("lirang") and #self:getFriendsNoself(target) > 0 then return false end
 		if target:getArmor() and self:evaluateArmor(target:getArmor(), target) > 3 and not (target:hasArmorEffect("SilverLion") and target:isWounded()) then return true end
-		local num = target:getHandcardNum()
 		if self.player:hasSkill("tieqi") or self:canLiegong(target, self.player) then return false end
 		if target:hasShownSkill("tuntian") and target:getPhase() == sgs.Player_NotActive then return false end
 		if target:hasShownSkills(sgs.need_kongcheng) then return false end
@@ -1243,7 +1239,7 @@ end
 
 function sgs.ai_slash_weaponfilter.IceSword(self, to, player)
 	return player:distanceTo(to) <= math.max(sgs.weapon_range.IceSword, player:getAttackRange())
-		and player:getMark("GlobalBattleRoyalMode") > 0 and to:hasShownSkill("tianxiang")
+		and to:hasShownSkill("tianxiang") and player:getMark("GlobalBattleRoyalMode") > 0
 end
 
 function sgs.ai_weapon_value.IceSword(self, enemy, player)
@@ -1560,6 +1556,7 @@ end
 
 function sgs.ai_slash_weaponfilter.Fan(self, to, player)
 	return player:distanceTo(to) <= math.max(sgs.weapon_range.Fan, player:getAttackRange())
+		and (sgs.card_lack[to:objectName()]["Jink"] == 1 or getCardsNum("Jink", to, self.player) < 1)
 		and to:hasArmorEffect("Vine")
 end
 
@@ -1574,11 +1571,12 @@ end
 
 function sgs.ai_slash_weaponfilter.KylinBow(self, to, player)
 	return player:distanceTo(to) <= math.max(sgs.weapon_range.KylinBow, player:getAttackRange())
+		and (sgs.card_lack[to:objectName()]["Jink"] == 1 or getCardsNum("Jink", to, self.player) < 1)
 		and (to:getDefensiveHorse() or to:getOffensiveHorse())
 end
 
 function sgs.ai_weapon_value.KylinBow(self, enemy,player)
-	if player:hasShownSkills("liegong|liegong_xh") then return 3.5 end
+	--if player:hasShownSkills("liegong|liegong_xh") then return 3.5 end
 	if enemy and (enemy:getOffensiveHorse() or enemy:getDefensiveHorse()) then return 1.5 end
 end
 
@@ -1933,7 +1931,7 @@ function SmartAI:useCardAmazingGrace(card, use)
 	use.card = card
 end
 
-sgs.ai_use_value.AmazingGrace = 3
+sgs.ai_use_value.AmazingGrace = 2
 sgs.ai_keep_value.AmazingGrace = -1
 sgs.ai_use_priority.AmazingGrace = 1.2
 sgs.dynamic_value.benefit.AmazingGrace = true
@@ -1963,7 +1961,7 @@ function SmartAI:willUseGodSalvation(card)
 			good = good + 10 * getCardsNum("Nullification", friend, self.player)
 		end
 		if self:trickIsEffective(card, friend, self.player) then
-			if friend:isWounded() then
+			if friend:canRecover() then
 				wounded_friend = wounded_friend + 1
 				good = good + 10
 				if friend:isLord() then good = good + 10 / math.max(friend:getHp(), 1) end
@@ -1989,7 +1987,7 @@ function SmartAI:willUseGodSalvation(card)
 			bad = bad + 10 * getCardsNum("Nullification", enemy, self.player)
 		end
 		if self:trickIsEffective(card, enemy, self.player) then
-			if enemy:isWounded() then
+			if enemy:canRecover() then
 				wounded_enemy = wounded_enemy + 1
 				bad = bad + 10
 				if enemy:isLord() then
@@ -2017,6 +2015,7 @@ function SmartAI:useCardGodSalvation(card, use)
 	end
 end
 
+sgs.ai_use_value.GodSalvation = 2
 sgs.ai_use_priority.GodSalvation = 1.1
 sgs.ai_keep_value.GodSalvation = 3.30
 sgs.dynamic_value.benefit.GodSalvation = true
@@ -2266,9 +2265,9 @@ function SmartAI:getDangerousCard(who)
 		return armor:getEffectiveId()
 	end
 
-	if weapon and who:hasShownSkill("liegong") and sgs.weapon_range[weapon:getClassName()] >= 3 then
+	--[[if weapon and who:hasShownSkill("liegong") and sgs.weapon_range[weapon:getClassName()] >= 3 then
 		return weapon:getEffectiveId()
-	end
+	end]]
 
 	if weapon and self:isEnemy(who) then
 		for _, friend in ipairs(self.friends) do
@@ -2520,7 +2519,7 @@ function SmartAI:useCardSnatchOrDismantlement(card, use)
 
 	for _, enemy in ipairs(enemies) do
 		if not enemy:isNude() then
-			if enemy:hasShownSkills("jijiu|qingnang|jieyin") then
+			if enemy:hasShownSkills("jijiu|jieyin") then
 				local cardchosen
 				local equips = { enemy:getDefensiveHorse(), enemy:getArmor(), enemy:getOffensiveHorse(), enemy:getWeapon(),enemy:getTreasure()}
 				for _, equip in ipairs(equips) do
@@ -3126,8 +3125,8 @@ end
 
 sgs.ai_use_priority.Lightning = 0
 sgs.dynamic_value.lucky_chance.Lightning = true
-
-sgs.ai_keep_value.Lightning = -1
+sgs.ai_use_value.Lightning = 0
+sgs.ai_keep_value.Lightning = -2
 
 sgs.ai_skill_askforag.amazing_grace = function(self, card_ids)--更新火烧等重要卡牌
 
@@ -3541,11 +3540,10 @@ end
 function SmartAI:useCardAwaitExhausted(AwaitExhausted, use)
 	if not AwaitExhausted:isAvailable(self.player) then return end
 	use.card = AwaitExhausted
-	return
 end
 sgs.ai_use_priority.AwaitExhausted = 2.8
 sgs.ai_use_value.AwaitExhausted = 4.9
-sgs.ai_keep_value.AwaitExhausted = 1
+sgs.ai_keep_value.AwaitExhausted = 3.22
 
 sgs.ai_card_intention.AwaitExhausted = function(self, card, from, tos)
 	for _, to in ipairs(tos) do
@@ -3783,7 +3781,7 @@ sgs.ai_skill_use["@@Triblade"] = function(self, prompt)
 end
 function sgs.ai_slash_weaponfilter.Triblade(self, to, player)
 	if player:distanceTo(to) > math.max(sgs.weapon_range.Triblade, player:getAttackRange()) then return end
-	return sgs.card_lack[to:objectName()]["Jink"] == 1 or getCardsNum("Jink", to, self.player) == 0
+	return sgs.card_lack[to:objectName()]["Jink"] == 1 or getCardsNum("Jink", to, self.player) < 1
 end
 function sgs.ai_weapon_value.Triblade(self, enemy, player)
 	if not enemy or #self:getEnemies(player) == 1 then return 1 end
@@ -3794,6 +3792,7 @@ sgs.ai_use_priority.Triblade = 2.673
 
 function sgs.ai_slash_weaponfilter.SixSwords(self, to, player)
 	return player:distanceTo(to) <= math.max(sgs.weapon_range.SixSwords, player:getAttackRange())
+		and (sgs.card_lack[to:objectName()]["Jink"] == 1 or getCardsNum("Jink", to, self.player) < 1)
 end
 
 function sgs.ai_weapon_value.SixSwords(self, enemy, player)

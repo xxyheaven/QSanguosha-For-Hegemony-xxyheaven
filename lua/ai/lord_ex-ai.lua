@@ -22,6 +22,9 @@
 --孟达
 sgs.ai_skill_invoke.qiuan = function(self, data)
 	local damage = data:toDamage()
+  if damage.damage > 1 then
+    return true
+  end
   if damage.card:isKindOf("AOE") then--优先于奸雄
     if self.get_AOE_subcard then
       self.get_AOE_subcard = nil
@@ -469,7 +472,7 @@ local quanjin_skill = {}
 quanjin_skill.name = "quanjin"
 table.insert(sgs.ai_skills, quanjin_skill)
 quanjin_skill.getTurnUseCard = function(self, inclusive)
-  if self.player:getHandcardNum() == 0 then return end
+  if self.player:isKongcheng() then return end
   if not self.player:hasUsed("QuanjinCard") then
     local can_quanjin = false
     for _, p in sgs.qlist(self.room:getAlivePlayers()) do
@@ -641,7 +644,7 @@ local zaoyun_skill = {}
 zaoyun_skill.name = "zaoyun"
 table.insert(sgs.ai_skills, zaoyun_skill)
 zaoyun_skill.getTurnUseCard = function(self, inclusive)
-  if self.player:getHandcardNum() == 0 then return end
+  if self.player:isKongcheng() then return end
   if not self.player:hasUsed("ZaoyunCard") and self.player:hasShownOneGeneral() then
     --self.player:speak("zaoyun技能卡:"..self.player:objectName())
     return sgs.Card_Parse("@ZaoyunCard=.&zaoyun")
@@ -899,7 +902,7 @@ sgs.ai_skill_invoke.jilix = function(self, data)
     return true
   else
     local prompt_list = prompt:split(":")
-    if prompt_list[2] == self.player:objectName() or prompt_list[4]:match("Peach") or prompt_list[4]:match("BefriendAttacking") then
+    if prompt_list[2] == self.player:objectName() or prompt_list[4]:match("peach") or prompt_list[4]:match("befriend_attacking") then
       return true
     end
   end
@@ -908,7 +911,7 @@ end
 
 --钟会
 sgs.ai_skill_invoke.quanji = function(self, data)
-	if not self:willShowForMasochism() or not self:willShowForAttack() then
+	if not self:willShowForMasochism() and not self:willShowForAttack() then
     return false
   end
 	return true
@@ -2288,7 +2291,7 @@ qingyin_skill.getTurnUseCard = function(self)
   --Global_room:writeToConsole("进入刘巴技能:" .. self.player:objectName())
   local count = 0
 	for _, friend in ipairs(self.friends) do
-		if self.player:isFriendWith(friend) and not friend:isRemoved()--有canRecover函数就好了
+		if self.player:isFriendWith(friend) and friend:canRecover()
     and (friend:getHp() <= 1 or (friend:getHp() <= 2 and friend:getHandcardNum() < 2) or friend:getLostHp() > 2) then
       count = count + 1
 		end

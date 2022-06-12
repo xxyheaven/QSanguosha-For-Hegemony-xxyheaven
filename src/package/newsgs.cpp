@@ -274,7 +274,7 @@ public:
 
         if (choice == "nullified") {
             LogMessage log;
-            log.type = "#ZhiweiChoice1";
+            log.type = "#ZhenteChoice1";
             log.from = use.from;
             log.to << player;
             log.arg = use.card->objectName();
@@ -285,7 +285,7 @@ public:
         } else if (choice == "cardlimited")  {
 
             LogMessage log;
-            log.type = "#ZhiweiChoice2";
+            log.type = "#ZhenteChoice2";
             log.from = use.from;
 
             room->sendLog(log);
@@ -303,7 +303,7 @@ class Zhiwei : public TriggerSkill
 public:
     Zhiwei() : TriggerSkill("zhiwei")
     {
-        events << GeneralShown << GeneralHidden << GeneralRemoved;
+        events << GeneralShown << GeneralHidden << GeneralRemoved << Death;
     }
 
     virtual bool canPreshow() const
@@ -313,13 +313,10 @@ public:
 
     virtual void record(TriggerEvent triggerEvent, Room *room, ServerPlayer *player, QVariant &data) const
     {
-
          if ((triggerEvent == GeneralHidden && player->ownSkill(this) && player->inHeadSkills(objectName()) == data.toBool())
                 || (triggerEvent == GeneralRemoved && data.toString() == "luyusheng")) {
-
              ServerPlayer *AssistTarget = player->tag["ZhiweiTarget"].value<ServerPlayer *>();
              player->tag.remove("ZhiweiTarget");
-
              if (AssistTarget) {
                  LogMessage log;
                  log.type = "#ZhiweiFinsh";
@@ -327,7 +324,23 @@ public:
                  log.to << AssistTarget;
                  log.arg = objectName();
                  room->sendLog(log);
-                 room->removePlayerMark(AssistTarget, "@zhiwei");
+                 room->removePlayerMark(AssistTarget, "##zhiwei");
+             }
+         }
+         if (triggerEvent == Death) {
+             QList<ServerPlayer *> allplayers = room->getAlivePlayers();
+             foreach (ServerPlayer *p, allplayers) {
+                 if (p->getMark("##zhiwei") > 0) {
+                     bool clearflag = true;
+                     foreach (ServerPlayer *p2, allplayers) {
+                         ServerPlayer *AssistTarget = p2->tag["ZhiweiTarget"].value<ServerPlayer *>();
+                         if (AssistTarget == p) {
+                             clearflag = false;
+                         }
+                     }
+                     if (clearflag)
+                         room->setPlayerMark(p, "##zhiwei", 0);
+                 }
              }
          }
 
@@ -372,9 +385,7 @@ public:
 
         if (to) {
             player->tag["ZhiweiTarget"] = QVariant::fromValue(to);
-            room->addPlayerMark(to, "@zhiwei");
-
-
+            room->addPlayerMark(to, "##zhiwei");
         }
 
         return false;
@@ -823,7 +834,8 @@ public:
 
     virtual QStringList triggerable(TriggerEvent, Room *, ServerPlayer *player, QVariant &data, ServerPlayer* &) const
     {
-        if (!TriggerSkill::triggerable(player) || !player->hasShownOneGeneral() || player->getHp() < 1) return QStringList();
+        if (!TriggerSkill::triggerable(player) || !player->hasShownOneGeneral()
+                || player->getHp() < 1 || player->hasFlag("yusuiUsed")) return QStringList();
         CardUseStruct use = data.value<CardUseStruct>();
         if (use.card->getTypeId() != Card::TypeSkill && use.card->isBlack() && use.to.contains(player)
                 && (use.from && use.from->hasShownOneGeneral() && !use.from->isFriendWith(player) && use.from->isAlive()))
@@ -836,6 +848,7 @@ public:
         CardUseStruct use = data.value<CardUseStruct>();
         if (player->askForSkillInvoke(this, QVariant::fromValue(use.from))) {
             room->broadcastSkillInvoke(objectName(), player);
+            room->setPlayerFlag(player, "yusuiUsed");
             room->doAnimate(QSanProtocol::S_ANIMATE_INDICATE, player->objectName(), use.from->objectName());
             return true;
         }
@@ -848,15 +861,11 @@ public:
         CardUseStruct use = data.value<CardUseStruct>();
         ServerPlayer *target = use.from;
         room->loseHp(player);
-
         if (target == NULL || target->isDead() || player->isDead()) return false;
-
         QStringList choices;
         if (target->getHp() > player->getHp()) choices << "losehp";
         if (!target->isNude()) choices << "discard";
-
         if (choices.isEmpty()) return false;
-
 
         QString choice =room->askForChoice(player, objectName(), choices.join("+"), data, "@yusui-choice::"+target->objectName(), "losehp+discard");
 
@@ -864,6 +873,7 @@ public:
             room->loseHp(target, target->getHp() - player->getHp());
         else if (choice == "discard")
             room->askForDiscard(target, "yusui_discard", target->getMaxHp(), target->getMaxHp());
+
         return false;
     }
 };

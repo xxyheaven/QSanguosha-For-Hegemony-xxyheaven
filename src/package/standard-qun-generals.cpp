@@ -845,9 +845,13 @@ public:
         return QStringList();
     }
 
-    virtual bool cost(TriggerEvent, Room *room, ServerPlayer *skill_target, QVariant &, ServerPlayer *player) const
+    virtual bool cost(TriggerEvent, Room *room, ServerPlayer *skill_target, QVariant &data, ServerPlayer *player) const
     {
-        if (player->askForSkillInvoke(this, QVariant::fromValue(skill_target))) {
+        room->setTag("JianchuUsedata", data);
+        bool invoke = player->askForSkillInvoke(this, QVariant::fromValue(skill_target));
+        room->removeTag("JianchuUsedata");
+
+        if (invoke) {
             room->broadcastSkillInvoke(objectName(), player);
             room->doAnimate(QSanProtocol::S_ANIMATE_INDICATE, player->objectName(), skill_target->objectName());
             return true;
@@ -860,7 +864,9 @@ public:
         CardUseStruct use = data.value<CardUseStruct>();
         QVariantList jink_list = pangde->tag["Jink_" + use.card->toString()].toList();
 
+        room->setTag("JianchuUsedata", data);
         int to_throw = room->askForCardChosen(pangde, target, "he", objectName(), false, Card::MethodDiscard);
+        room->removeTag("JianchuUsedata");
 
         CardMoveReason reason(CardMoveReason::S_REASON_DISMANTLE, pangde->objectName(), target->objectName(), QString(), QString());
 

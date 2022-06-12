@@ -2049,7 +2049,7 @@ QString RoomScene::_translateMovement(const CardsMoveStruct &move)
     }
 
     QString result(playerName + targetName);
-    result.append(Sanguosha->translate(reason.m_eventName));
+    //result.append(Sanguosha->translate(reason.m_eventName));
     //result.append(Sanguosha->translate(reason.m_skillName));
     if ((reason.m_reason & CardMoveReason::S_MASK_BASIC_REASON) == CardMoveReason::S_REASON_USE && reason.m_skillName.isEmpty()) {
         result.append(Sanguosha->translate("use"));
@@ -3235,6 +3235,7 @@ void RoomScene::onYiguiActivated()
     if (skill == NULL) return;
     clearRemainBox();
 
+    Self->tag.remove("yigui");
     Self->tag.remove("yigui_general");
 
     dashboard->startPending(skill);

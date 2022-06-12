@@ -843,7 +843,7 @@ bool Yinghun::onPhaseChange(ServerPlayer *sunjian) const
         if (x == 1) {
             room->broadcastSkillInvoke(objectName(), 1, sunjian);
 
-            to->drawCards(1);
+            to->drawCards(1, objectName());
             room->askForDiscard(to, objectName(), 1, 1, false, true);
         } else {
             to->setFlags("YinghunTarget");
@@ -853,12 +853,15 @@ bool Yinghun::onPhaseChange(ServerPlayer *sunjian) const
             if (choice.contains("d1tx")) {
                 room->broadcastSkillInvoke(objectName(), (x>1)?2:1, sunjian);
 
-                to->drawCards(1);
-                room->askForDiscard(to, objectName(), x, x, false, true);
+                to->drawCards(1, objectName());
+                if (x > 0)
+                    room->askForDiscard(to, objectName(), x, x, false, true);
             } else {
                 room->broadcastSkillInvoke(objectName(), (x>1)?1:2, sunjian);
 
-                to->drawCards(x);
+                if (x > 0)
+                    to->drawCards(x, objectName());
+
                 room->askForDiscard(to, objectName(), 1, 1, false, true);
             }
         }

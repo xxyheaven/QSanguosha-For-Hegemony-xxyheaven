@@ -150,9 +150,25 @@ sgs.ai_skill_choice["GameRule:TriggerOrder"] = function(self, choices, data)--�
 		if string.find(choices, "haoshi") then return "haoshi" end
 		if string.find(choices, "zisui") then return "zisui" end--公孙渊摸牌，可能就配合和张辽会触发
 
-		if string.find(choices, "tieqi") or string.find(choices, "liegong")--有_xh后缀也会find到
-		or string.find(choices, "tieqi_xh") or string.find(choices, "liegong_xh")
-		or string.find(choices, "jianchu") or string.find(choices, "wushuang") then
+		if table.contains(choices, "tieqi") and table.contains(choices, "liegong") then--能否和多目标杀区分？
+			return "tieqi"
+		end
+		if table.contains(choices, "wanglie") and table.contains(choices, "liegong") then
+			return "wanglie"
+		end
+		if table.contains(choices, "kuangfu") and table.contains(choices, "jianchu") then--先获得，详细判断？
+			return "kuangfu"
+		end
+		if table.contains(choices, "jianchu") and table.contains(choices, "moukui") then
+			return "jianchu"
+		end
+		if table.contains(choices, "kuangfu") and table.contains(choices, "moukui") then
+			return "kuangfu"
+		end
+
+		if string.find(choices, "tieqi") or string.find(choices, "liegong")--有_xh等后缀也会find到
+		or string.find(choices, "jianchu") or string.find(choices, "wushuang")
+		or string.find(choices, "moukui") or string.find(choices, "DragonPhoenix") then
 			Global_room:writeToConsole("杀类技能多目标选择:" .. skillnames[1])
 			return skillnames[1]--杀类技能多目标选择
 		end
@@ -392,9 +408,9 @@ sgs.ai_skill_choice.GameRule_AskForGeneralShow = function(self, choices)
 	local canShowHead = string.find(choices, "show_head_general")
 	local canShowDeputy = string.find(choices, "show_deputy_general")
 
-	local firstShow = ("luanji|niepan|bazhen|qianhuan|jianglve|jinghe|dangxian"):split("|")
+	local firstShow = ("luanji|niepan|bazhen|jianglve|diaodu|huoshui|qianhuan|chenglve|jinghe|dangxian|wanglie|sidi"):split("|")
 	local bothShow = ("luanji+shuangxiong|luanji+huoshui|guanxing+yizhi"):split("|")
-	local followShow = ("qianhuan|duoshi|rende|cunsi|jieyin|xiongyi"):split("|")
+	local followShow = ("wusheng|liegong|bazhen|cunsi|diaodu|xiongyi|huoshui|qianhuan|jihun|chenglve|dangxian|wanglie|sidi"):split("|")
 
 	if sgs.GetConfig("EnableLordConvertion", true) and self.player:getMark("Global_RoundCount") == 1 and canShowHead then--君主
 		if self.player:inHeadSkills("rende") or self.player:inHeadSkills("guidao")
@@ -409,6 +425,10 @@ sgs.ai_skill_choice.GameRule_AskForGeneralShow = function(self, choices)
 	end
 	local lord_sunquan = sgs.findPlayerByShownSkillName("jiahe")
 	if lord_sunquan and self.player:willBeFriendWith(lord_sunquan) and not lord_sunquan:getPile("flame_map"):isEmpty() then
+		return "show_both_generals"
+	end
+
+	if self.player:hasSkills("mingde|zhenxi") then
 		return "show_both_generals"
 	end
 
@@ -841,7 +861,8 @@ sgs.ai_skill_use_func.FirstShowCard= function(card, use, self)
 		end
 	end
 
-	if self.player:getHandcardNum() <= 1 and self:slashIsAvailable() then
+	if (self.player:getHandcardNum() < 2 and self:slashIsAvailable())
+	or (math.min(self.player:getMaxCards(), 4) - self.player:getHandcardNum() > 2) then
 		for _,c in sgs.qlist(self.player:getHandcards()) do
 			local dummy_use = { isDummy = true }
 			if c:isKindOf("BasicCard") then
@@ -959,7 +980,8 @@ sgs.ai_skill_use_func.CareermanCard= function(card, use, self)
 		use.card = sgs.Card_Parse(card_str)
 		return
 	end
-	if self.player:getHandcardNum() <= 1 and self:slashIsAvailable() then
+	if self.player:getHandcardNum() <= 1 and self:slashIsAvailable()
+	or (math.min(self.player:getMaxCards(), 4) - self.player:getHandcardNum() > 3) then
 		local should_draw = false
 		local dummy_slash = { isDummy = true, to = sgs.SPlayerList() }
 		local slash = sgs.cloneCard("slash")
@@ -1097,7 +1119,7 @@ sgs.ai_skill_use_func.ShowHeadCard= function(card, use, self)
 	if self.player:getActualGeneral1():getKingdom() == "careerist" and self.player:hasSkill("xuanhuoattach") and not self.player:hasUsed("XuanhuoAttachCard") then
 		return
 	end
-	if (self.player:inHeadSkills("paoxiao") or self.player:inHeadSkills("kuangcai")) and self:getCardsNum("Slash") == 0 then
+	if (self.player:inHeadSkills("paoxiao")) and self:getCardsNum("Slash") == 0 then
 		return
 	end
 	if self:willShowForAttack() or self:willShowForDefence() then
@@ -1130,7 +1152,7 @@ end
 
 sgs.ai_skill_use_func.ShowDeputyCard= function(card, use, self)
 	--Global_room:writeToConsole("明置副将的武将牌")
-	if (self.player:inDeputySkills("paoxiao") or self.player:inDeputySkills("baolie") or self.player:inDeputySkills("kuangcai"))
+	if (self.player:inDeputySkills("paoxiao") or self.player:inDeputySkills("baolie"))
 	and self:getCardsNum("Slash") == 0 then
 		return
 	end

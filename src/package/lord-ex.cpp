@@ -178,7 +178,7 @@ public:
             DamageStruct damage = data.value<DamageStruct>();
             if (damage.card && damage.card->hasFlag("liangfanEffect") && !damage.chain && !damage.transfer && damage.by_user) {
                 ServerPlayer *target = damage.to;
-                if (target && player->canGetCard(target, "he")) {
+                if (target && target->isAlive() && player->isAlive() && player->canGetCard(target, "he")) {
                     return QStringList(objectName());
                 }
             }
@@ -1249,10 +1249,7 @@ void PaiyiCard::onEffect(const CardEffectStruct &effect) const
     ServerPlayer *target = effect.to;
     Room *room = zhonghui->getRoom();
 
-    int x = qMin(zhonghui->getPile("power_pile").length(), 7);
-
-    if (x > 0)
-        target->drawCards(x, objectName());
+    target->drawCards(2, objectName());
 
     if (target->getHandcardNum() > zhonghui->getHandcardNum())
         room->damage(DamageStruct("paiyi", zhonghui, target));
@@ -1269,7 +1266,7 @@ public:
 
     virtual bool isEnabledAtPlay(const Player *player) const
     {
-        return !player->getPile("power_pile").isEmpty() && !player->hasUsed("PaiyiCard");
+        return !player->getPile("power_pile").isEmpty() && player->usedTimes("PaiyiCard") < 2;
     }
 
     virtual const Card *viewAs(const Card *c) const
@@ -1866,6 +1863,7 @@ public:
 
     virtual QStringList triggerable(TriggerEvent , Room *, ServerPlayer *player, QVariant &data, ServerPlayer* &) const
     {
+        if (player->getPhase() != Player::Play) return QStringList();
         DamageStruct damage = data.value<DamageStruct>();
         if (!damage.flags.contains("zhidao")) return QStringList();
         ServerPlayer *target = damage.to;
@@ -2137,6 +2135,7 @@ public:
 ImperialEdictAttachCard::ImperialEdictAttachCard()
 {
     target_fixed = true;
+    handling_method = Card::MethodNone;
 }
 
 void ImperialEdictAttachCard::onUse(Room *room, const CardUseStruct &card_use) const
@@ -2730,7 +2729,7 @@ public:
             }
         } else if (triggerEvent == CardUsed) {
             CardUseStruct use = data.value<CardUseStruct>();
-            if (use.card->getTypeId() == Card::TypeTrick && !use.card->isKindOf("ThreatenEmperor"))
+            if (use.card->getTypeId() == Card::TypeTrick)
                 return QStringList(objectName());
         } else if (triggerEvent == CardsMoveOneTime) {
             QVariantList move_datas = data.toList();

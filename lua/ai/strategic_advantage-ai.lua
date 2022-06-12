@@ -807,7 +807,7 @@ function SmartAI:useCardLureTiger(LureTiger, use)
 			end
 		end
 		if (self.player:hasShownSkill("jizhi") and players:length() > 0) or (aoedraw and players:length() > 1) then
-			sgs.ai_use_priority.LureTiger = 0.3
+			sgs.ai_use_priority.LureTiger = 0.4
 			use.card = LureTiger
 			if use.to then use.to = sgs.PlayerList2SPlayerList(players) end
 			return
@@ -829,7 +829,7 @@ end
 
 sgs.ai_use_value.LureTiger = 4.8
 sgs.ai_use_priority.LureTiger = 4.9
-sgs.ai_keep_value.LureTiger = 3.22
+sgs.ai_keep_value.LureTiger = 2.5
 
 --FightTogether
 function SmartAI:useCardFightTogether(card, use)
@@ -1162,10 +1162,11 @@ function SmartAI:useCardThreatenEmperor(card, use)
 	local cardPlace = self.room:getCardPlace(card:getEffectiveId())--修改后无法使用装备，考虑手牌区
 	if self.player:getCardCount(false) < 1 + (cardPlace == sgs.Player_PlaceHand and 1 or 0) then return end
 	if not self:trickIsEffective(card, self.player, self.player) then return end
+	if self.player:hasSkill("shensu") and sgs.ai_skill_use["@@shensu3"](self) ~= "." then return end
 	if self.player:hasSkills("qiaobian|qiaobian_egf") and (self.player:getHandcardNum() - self.player:getMaxCards() > 1) then return end
 	use.card = card
 end
-sgs.ai_use_value.ThreatenEmperor = 8
+sgs.ai_use_value.ThreatenEmperor = 6
 sgs.ai_use_priority.ThreatenEmperor = 0
 sgs.ai_keep_value.ThreatenEmperor = 3.2
 
@@ -1372,6 +1373,7 @@ end
 
 function sgs.ai_slash_weaponfilter.Halberd(self, to, player)
 	return player:distanceTo(to) <= math.max(sgs.weapon_range.Halberd, player:getAttackRange())
+		and (sgs.card_lack[to:objectName()]["Jink"] == 1 or getCardsNum("Jink", to, self.player) < 1)
 end
 
 function sgs.ai_weapon_value.Halberd(self, enemy, player)
@@ -1418,8 +1420,8 @@ sgs.ai_use_priority.WoodenOx = 5.8
 
 --Blade
 function sgs.ai_slash_weaponfilter.Blade(self, to, player)
-	return player:distanceTo(to) <= math.max(sgs.weapon_range.Blade, player:getAttackRange())
-		and not to:hasShownAllGenerals()
+	return player:distanceTo(to) <= math.max(sgs.weapon_range.Blade, player:getAttackRange()) and not to:hasShownAllGenerals()
+		and (sgs.card_lack[to:objectName()]["Jink"] == 1 or getCardsNum("Jink", to, self.player) < 1)
 end
 
 function sgs.ai_weapon_value.Blade(self, enemy, player)

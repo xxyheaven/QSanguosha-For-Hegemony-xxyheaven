@@ -97,7 +97,7 @@ end
 
 function sgs.ai_weapon_value.Fan(self, enemy,player)
 	if enemy and enemy:hasArmorEffect("Vine") then return 6 end
-	if player:hasShownSkills("liegong|liegong_xh") then return 3.1 end
+	--if player:hasShownSkills("liegong|liegong_xh") then return 3.1 end
 end
 
 function sgs.ai_armor_value.Vine(player, self)
@@ -175,9 +175,8 @@ function SmartAI:shouldUseAnaleptic(target, card_use)
 		end
 	end
 
-	local hcard = target:getHandcardNum()
-	if self.player:hasSkills("liegong|liegong_xh") and not (hcard >= self.player:getHp() or hcard <= self.player:getAttackRange()) then
-		return false
+	if self:canLiegong(target, self.player) then
+		return true
 	end
 	if self.player:hasWeapon("Axe") and self.player:getCardCount(true) > 4 then
 		return true
@@ -279,9 +278,9 @@ function SmartAI:useCardSupplyShortage(card, use)
 		if enemy:hasShownSkills(sgs.cardneed_skill) then
 			value = value + 5
 		end
-		if enemy:hasShownSkills(sgs.drawcard_skill) or (enemy:hasShownSkill("zaiqi") and enemy:getLostHp() > 2) then
+		--[[if enemy:hasShownSkills(sgs.drawcard_skill) or (enemy:hasShownSkill("zaiqi") and enemy:getLostHp() > 2) then
 			value = value + 5
-		end
+		end]]
 		if self:isWeak(enemy) then value = value + 5 end
 		if enemy:isLord() then value = value + 1 end
 		if enemy:getRole() == "careerist" and enemy:getActualGeneral1():getKingdom() == "careerist" then
@@ -752,14 +751,18 @@ function SmartAI:useCardFireAttack(fire_attack, use)
 	if self.fireattack_onlyview then
 		if #targets == 0 and #self.enemies > 0 then
 			for _,p in ipairs(self.enemies) do
-				table.insert(targets, p)
-				break
+				if not p:isKongcheng() then
+					table.insert(targets, p)
+					break
+				end
 			end
 		end
 		if #targets == 0 then
 			for _,p in sgs.qlist(self.room:getOtherPlayers(self.player)) do
-				table.insert(targets, p)
-				break
+				if not p:isKongcheng() then
+					table.insert(targets, p)
+					break
+				end
 			end
 		end
 	end

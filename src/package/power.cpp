@@ -804,6 +804,7 @@ private:
 XuanhuoAttachCard::XuanhuoAttachCard()
 {
     target_fixed = true;
+    handling_method = Card::MethodNone;
 }
 
 void XuanhuoAttachCard::onUse(Room *room, const CardUseStruct &card_use) const
@@ -840,7 +841,7 @@ void XuanhuoAttachCard::onUse(Room *room, const CardUseStruct &card_use) const
 
 void XuanhuoAttachCard::use(Room *room, ServerPlayer *source, QList<ServerPlayer *> &) const
 {
-    if (source->isNude() || !room->askForDiscard(source, "xuanhuo_discard", 1, 1, true, true, "@xuanhuo-discard")) return;
+    if (source->isNude() || !room->askForDiscard(source, "xuanhuo_discard", 1, 1, false, true, "@xuanhuo-discard")) return;
 
     QString all_skills = "wusheng+paoxiao+longdan+tieqi+liegong+kuanggu";
     QStringList skill_list;
@@ -853,11 +854,9 @@ void XuanhuoAttachCard::use(Room *room, ServerPlayer *source, QList<ServerPlayer
     }
 
     foreach (QString skill_name, all_skills.split("+")) {
-
-
         bool can_choose = true;
         foreach (const Skill *s, skills) {
-            if (s->objectName() == skill_name) {
+            if (s->objectName() == skill_name || s->objectName() == skill_name + "_xh") {
                 can_choose = false;
                 break;
             }
@@ -969,10 +968,12 @@ public:
 
     virtual bool viewFilter(const Card *card) const
     {
-        const Player *lord = Self->getLord();
-        if (lord == NULL || !lord->hasLordSkill("shouyue") || !lord->hasShownGeneral1())
-            if (!card->isRed())
+        if (!card->isRed()) {
+            if (!Self->hasShownSkill(objectName())) return false;
+            const Player *lord = Self->getLord();
+            if (lord == NULL || !lord->hasLordSkill("shouyue") || !lord->hasShownGeneral1())
                 return false;
+        }
 
         if (Sanguosha->currentRoomState()->getCurrentCardUseReason() == CardUseStruct::CARD_USE_REASON_PLAY) {
             Slash *slash = new Slash(Card::SuitToBeDecided, -1);
@@ -989,8 +990,6 @@ public:
         slash->addSubcard(originalCard->getId());
         slash->setSkillName(objectName());
         slash->setShowSkill(objectName());
-        if (slash->getSuit() == Card::Diamond)
-            slash->setFlags("Global_NoDistanceChecking");
         return slash;
     }
 };
@@ -1486,7 +1485,7 @@ public:
         player->obtainCard(judge->card);
 
         ServerPlayer *current = room->getCurrent();
-        if (current != NULL && current->getPhase() != Player::NotActive) {
+        if (current != NULL && current->isAlive() && current->getPhase() != Player::NotActive) {
             if (room->askForChoice(player, objectName(), "yes+no", data, "@zhuwei-choose:" + current->objectName()) == "yes") {
                 room->addPlayerMark(current, "#zhuwei");
 
@@ -1873,7 +1872,7 @@ public:
         if (player->getPhase() == Player::Start && player->getSeemingKingdom() == "wei" && player->hasShownOneGeneral()) {
             if (getAvailableGenerals(player).isEmpty() || player->isNude()) return QStringList();
             ServerPlayer *lord = room->getLord("wei");
-            if (lord != NULL && lord->hasLordSkill("jianan") && lord->hasShownGeneral1() && !getAvailableSkills(room).isEmpty())
+            if (lord != NULL && lord->hasLordSkill("jianan") && lord->hasShownGeneral1())
                 return QStringList(objectName());
         }
         return QStringList();

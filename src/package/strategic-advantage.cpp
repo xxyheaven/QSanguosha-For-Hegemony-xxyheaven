@@ -178,10 +178,12 @@ public:
         room->setPlayerProperty(player, "halberd_slash", use.card->toString()); // for the client (UI)
         room->setPlayerProperty(player, "halberd_slash_current_targets", tos.join("+"));
         room->setPlayerProperty(player, "halberd_slash_available_targets", ats.join("+"));
+        room->setTag("HalberdUseData", data);
         const Card *halberdskill = room->askForUseCard(player, "@@Halberd", "@halberd-use");
         room->setPlayerProperty(player, "halberd_slash", QString());
         room->setPlayerProperty(player, "halberd_slash_current_targets", QString());
         room->setPlayerProperty(player, "halberd_slash_available_targets", QString());
+        room->removeTag("HalberdUseData");
 
         if (halberdskill != NULL && player->tag.contains("halberd_invoke"))
             return true;

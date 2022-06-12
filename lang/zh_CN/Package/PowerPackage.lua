@@ -70,9 +70,11 @@ return {
 	["tieqi_xh"] = "铁骑",
 	["liegong_xh"] = "烈弓",
 	["kuanggu_xh"] = "狂骨",
-
-	["kuanggu_xh:recover"] = "回复体力",
 	
+	["kuanggu_xh:draw"] = "摸一张牌",
+	["kuanggu_xh:recover"] = "回复体力",
+	["liegong_xh:nojink"] = "不可被响应",
+	["liegong_xh:adddamage"] = "伤害值基数+1",
 	
 
 	["wuguotai"] = "吴国太",

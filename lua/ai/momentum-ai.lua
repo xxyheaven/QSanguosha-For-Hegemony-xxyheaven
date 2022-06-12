@@ -405,7 +405,7 @@ sgs.ai_skill_invoke.hengzheng = function(self, data)
 					if getKnownCard(p, self.player, "Peach", true, "h") > 0 or getKnownCard(p, self.player, "Analeptic", true, "h") > 0 then
 						value = value + 2 / p:getHandcardNum()
 					end
-				elseif p:getHandcardNum() == 0 then
+				elseif p:isKongcheng() then
 					if p:getEquips():length() == 1 and self:needToThrowArmor(p) then
 						value = value - 1
 					end
@@ -435,15 +435,10 @@ sgs.ai_skill_choice.benghuai = function(self, choices, data)
 		end
 	end
 	if self.player:getMaxHp() >= self.player:getHp() + 2 then
-		if self.player:getMaxHp() > 5 and (self.player:hasSkills("yinghun_sunce|yinghun_sunjian|zaiqi") and self:findPlayerToDraw(false)) then
+		if self.player:getMaxHp() > 5 and (self.player:hasSkill("yinghun_sunjian") and self:findPlayerToDraw(false)) then
 			local enemy_num = 0
 			for _, p in ipairs(self.enemies) do
 				if p:inMyAttackRange(self.player) and not self:willSkipPlayPhase(p) then enemy_num = enemy_num + 1 end
-			end
-			local ls = sgs.fangquan_effect and sgs.findPlayerByShownSkillName("fangquan")
-			if ls then
-				sgs.fangquan_effect = false
-				enemy_num = self:getEnemyNumBySeat(ls, self.player, self.player)
 			end
 			if (self:getCardsNum("Peach") + self:getCardsNum("Analeptic") + self.player:getHp() > 1) then return "hp" end
 		end

@@ -621,7 +621,7 @@ function sgs.ai_slash_weaponfilter.DragonPhoenix(self, to, player)
 	return getCardsNum("Peach", to, self.player) + getCardsNum("Jink", to, self.player) < 1
 		and (sgs.card_lack[to:objectName()]["Jink"] == 1 or getCardsNum("Jink", to, self.player) == 0)
 ]]
-	return to:getHandcardNum() <= 2
+	return to:getHandcardNum() <= 2 or sgs.card_lack[to:objectName()]["Jink"] == 1 or getCardsNum("Jink", to, self.player) < 1
 end
 
 --[[新飞龙夺凤技能修改

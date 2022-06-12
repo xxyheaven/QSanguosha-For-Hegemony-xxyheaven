@@ -1316,7 +1316,7 @@ void StandardPackage::addWeiGenerals()
     simayi->addSkill(new Fankui);
     simayi->addSkill(new Guicai);
 
-    General *xiahoudun = new General(this, "xiahoudun", "wei"); // WEI 003
+    General *xiahoudun = new General(this, "xiahoudun", "wei", 5); // WEI 003
     xiahoudun->addCompanion("xiahouyuan");
     xiahoudun->addSkill(new Ganglie);
 
@@ -1336,7 +1336,7 @@ void StandardPackage::addWeiGenerals()
     zhenji->addSkill(new Qingguo);
     zhenji->addSkill(new Luoshen);
 
-    General *xiahouyuan = new General(this, "xiahouyuan", "wei", 5); // WEI 008
+    General *xiahouyuan = new General(this, "xiahouyuan", "wei"); // WEI 008
     xiahouyuan->addSkill(new Shensu);
 
     General *zhanghe = new General(this, "zhanghe", "wei"); // WEI 009

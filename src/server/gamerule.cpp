@@ -518,6 +518,8 @@ bool GameRule::effect(TriggerEvent triggerEvent, Room *room, ServerPlayer *playe
 
             if (card_use.from && !targets.isEmpty()) {
                 thread->trigger(TargetChoosing, room, card_use.from, data);
+                card_use = data.value<CardUseStruct>();
+                targets = card_use.to;
                 QList<ServerPlayer *> targets_copy = targets;
                 foreach (ServerPlayer *to, targets_copy) {
                     if (targets.contains(to)) {

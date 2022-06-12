@@ -379,7 +379,7 @@ sgs.ai_skill_choice.jinghe_skill = function(self, choices, data)
 				min_hp = p:getHp()
 			end
 		end
-		if self.player:getHp() == min_hp and self.player:isWounded() then--帮队友回复优化/
+		if self.player:getHp() == min_hp and self.player:canRecover() then--帮队友回复优化
 			return "huoqi"
 		end
 	end
@@ -433,6 +433,7 @@ end
 
 function sgs.ai_slash_prohibit.leiji_tianshu(self, from, to, card)
 	if self:isFriend(to, from) then return false end
+	if self:canLiegong(to, from) then return false end
 	if not to:hasShownSkills(sgs.wizard_skill) then return false end
 	if from:hasShownSkills("tieqi|tieqi_xh") then return false end
 	if from:hasShownSkill("jianchu") and (to:hasEquip() or to:getCardCount(true) == 1) then
@@ -442,7 +443,6 @@ function sgs.ai_slash_prohibit.leiji_tianshu(self, from, to, card)
 		return false
 	end
 	local hcard = to:getHandcardNum()
-	if from:hasShownSkill("liegong") and (hcard >= from:getHp() or hcard <= from:getAttackRange()) then return false end
 	if (from:getHp() >= 4 and (getCardsNum("Peach", from, to) > 0 or from:hasShownSkill("ganglie"))) or from:hasShownSkill("hongyan") and #self.friends == 1 then
 		return false
 	end
@@ -480,13 +480,13 @@ sgs.ai_skill_use_func.HuoqiCard = function(card, use, self)
 		end
 	end
 	for _, friend in ipairs(self.friends) do
-		if self.player:isFriendWith(friend) and friend:getHp() == min_hp and friend:isWounded() then
+		if self.player:isFriendWith(friend) and friend:getHp() == min_hp and friend:canRecover() then
 			target = friend
 		end
 	end
 	if not target then
 		for _, friend in ipairs(self.friends) do
-			if self:isFriend(friend) and friend:getHp() == min_hp and friend:isWounded() then
+			if self:isFriend(friend) and friend:getHp() == min_hp and friend:canRecover() then
 				target = friend
 			end
 		end

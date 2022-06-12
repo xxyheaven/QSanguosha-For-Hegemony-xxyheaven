@@ -143,7 +143,7 @@ sgs.ai_skill_cardchosen.chuli = function(self, who, flags, method, disable_list)
 	return self:askForCardChosen(who, flags, "chuli_dismantlement", method, disable_list)
 end
 
-sgs.ai_use_value.ChuliCard = 5
+sgs.ai_use_value.ChuliCard = 5.7
 sgs.ai_use_priority.ChuliCard = 4.6
 
 sgs.ai_card_intention.ChuliCard = function(self, card, from, tos)
@@ -201,6 +201,7 @@ sgs.ai_skill_invoke.wushuang = function(self, data)
 	local use = self.player:getTag("WushuangData"):toCardUse()
 	local current_trigger = self.player:getTag("WushuangTarget"):toPlayer()
 	local index = use.to:indexOf(current_trigger)
+	Global_room:writeToConsole("无双当前触发："..index)
 	local left_trigger = sgs.SPlayerList()
 	if use.to:length() > index + 1 then
 		for i = index, use.to:length() - 1, 1 do
@@ -230,6 +231,25 @@ sgs.ai_skill_invoke.wushuang = function(self, data)
 		return true
 	end
 	return false
+end
+
+sgs.ai_skill_playerchosen["wushuang_extra"] = function(self, targets, max_num, min_num)--可参考usecardduel
+	--local use = self.player:getTag("WushuangUsedata"):toCardUse()
+	Global_room:writeToConsole("无双决斗额外选择")
+	local result = {}
+	local targetlist = sgs.QList2Table(targets)
+	self:sort(targetlist, "hp")
+	for _, target in ipairs(targetlist) do
+		if self:isEnemy(target) and #result < max_num and not table.contains(result, target) then
+			  table.insert(result, target)
+		end
+	end
+	for _, target in ipairs(targetlist) do
+		if not self:isFriendWith(target) and #result < max_num and not table.contains(result, target) then
+			  table.insert(result, target)
+		end
+	end
+	return result
 end
 
 sgs.ai_cardneed.wushuang = function(to, card, self)
@@ -300,7 +320,7 @@ function SmartAI:findLijianTarget(card_name, use)
 		if friend_maxSlash then
 			local safe = false
 			if first:hasShownSkills("fankui|ganglie") then
-				if (first:getHp() <= 1 and first:getHandcardNum() == 0) then safe = true end
+				if (first:getHp() <= 1 and first:isKongcheng()) then safe = true end
 			elseif (getCardsNum("Slash", friend_maxSlash, self.player) >= getCardsNum("Slash", first, self.player)) then safe = true end
 			if safe then return friend_maxSlash end
 		end
@@ -502,10 +522,10 @@ luanji_skill.getTurnUseCard = function(self)
 			end
 		end
 		--去除保留牌的花色，优先使用同色
-		if self:getSuitNum("heart", "h", self.player) > 1 + heartKeepnum or
-		self:getSuitNum("diamond", "h", self.player) > 1 + diamondKeepnum or
-		self:getSuitNum("spade", "h", self.player) > 1 + spadeKeepnum or
-		self:getSuitNum("club", "h", self.player) > 1 + clubKeepnum then
+		if self:getSuitNum("heart", false, self.player) > 1 + heartKeepnum or
+		self:getSuitNum("diamond", false, self.player) > 1 + diamondKeepnum or
+		self:getSuitNum("spade", false, self.player) > 1 + spadeKeepnum or
+		self:getSuitNum("club", false, self.player) > 1 + clubKeepnum then
 		   hasSamesuit = true
 	   end
 
@@ -889,8 +909,7 @@ function SmartAI:findLeijiTarget(player, leiji_value, slasher)
 	if not player:hasShownSkill("leiji") then return end
 	if slasher then
 		if not self:slashIsEffective(sgs.cloneCard("slash"), player, slasher, slasher:hasWeapon("QinggangSword")) then return nil end
-		if slasher:hasShownSkill("liegong") and slasher:getPhase() == sgs.Player_Play and self:isEnemy(player, slasher)
-			and (player:getHandcardNum() >= slasher:getHp() or player:getHandcardNum() <= slasher:getAttackRange()) then
+		if self:canLiegong(player, slasher) and self:isEnemy(player, slasher) then
 			return nil
 		end
 		if not self:hasSuit("spade", true, player) and player:getHandcardNum() < 3 then return nil end
@@ -980,6 +999,7 @@ sgs.ai_playerchosen_intention.leiji = 80
 
 function sgs.ai_slash_prohibit.leiji(self, from, to, card)
 	if self:isFriend(to, from) then return false end
+	if self:canLiegong(to, from) then return false end
 	if from:hasShownSkills("tieqi|tieqi_xh") then return false end
 	if from:hasShownSkill("jianchu") and (to:hasEquip() or to:getCardCount(true) == 1) then
 		return false
@@ -988,7 +1008,6 @@ function sgs.ai_slash_prohibit.leiji(self, from, to, card)
 		return false
 	end
 	local hcard = to:getHandcardNum()
-	if from:hasShownSkill("liegong") and (hcard >= from:getHp() or hcard <= from:getAttackRange()) then return false end
 	if (from:getHp() >= 4 and (getCardsNum("Peach", from, to) > 0 or from:hasShownSkill("ganglie"))) or from:hasShownSkill("hongyan") and #self.friends == 1 then
 		return false
 	end
@@ -1130,10 +1149,10 @@ sgs.ai_skill_use["@@liranggive"] = function(self, prompt)
 end
 
 --纪灵
-sgs.ai_skill_playerchosen.shuangren = function(self, targets)
+sgs.ai_skill_playerchosen.shuangren = function(self, targets)--考虑不对其他目标使用牌？
 	if self.player:isKongcheng() then return nil end
 	if not self:willShowForAttack() then return nil end
-	if self.player:getMark("shuangxiong") > 0 and self.player:hasSkill("shuangxiong") then return nil end
+	if self.player:hasFlag("shuangxiong") and self.player:hasSkill("shuangxiong") then return nil end
 
 	self:sort(self.enemies, "handcard")
 	local max_card = self:getMaxNumberCard()
@@ -1201,6 +1220,7 @@ function sgs.ai_cardneed.sijian(to, card, self)
 end
 
 --潘凤
+--[[旧技能
 sgs.ai_skill_invoke.kuangfu = function(self, data)
 	local damage = data:toDamage()
 	if damage.to:hasShownSkills(sgs.lose_equip_skill) then
@@ -1259,8 +1279,51 @@ end
 sgs.ai_skill_choice.kuangfu = function(self, choices)
 	return "move"
 end
+]]
+
+sgs.ai_skill_playerchosen.kuangfu = function(self, targets)
+	local target = self:findPlayerToDiscard("e", false, sgs.Card_MethodGet, targets)
+	if target then
+		return target
+	end
+	for _, p in sgs.qlist(targets) do
+		Global_room:writeToConsole("狂斧目标防御值：" ..sgs.getDefenseSlash(p, self))
+		if p:isKongcheng() then
+			return p
+		end
+		local knownJink = getKnownCard(p, self.player, "Jink", true, "he")
+		if sgs.card_lack[p:objectName()]["Jink"] == 1 and knownJink == 0 then
+			return p
+		end
+		local unknownJink = getCardsNum("Jink", p, self.player)
+		if self.player:hasShownSkills("wushuang|wushuang_lvlingqi") and knownJink < 2 and unknownJink < 1.5 then
+			return p
+		end
+		if self.player:hasShownSkill("jianchu") and (p:getCards("e"):length() > 1 or p:getHandcardNum() <= 1) then
+			return p
+		end
+		if self.player:hasWeapon("DragonPhoenix") and p:getHandcardNum() <= 1 then
+			return p
+		end
+	end
+	local target_list = sgs.QList2Table(targets)
+	self:sort(target_list, "equip_defense" ,true)
+	local no_loss = false
+	if self:getOverflow() > 1 or self.player:getHandcardNum() < 2 then
+		no_loss = true
+	end
+	if self.player:hasWeapon("Axe") and self.player:getCardCount(true) > 4 then
+		no_loss = true
+	end
+	if no_loss then
+		return target_list[1]
+	end
+	return {}
+end
 
 --邹氏
+sgs.ai_skill_invoke.huoshui = true
+
 local qingcheng_skill = {}
 qingcheng_skill.name = "qingcheng"
 table.insert(sgs.ai_skills, qingcheng_skill)
@@ -1419,20 +1482,3 @@ end
 sgs.ai_use_value.QingchengCard = 6
 sgs.ai_use_priority.QingchengCard = sgs.ai_use_priority.ArcheryAttack + 0.1
 sgs.ai_card_intention.QingchengCard = 100
-
---[[
-local huoshui_skill = {}
-huoshui_skill.name = "huoshui"
-table.insert(sgs.ai_skills, huoshui_skill)
-function huoshui_skill.getTurnUseCard(self)
-	if not self:willShowForAttack() or self.player:hasShownSkill(sgs.Sanguosha:getSkill("huoshui")) then return nil end
-	local card = sgs.Card_Parse("@HuoshuiCard=.&huoshui")
-	assert(card)
-	return card
-end
-function sgs.ai_skill_use_func.HuoshuiCard(card, use, self)
-	use.card = card
-end
-
-sgs.ai_use_priority.HuoshuiCard = 10
-]]

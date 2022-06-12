@@ -267,17 +267,9 @@ end
 function SmartAI:findTuxiTarget(max_num)
 	local targets = {}
 	max_num = max_num or 2--新突袭
---[[
-	if self.player:hasSkills("jieyue|jieyue_egf") then
-		max_num = max_num + math.random(0, self.player:getMark("JieyueExtraDraw")*3)
-		--Global_room:writeToConsole("抽卡数:"..max_num.."|"..self.player:getMark("JieyueExtraDraw")*3)
-	end
-	if self.player:hasSkill("zisui") then
-		max_num = max_num + math.random(0, self.player:getPile("disloyalty"):length())
-	end
-]]
+
 	local add_player = function (player, isfriend)
-		if player:getHandcardNum() == 0 or player:objectName() == self.player:objectName() then return #targets end
+		if player:isKongcheng() or player:objectName() == self.player:objectName() then return #targets end
 		if #targets < max_num then
 			if not table.contains(targets, player:objectName()) then
 				table.insert(targets, player:objectName())
@@ -374,7 +366,7 @@ end
 
 --许褚
 sgs.ai_skill_discard.luoyi = function(self, discard_num, min_num, optional, include_equip)
-	if self.player:isSkipped(sgs.Player_Play) then return false end
+	if self.player:isSkipped(sgs.Player_Play) then return {} end
 	local cards = self.player:getHandcards()
 	cards = sgs.QList2Table(cards)
 	local slashtarget = 0
@@ -650,11 +642,11 @@ sgs.ai_skill_use["@@shensu1"] = function(self, prompt)
 	return "."
 end
 
-sgs.ai_get_cardType = function(card)
-	if card:isKindOf("Weapon") then return 1 end
-	if card:isKindOf("Armor") then return 2 end
+local function getEquipType(card)
+	if card:isKindOf("OffensiveHorse") then return 1 end
+	if card:isKindOf("Weapon") then return 2 end
 	if card:isKindOf("DefensiveHorse") then return 3 end
-	if card:isKindOf("OffensiveHorse") then return 4 end
+	if card:isKindOf("Armor") then return 4 end
 	if card:isKindOf("Treasure") then return 5 end
 	if card:isKindOf("SixDragons") then return 6 end
 end
@@ -680,12 +672,14 @@ sgs.ai_skill_use["@@shensu2"] = function(self, prompt, method)
 	if not eCard then
 		for _, card in ipairs(cards) do
 			if card:isKindOf("EquipCard") then
-				hasCard[sgs.ai_get_cardType(card)] = hasCard[sgs.ai_get_cardType(card)] + 1
+				hasCard[getEquipType(card)] = hasCard[getEquipType(card)] + 1
 			end
 		end
 
 		for _, card in ipairs(cards) do
-			if card:isKindOf("EquipCard") and hasCard[sgs.ai_get_cardType(card)] > 1 then
+			if card:isKindOf("EquipCard")
+			and (hasCard[getEquipType(card)] > 1
+				or (hasCard[6] > 0 and (getEquipType(card) == 2 or getEquipType(card) == 3))) then
 				eCard = card
 				break
 			end
@@ -693,7 +687,7 @@ sgs.ai_skill_use["@@shensu2"] = function(self, prompt, method)
 
 		if not eCard then
 			for _, card in ipairs(cards) do
-				if card:isKindOf("EquipCard") and sgs.ai_get_cardType(card) > 3 and not self.player:isCardLimited(card, method) then
+				if card:isKindOf("EquipCard") and getEquipType(card) < 3 and not self.player:isCardLimited(card, method) then
 					eCard = card
 					break
 				end
@@ -716,7 +710,7 @@ sgs.ai_skill_use["@@shensu2"] = function(self, prompt, method)
 	local weapon = self.player:getWeapon()
 	if weapon and eCard:getId() == weapon:getId() and (eCard:isKindOf("Fan") or eCard:isKindOf("QinggangSword")) then throw_weapon = true end
 
-	local phase_play = self:getOverflow() and #self:getTurnUse() > 0
+	if self:getOverflow() > 0 and #self:getTurnUse() > 0 then return "." end
 
 	for _, enemy in ipairs(self.enemies) do
 		local def = sgs.getDefenseSlash(enemy, self)
@@ -737,7 +731,6 @@ sgs.ai_skill_use["@@shensu2"] = function(self, prompt, method)
 			end
 			target = enemy
 		end
-		if phase_play then return "." end
 	end
 
 	if best_target then return "@ShensuCard=" .. eCard:getEffectiveId() .. "->" .. best_target:objectName() end
@@ -748,6 +741,62 @@ end
 
 sgs.ai_cardneed.shensu = function(to, card, self)
 	return card:getTypeId() == sgs.Card_TypeEquip and getKnownCard(to, self.player, "EquipCard", false) < 2
+end
+
+sgs.ai_skill_use["@@shensu3"] = function(self, prompt)
+	if not self:willShowForAttack() and not self:willShowForDefence() then return "." end
+
+	local Hp = self.player:getHp()
+	local p_num = self:getCardsNum("Peach")
+	local a_num = self:getCardsNum("Analeptic")
+	if p_num + a_num == 0 and Hp <= 2 then--不考虑紫砂
+		return "."
+	end
+
+	local over_num = self:getOverflow()
+	if over_num <= 0 then return "." end
+
+	local not_loss = false
+	if over_num > 1 and self.player:getMark("@halfmaxhp") > 0 then
+		over_num = over_num - 2
+	end
+	if over_num > 0 then
+		local cards = self.player:getHandcards()
+		cards=sgs.QList2Table(cards)
+		self:sortByKeepValue(cards, true)
+		for i = 1, over_num, 1 do
+			if cards[i]:isKindOf("Peach") or (Hp == 1 and cards[i]:isKindOf("Analeptic")) then
+				not_loss = true
+				break
+			end
+		end
+	end
+
+	if (over_num > 2 and (Hp > 2 or (Hp == 1 and p_num + a_num > 1)))
+	or (over_num > 3 and (Hp + p_num > 2 or (Hp == 1 and p_num + a_num > 0))) then
+		not_loss = true
+	end
+
+	local slash = sgs.cloneCard("slash")
+	local dummy_use = { isDummy = true, to = sgs.SPlayerList() }
+	self.player:setFlags("slashNoDistanceLimit")
+	self:useBasicCard(slash, dummy_use)
+	self.player:setFlags("-slashNoDistanceLimit")
+
+	if dummy_use.card and not dummy_use.to:isEmpty() then
+		local enemies = sgs.QList2Table(dummy_use.to)
+		self:sort(enemies, "hp")
+		for _, enemy in ipairs(enemies) do
+			if self:isEnemy(enemy) and sgs.getDefenseSlash(enemy, self) < 3
+			and enemy:getHp() <= 1 and self:isWeak(enemy) and Hp + p_num + a_num > 2 then
+				return "@ShensuCard=.->" .. enemy:objectName()
+			end
+		end
+
+		if not_loss then return "@ShensuCard=.->" .. enemies[1]:objectName() end
+	end
+
+	return "."
 end
 
 sgs.ai_card_intention.ShensuCard = sgs.ai_card_intention.Slash
@@ -1090,7 +1139,7 @@ sgs.ai_skill_discard.qiaobian = function(self, discard_num, min_num, optional, i
 		end
 
 		for _, friend in ipairs(self.friends_noself) do
-			if not friend:getCards("e"):isEmpty() and friend:hasShownSkills(sgs.lose_equip_skill) and self:getMoveCardorTarget(friend, ".") then
+			if friend:hasEquip() and friend:hasShownSkills(sgs.lose_equip_skill) and self:getMoveCardorTarget(friend, ".") then
 				return to_discard
 			end
 		end
@@ -1145,7 +1194,7 @@ sgs.ai_skill_use["@@qiaobian_ask"] = function(self, prompt)
 		end
 
 		for _, friend in ipairs(self.friends_noself) do
-			if not friend:getCards("e"):isEmpty() and friend:hasShownSkills(sgs.lose_equip_skill) and self:getMoveCardorTarget(friend, ".") then
+			if friend:hasEquip() and friend:hasShownSkills(sgs.lose_equip_skill) and self:getMoveCardorTarget(friend, ".") then
 				return QBCard .. friend:objectName() .. "+" .. self:getMoveCardorTarget(friend, "target"):objectName()
 			end
 		end
@@ -1239,16 +1288,17 @@ function sgs.ai_skill_invoke.jushou(self, data)
 	local all_players = self.room:getAlivePlayers()
 
 	for _, p1 in sgs.qlist(all_players) do
-		if not p1:hasShownOneGeneral() then continue end
-		local add = true
-		for _, p2 in sgs.qlist(to_count) do
-			if p1:isFriendWith(p2) then
-				add = false
-				break
+		if p1:hasShownOneGeneral() then
+			local add = true
+			for _, p2 in sgs.qlist(to_count) do
+				if p1:isFriendWith(p2) then
+					add = false
+					break
+				end
 			end
-		end
-		if add then
-			to_count:append(p1)
+			if add then
+				to_count:append(p1)
+			end
 		end
 	end
 

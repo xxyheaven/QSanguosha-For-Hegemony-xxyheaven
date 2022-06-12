@@ -4376,8 +4376,12 @@ bool Room::isJinkEffected(ServerPlayer *user, const Card *jink)
 void Room::damage(const DamageStruct &data)
 {
     DamageStruct damage_data = data;
+
     if (damage_data.to == NULL || damage_data.to->isDead() || damage_data.to->isRemoved())
         return;
+
+    if (damage_data.from && damage_data.from->isDead())
+        damage_data.from = NULL;
 
     QVariant qdata = QVariant::fromValue(damage_data);
 

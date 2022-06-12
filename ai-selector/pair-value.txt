@@ -35,7 +35,7 @@ zhangfei weiyan									24 23
 zhangfei shamoke								24 23
 wolong pangtong									21 20
 weiyan madai									23 22
-weiyan huangzhong								22 21
+weiyan huangzhong								22 22
 machao weiyan									24 23
 zhugeliang jiangwei								21 20
 zhugeliang zongyux								18 18
@@ -53,7 +53,6 @@ masu xushu										21 20
 shamoke wolong									21 21
 shamoke liuba									21 20
 ganfuren pangtong								21 20
-menghuo wangping								19 18
 fazheng wangping								25 24
 fazheng pangtong								23 22
 fazheng liubei									22 22
@@ -79,7 +78,7 @@ zhoutai sunce									23 22
 zhoutai sunjian									23 22
 zhoutai sufei									21 21
 xiaoqiao sunce									22 21
-xiaoqiao lukang									24 24
+xiaoqiao lukang									22 22
 daqiao sunce									22 21
 huanggai taishici								21 21
 huanggai dingfeng								21 21
@@ -90,7 +89,7 @@ sunjian sunce									23 22
 lingtong wenqin									23 22
 lvfan lingtong									24 23
 lvfan sunshangxiang								25 24
-lvfan sunjian									23 22
+lvfan sunjian									24 23
 lvfan lukang									21 20
 zhouyi sunjian									23 23
 zhouyi zhouyu									23 23
@@ -107,7 +106,7 @@ yuanshao mateng									24 23
 yuanshao lijueguosi								23 22
 yuanshao xuyou									25 24
 yuanshao zoushi									19 18
-lvbu yanliangwenchou							21 21
+lvbu yanliangwenchou							20 20
 jiaxu yanliangwenchou							20 20
 jiaxu diaochan									21 21
 kongrong diaochan								22 21
@@ -126,9 +125,9 @@ new_zuoci xuyou									24 23
 zhangxiu hetaihou								25 24
 zhangjiao zhangxiu								20 20
 huangzu	mateng									22 21
-huangzu	panfeng									21 20
 huangzu	zhangxiu								23 23
 xunchen zhangxiu								22 22
+xunchen zoushi									20 19
 miheng dongzhuo									20 19
 miheng tianfeng									19 18
 miheng zhangxiu									21 21
@@ -141,6 +140,5 @@ zhangliao zhanghe								5 5
 zhangliao xiahouyuan							5 5
 zhanghe xiahouyuan								5 5
 guanyu zhaoyun									5 5
-machao huangzhong								5 5
 lijueguosi zhangxiu								5 5
 yuanshao zhanglu								5 5	

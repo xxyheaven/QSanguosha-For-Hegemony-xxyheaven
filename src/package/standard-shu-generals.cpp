@@ -180,10 +180,12 @@ public:
 
     virtual bool viewFilter(const Card *card) const
     {
-        const Player *lord = Self->getLord();
-        if (lord == NULL || !lord->hasLordSkill("shouyue") || !lord->hasShownGeneral1())
-            if (!card->isRed())
+        if (!card->isRed()) {
+            if (!Self->hasShownSkill(objectName())) return false;
+            const Player *lord = Self->getLord();
+            if (lord == NULL || !lord->hasLordSkill("shouyue") || !lord->hasShownGeneral1())
                 return false;
+        }
 
         if (Sanguosha->currentRoomState()->getCurrentCardUseReason() == CardUseStruct::CARD_USE_REASON_PLAY) {
             Slash *slash = new Slash(Card::SuitToBeDecided, -1);
@@ -200,8 +202,6 @@ public:
         slash->addSubcard(originalCard->getId());
         slash->setSkillName(objectName());
         slash->setShowSkill(objectName());
-        if (slash->getSuit() == Card::Diamond)
-            slash->setFlags("Global_NoDistanceChecking");
         return slash;
     }
 };
@@ -360,9 +360,7 @@ public:
                     return QStringList(objectName());
                 }
             } else if (triggerEvent == BeforeCardsMove && player->getPhase() == Player::NotActive && player->isKongcheng()) {
-
                 QVariantList move_datas = data.toList();
-
                 foreach (QVariant move_data, move_datas) {
                     CardsMoveOneTimeStruct move = move_data.value<CardsMoveOneTimeStruct>();
                     if (move.reason.m_reason == CardMoveReason::S_REASON_GIVE || move.reason.m_reason == CardMoveReason::S_REASON_PREVIEWGIVE) {
@@ -401,33 +399,24 @@ public:
 
             data = QVariant::fromValue(use);
         } else if (triggerEvent == BeforeCardsMove) {
-
             QVariantList move_datas = data.toList();
-
             QList<int> card_ids;
-
             foreach (QVariant move_data, move_datas) {
-
                 CardsMoveOneTimeStruct move = move_data.value<CardsMoveOneTimeStruct>();
                 if (move.reason.m_reason == CardMoveReason::S_REASON_GIVE || move.reason.m_reason == CardMoveReason::S_REASON_PREVIEWGIVE) {
                     if (move.to && move.to == player && move.to_place == Player::PlaceHand) {
                         card_ids << move.card_ids;
                     }
                 }
-
             }
 
             if (!card_ids.isEmpty()) {
-
-
                 CardsMoveStruct move;
                 move.card_ids = card_ids;
                 move.to = player;
                 move.to_place = Player::PlaceSpecial;
                 move.to_pile_name = "zither";
-
                 player->pileAdd("zither", card_ids);
-
                 data = room->changeMoveData(data, move);
             }
 

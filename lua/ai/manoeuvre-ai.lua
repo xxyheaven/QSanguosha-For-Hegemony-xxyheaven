@@ -295,8 +295,10 @@ sgs.ai_skill_invoke.chengshang = true
 
 --祢衡
 sgs.ai_skill_invoke.kuangcai = function(self, data)
-  --暂缺getCardUsedTimes函数，无法判断使用牌数
-  return true
+  if self.player:getCardUsedTimes(".") == 0 then
+    return true
+  end
+  return false
 end
 
 function sgs.ai_cardneed.kuangcai(to, card, self)
@@ -635,9 +637,9 @@ sgs.ai_skill_use_func.FenglveCard = function(FLCard, use, self)
   for _, friend in ipairs(self.friends_noself) do--拆判定区多于1的队友
     if not friend:isKongcheng() and friend:getJudgingArea():length() > (self:needToThrowArmor(friend) and 0 or 1) then
       local friend_min_card = self:getMinNumberCard(friend)
-      local friend_number = friend_min_card and friend_min_card:getNumber() or 0
+      local friend_number = friend_min_card and friend_min_card:getNumber() or 100
       if friend_min_card and friend:hasShownSkill("yingyang") then friend_number = math.max(friend_number - 3, 1) end
-      if friend_min_card and max_point> friend_number then
+      if max_point> friend_number then
         local hcards = sgs.QList2Table(self.player:getHandcards())
         self:sortByUseValue(hcards,true)
         for _, c in ipairs(hcards) do
@@ -675,16 +677,16 @@ sgs.ai_skill_use_func.FenglveCard = function(FLCard, use, self)
 	for _, enemy in ipairs(self.enemies) do
 		if not enemy:isKongcheng() and enemy:getCardCount(true) > 2 then
 			local enemy_max_card = self:getMaxNumberCard(enemy)
-			local enemy_number = enemy_max_card and enemy_max_card:getNumber() or 0
+			local enemy_number = enemy_max_card and enemy_max_card:getNumber() or 100
 			if enemy_max_card and enemy:hasShownSkill("yingyang") then enemy_number = math.min(enemy_number + 3, 13) end
 			local allknown = false
 			if self:getKnownNum(enemy) == enemy:getHandcardNum() then
 				allknown = true
 			end
 			if (not enemy_max_card and (max_point > 11)) or notlose
-				or (enemy_max_card and max_point > enemy_number and not allknown and max_point > 10)
-				or (enemy_max_card and max_point > enemy_number and allknown) then
-          if notlose or (enemy_max_card and max_point > enemy_number and allknown) or max_point > 11 then
+				or (max_point > enemy_number and not allknown and max_point > 10)
+				or (max_point > enemy_number and allknown) then
+          if notlose or (max_point > enemy_number and allknown) or max_point > 11 then
             sgs.ai_use_priority.FenglveCard = 5
           end
 					self.fenglve_card = max_card:getEffectiveId()
@@ -789,9 +791,9 @@ sgs.ai_skill_use_func.FenglveZonghengCard = function(FLCard, use, self)
   for _, friend in ipairs(self.friends_noself) do--拆队友乐，判断闪电？
     if not friend:isKongcheng() and friend:containsTrick("indulgence") and self:getOverflow(friend) > 0 then
       local friend_min_card = self:getMinNumberCard(friend)
-      local friend_number = friend_min_card and friend_min_card:getNumber() or 0
+      local friend_number = friend_min_card and friend_min_card:getNumber() or 100
       if friend_min_card and friend:hasShownSkill("yingyang") then friend_number = math.max(friend_number - 3, 1) end
-      if friend_min_card and max_point> friend_number then
+      if max_point> friend_number then
         local hcards = sgs.QList2Table(self.player:getHandcards())
         self:sortByUseValue(hcards, true)
         for _, c in ipairs(hcards) do
@@ -827,16 +829,16 @@ sgs.ai_skill_use_func.FenglveZonghengCard = function(FLCard, use, self)
 	for _, enemy in ipairs(self.enemies) do
 		if not enemy:isKongcheng() and enemy:getCardCount(true) > 1 then
 			local enemy_max_card = self:getMaxNumberCard(enemy)
-			local enemy_number = enemy_max_card and enemy_max_card:getNumber() or 0
+			local enemy_number = enemy_max_card and enemy_max_card:getNumber() or 100
 			if enemy_max_card and enemy:hasShownSkill("yingyang") then enemy_number = math.min(enemy_number + 3, 13) end
 			local allknown = false
 			if self:getKnownNum(enemy) == enemy:getHandcardNum() then
 				allknown = true
 			end
 			if (not enemy_max_card and (max_point > 12)) or notlose
-				or (enemy_max_card and max_point > enemy_number and not allknown and max_point > 11)
-				or (enemy_max_card and max_point > enemy_number and allknown) then
-          if notlose or (enemy_max_card and max_point > enemy_number and allknown) then
+				or (max_point > enemy_number and not allknown and max_point > 11)
+				or (max_point > enemy_number and allknown) then
+          if notlose or (max_point > enemy_number and allknown) then
             sgs.ai_use_priority.FenglveZonghengCard = 5
           end
 					self.fenglvezongheng_card = max_card:getEffectiveId()
@@ -1006,14 +1008,19 @@ sgs.ai_skill_use_func.QizhanCard = function(card, use, self)
   if #self.enemies == 0 then
     local targets = {}
     for _, p in sgs.qlist(self.room:getAlivePlayers()) do
-      if not self.player:willBeFriendWith(p) then
+      if not self.player:willBeFriendWith(p) and p:getMark("##qizhan") < 1 then
         table.insert(targets, p)
       end
     end
     table.sort(targets, compare_func)
     target = targets[1]
   else
-    target = self.enemies[1]
+    for _, p in ipairs(self.enemies) do
+      if p:getMark("##qizhan") < 1 then
+        target = p
+        break
+      end
+    end
   end
   if target and self:isFriend(target) and
   (math.min(self.player:getHandcardNum(), self:getOverflow(self.player,true))
@@ -1060,14 +1067,19 @@ qizhanzongheng_skill.getTurnUseCard = function(self)
   if #self.enemies == 0 then
     local targets = {}
     for _, p in sgs.qlist(self.room:getAlivePlayers()) do
-      if not self.player:isFriendWith(p) then
+      if not self.player:isFriendWith(p) and p:getMark("##qizhan") < 1 then
         table.insert(targets, p)
       end
     end
     table.sort(targets, compare_func)
     target = targets[1]
   else
-    target = self.enemies[1]
+    for _, p in ipairs(self.enemies) do
+      if p:getMark("##qizhan") < 1 then
+        target = p
+        break
+      end
+    end
   end
   if target and self:isEnemy(target) and--有确定目标才弃牌
   (math.min(self.player:getHandcardNum(), self:getOverflow(self.player,true))
