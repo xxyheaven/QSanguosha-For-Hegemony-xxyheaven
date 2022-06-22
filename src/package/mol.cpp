@@ -329,13 +329,6 @@ public:
     {
         guhuo_type = "t";
         view_as_skill = new GuishuViewAsSkill;
-        events << GeneralHidden << EventLoseSkill;
-    }
-
-    virtual void record(TriggerEvent , Room *room, ServerPlayer *player, QVariant &) const
-    {
-        if (!player->hasShownSkill(objectName()))
-            room->setPlayerMark(player, "GuishuCardState", 0);
     }
 
     virtual QStringList triggerable(TriggerEvent, Room *, ServerPlayer *, QVariant &, ServerPlayer* &) const
@@ -2309,7 +2302,7 @@ public:
         if (!TriggerSkill::triggerable(player)) return QStringList();
         DyingStruct dying = data.value<DyingStruct>();
         ServerPlayer *target = dying.who;
-        if (dying.damage && dying.damage->from == player) {
+        if (target != player && dying.damage && dying.damage->from == player) {
             if (player->canDiscard(target, "he"))
                 return QStringList(objectName());
         }
@@ -2349,11 +2342,19 @@ public:
         frequency = Compulsory;
     }
 
-    virtual QStringList triggerable(TriggerEvent , Room *, ServerPlayer *player, QVariant &data, ServerPlayer* &) const
+    virtual QStringList triggerable(TriggerEvent , Room *room, ServerPlayer *player, QVariant &data, ServerPlayer* &) const
     {
         if (player && player->isAlive() && player->hasShownSkill("guojue")
                 && player->cheakSkillLocation("guojue", data.toBool())) {
-            return QStringList(objectName());
+            if ((data.toBool() && player->getMark("HaventShowGeneral") > 0)
+                    || (!data.toBool() && player->getMark("HaventShowGeneral2") > 0)) {
+                QList<ServerPlayer *> allplayers = room->getAlivePlayers();
+                foreach (ServerPlayer *p, allplayers) {
+                    if (p->getHp() <= 0)
+                        return QStringList();
+                }
+                return QStringList(objectName());
+            }
         }
         return QStringList();
     }
@@ -2503,9 +2504,154 @@ public:
     }
 };
 
+class Zhuidu : public TriggerSkill
+{
+public:
+    Zhuidu() : TriggerSkill("zhuidu")
+    {
+        events << DamageCaused << EventPhaseChanging;
+    }
+
+    virtual void record(TriggerEvent , Room *room, ServerPlayer *player, QVariant &data) const
+    {
+        if (data.value<PhaseChangeStruct>().from == Player::Play) {
+            room->setPlayerFlag(player, "-zhuiduUsed");
+        }
+    }
+
+    virtual QStringList triggerable(TriggerEvent triggerEvent, Room *, ServerPlayer *player, QVariant &data, ServerPlayer * &) const
+    {
+        if (triggerEvent == DamageCaused && TriggerSkill::triggerable(player)
+                && player->getPhase() == Player::Play && !player->hasFlag("zhuiduUsed")) {
+            DamageStruct damage = data.value<DamageStruct>();
+            if (damage.to && damage.to->isAlive())
+                return QStringList(objectName());
+        }
+        return QStringList();
+    }
+
+    virtual bool cost(TriggerEvent, Room *room, ServerPlayer *player, QVariant &data, ServerPlayer *) const
+    {
+        DamageStruct damage = data.value<DamageStruct>();
+        bool invoke = player->askForSkillInvoke(this, QVariant::fromValue(damage.to));
+        if (invoke) {
+            room->setPlayerFlag(player, "zhuiduUsed");
+            room->broadcastSkillInvoke(objectName(), player);
+
+            return true;
+        }
+
+        return false;
+    }
+
+    virtual bool effect(TriggerEvent, Room *room, ServerPlayer *player, QVariant &data, ServerPlayer *) const
+    {
+        DamageStruct damage = data.value<DamageStruct>();
+        ServerPlayer *target = damage.to;
+
+        if (target->isDead()) return false;
+        bool adddamage = false, throwallequips = false;
 
 
+        if (target->isFemale() && room->askForDiscard(player, "zhuidu_discard", 1, 1, true, true, "@zhuidu-both::" + target->objectName())) {
+            adddamage = true;
+            throwallequips = true;
+        } else {
+            if (!target->getEquips().isEmpty()
+                && room->askForChoice(target, "zhuidu_choice", "throw+damage", data) == "throw")
+                throwallequips = true;
+            else
+                adddamage = true;
+        }
 
+        if (throwallequips)
+            target->throwAllEquips();
+
+        if (adddamage) {
+            damage.damage++;
+            data = QVariant::fromValue(damage);
+        }
+
+        return false;
+    }
+};
+
+class Shigong : public TriggerSkill
+{
+public:
+    Shigong() : TriggerSkill("shigong")
+    {
+        events << Dying;
+        frequency = Limited;
+        limit_mark = "@handover";
+    }
+
+    virtual QStringList triggerable(TriggerEvent , Room *, ServerPlayer *player, QVariant &data, ServerPlayer* &) const
+    {
+        if (TriggerSkill::triggerable(player)) {
+            DyingStruct dying = data.value<DyingStruct>();
+            if (dying.who == player && player->getHp() < 1 && player->getGeneral2()
+                    && !player->getActualGeneral2Name().contains("sujiang"))
+                return QStringList(objectName());
+        }
+        return QStringList();
+    }
+
+    virtual bool cost(TriggerEvent , Room *room, ServerPlayer *player, QVariant &, ServerPlayer *) const
+    {
+        if (player->askForSkillInvoke(this)) {
+            room->broadcastSkillInvoke(objectName(), player);
+            room->doSuperLightbox("liufuren", objectName());
+            room->setPlayerMark(player, limit_mark, 0);
+            return true;
+        }
+        return false;
+    }
+
+    virtual bool effect(TriggerEvent , Room *room, ServerPlayer *player, QVariant &data, ServerPlayer *) const
+    {
+        QString general_name = player->getActualGeneral2Name();
+        player->removeGeneral(false);
+        ServerPlayer *current = room->getCurrent();
+        if (current && current->isAlive()) {
+            int x = 1;
+            if (room->askForChoice(current, "shigong", "yes+no", data, "@shigong-choose:::"+general_name) == "yes") {
+                QStringList skill_names;
+                QList<const Skill *> skills = Sanguosha->getGeneral(general_name)->getVisibleSkillList();
+                foreach (const Skill *skill, skills) {
+                    if (isNormalSkill(skill))
+                        skill_names << skill->objectName();
+
+                }
+
+                if (!skill_names.isEmpty()) {
+
+                    QString skill_name = room->askForChoice(current, "shigong_skill", skill_names.join("+"), data, "@shigong-skill");
+
+                    room->acquireSkill(current, skill_name, true, false);
+
+                }
+                x = player->getMaxHp();
+            }
+
+            if (player->isAlive()) {
+                RecoverStruct recover;
+                recover.recover = x - player->getHp();
+                room->recover(player, recover);
+            }
+        }
+
+        return false;
+    }
+
+private:
+    static bool isNormalSkill(const Skill *skill)
+    {
+        if (skill->isAttachedLordSkill() || skill->isLordSkill()) return false;
+        if (!skill->getRelatePlace().isEmpty() || skill->inherits("BattleArraySkill")) return false;
+        return (skill->getFrequency() == Skill::Frequent || skill->getFrequency() == Skill::NotFrequent);
+    }
+};
 
 MOLPackage::MOLPackage()
     : Package("MOL")
@@ -2594,8 +2740,13 @@ OverseasPackage::OverseasPackage()
     zhangchunhua->addSkill(new Guojue);
     zhangchunhua->addSkill(new GuojueDamage);
     zhangchunhua->addSkill(new Shangshi);
-    zhangchunhua->addCompanion("simayi");
     related_skills.insertMulti("guojue", "#guojue-damage");
+    zhangchunhua->addCompanion("simayi");
+
+    General *liufuren = new General(this, "liufuren", "qun", 3, false);
+    liufuren->addCompanion("yuanshao");
+    liufuren->addSkill(new Zhuidu);
+    liufuren->addSkill(new Shigong);
 
     addMetaObject<GuishuCard>();
     addMetaObject<HongyuanCard>();

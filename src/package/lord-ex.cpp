@@ -843,7 +843,9 @@ public:
             if (player->isFriendWith(target) || !target->hasShownOneGeneral()) {
 
                 if (player->handCards().contains(card_id)) {
-                    QStringList record_list = player->property("wenji_record").toString().split("+");
+                    QStringList record_list;
+                    if (!player->property("wenji_record").isNull())
+                        record_list = player->property("wenji_record").toString().split("+");
                     record_list << QString::number(card_id);
                     room->setPlayerProperty(player, "wenji_record", record_list.join("+"));
                 }
@@ -896,7 +898,7 @@ public:
          if (triggerEvent == EventPhaseStart && player->getPhase() == Player::NotActive) {
              room->setPlayerProperty(player, "wenji_record", QVariant());
          }
-         if (triggerEvent == CardsMoveOneTime) {
+         if (triggerEvent == CardsMoveOneTime && !player->property("wenji_record").isNull()) {
              QStringList new_list, record_list = player->property("wenji_record").toString().split("+");
 
              foreach (QString record, record_list) {
@@ -904,8 +906,10 @@ public:
                      new_list << record;
                  }
              }
-
-             room->setPlayerProperty(player, "wenji_record", new_list.join("+"));
+             if (new_list.isEmpty())
+                room->setPlayerProperty(player, "wenji_record", QVariant());
+             else
+                room->setPlayerProperty(player, "wenji_record", new_list.join("+"));
          }
          if (triggerEvent == PreCardUsed) {
              CardUseStruct use = data.value<CardUseStruct>();
@@ -968,7 +972,7 @@ public:
 
     virtual int getResidueNum(const Player *from, const Card *card, const Player *) const
     {
-        if (!Sanguosha->matchExpPattern(pattern, from, card)|| from->property("wenji_record").toString().isEmpty())
+        if (!Sanguosha->matchExpPattern(pattern, from, card)|| from->property("wenji_record").isNull())
             return 0;
 
         QStringList record_list = from->property("wenji_record").toString().split("+");
