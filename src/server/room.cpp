@@ -512,6 +512,12 @@ void Room::sendJudgeResult(const JudgeStruct *judge)
 QList<int> Room::getNCards(int n, bool update_pile_number, bool from_up)
 {
     QList<int> card_ids;
+    if (n > m_drawPile->length()) {
+        if (n > m_drawPile->length() + m_discardPile->length())
+            gameOver(".");
+        swapPile();
+    }
+
     for (int i = 0; i < n; i++)
         card_ids << drawCard(from_up);
 
@@ -2698,7 +2704,7 @@ void Room::broadcast(const QByteArray &message, ServerPlayer *except)
 
 void Room::swapPile()
 {
-    if (m_discardPile->isEmpty()) {
+    if (m_drawPile->isEmpty() && m_discardPile->isEmpty()) {
         // the standoff
         gameOver(".");
     }

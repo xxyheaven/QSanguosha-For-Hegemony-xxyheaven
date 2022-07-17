@@ -1657,7 +1657,8 @@ public:
             }
         } else if (triggerEvent == CardUsed) {
             CardUseStruct use = data.value<CardUseStruct>();
-            if (TriggerSkill::triggerable(player) && use.card->getTypeId() == Card::TypeEquip)
+            if (TriggerSkill::triggerable(player) && use.card->getTypeId() == Card::TypeEquip
+                    && !use.card->isKindOf("ImperialEdict"))
                 return QStringList(objectName());
         }
         return QStringList();

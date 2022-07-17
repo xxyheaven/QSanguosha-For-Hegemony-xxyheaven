@@ -575,7 +575,7 @@ public:
         room->doAnimate(QSanProtocol::S_ANIMATE_INDICATE, player->objectName(), owner->objectName());
         player->setFlags("MidaoUsed");
 
-        CardMoveReason reason(CardMoveReason::S_REASON_GIVE, player->objectName(), owner->objectName(), objectName(), QString());
+        CardMoveReason reason(CardMoveReason::S_REASON_GIVE, player->objectName(), owner->objectName(), "midao", QString());
         reason.m_playerId = owner->objectName();
         room->moveCardTo(Sanguosha->getCard(ints.first()), owner, Player::PlaceHand, reason);
 
@@ -843,10 +843,8 @@ public:
             if (player->isFriendWith(target) || !target->hasShownOneGeneral()) {
 
                 if (player->handCards().contains(card_id)) {
-                    QStringList record_list;
-                    if (!player->property("wenji_record").isNull())
-                        record_list = player->property("wenji_record").toString().split("+");
-                    record_list << QString::number(card_id);
+                    QStringList record_list = player->property("wenji_record").toString().split("+");
+                    record_list << QString::number(card_id + 1);
                     room->setPlayerProperty(player, "wenji_record", record_list.join("+"));
                 }
             } else {
@@ -898,25 +896,23 @@ public:
          if (triggerEvent == EventPhaseStart && player->getPhase() == Player::NotActive) {
              room->setPlayerProperty(player, "wenji_record", QVariant());
          }
-         if (triggerEvent == CardsMoveOneTime && !player->property("wenji_record").isNull()) {
+         if (triggerEvent == CardsMoveOneTime) {
              QStringList new_list, record_list = player->property("wenji_record").toString().split("+");
 
              foreach (QString record, record_list) {
-                 if (player->handCards().contains(record.toInt())) {
+                 if (player->handCards().contains(record.toInt()-1)) {
                      new_list << record;
                  }
              }
-             if (new_list.isEmpty())
-                room->setPlayerProperty(player, "wenji_record", QVariant());
-             else
-                room->setPlayerProperty(player, "wenji_record", new_list.join("+"));
+
+             room->setPlayerProperty(player, "wenji_record", new_list.join("+"));
          }
          if (triggerEvent == PreCardUsed) {
              CardUseStruct use = data.value<CardUseStruct>();
-             if (use.card && use.card->getTypeId() != Card::TypeSkill && !player->property("wenji_record").isNull()) {
+             if (use.card && use.card->getTypeId() != Card::TypeSkill && !player->property("wenji_record").toString().isEmpty()) {
                  QStringList record_list = player->property("wenji_record").toString().split("+");
                  foreach (QString record, record_list) {
-                     int card_id = record.toInt();
+                     int card_id = record.toInt() - 1;
                      if (use.card->getSubcards().contains(card_id)) {
                          room->setCardFlag(use.card, "wenjiEffect");
                      }
@@ -972,12 +968,13 @@ public:
 
     virtual int getResidueNum(const Player *from, const Card *card, const Player *) const
     {
-        if (!Sanguosha->matchExpPattern(pattern, from, card)|| from->property("wenji_record").isNull())
-            return 0;
+        if (!Sanguosha->matchExpPattern(pattern, from, card)) return 0;
+
+        if (from->property("wenji_record").toString().isEmpty()) return 0;
 
         QStringList record_list = from->property("wenji_record").toString().split("+");
         foreach (QString record, record_list) {
-            if (card->getSubcards().contains(record.toInt()) || card->hasFlag("Global_AvailabilityChecker")) {
+            if (card->getSubcards().contains(record.toInt()-1) || card->hasFlag("Global_AvailabilityChecker")) {
                 return 1000;
             }
         }
@@ -2211,7 +2208,7 @@ public:
                 }
             }
         }
-        return !Self->isJilei(to_select) && !to_select->isEquipped() && selected.length() < x;
+        return !to_select->isEquipped() && selected.length() < x;
     }
 
     virtual const Card *viewAs(const QList<const Card *> &cards) const

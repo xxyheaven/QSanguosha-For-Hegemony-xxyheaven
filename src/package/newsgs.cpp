@@ -2339,7 +2339,7 @@ public:
         DamageStruct damage = data.value<DamageStruct>();
         if (damage.to->hasShownAllGenerals()) {
             room->loseHp(player);
-            if (player->ownSkill("anyong"))
+            if (player->hasSkill("anyong", true))
                 room->detachSkillFromPlayer(player, "anyong", false, false, player->inHeadSkills("anyong"));
         } else if (damage.to->hasShownOneGeneral())  {
             room->askForDiscard(player, "anyong_discard", 2, 2, false, false, "@anyong-discard");

@@ -694,18 +694,8 @@ bool BurningCamps::targetRated(const Player *to_select, const Player *Self) cons
 
 bool BurningCamps::isAvailable(const Player *player) const
 {
-    if (player->getNextAlive() == player) return false;
-    bool canUse = false;
-    QList<const Player *> players = player->getNextAlive()->getFormation();
-    foreach (const Player *p, players) {
-        if (player->isProhibited(p, this))
-            continue;
-
-        canUse = true;
-        break;
-    }
-
-    return canUse && TrickCard::isAvailable(player);
+    const Player *target = player->getNextAlive();
+    return (TrickCard::isAvailable(player) && target && target != player && !player->isProhibited(target, this));
 }
 
 void BurningCamps::onUse(Room *room, const CardUseStruct &card_use) const

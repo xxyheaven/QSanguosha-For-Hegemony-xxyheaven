@@ -622,9 +622,8 @@ bool GameRule::effect(TriggerEvent triggerEvent, Room *room, ServerPlayer *playe
 
         const Card *cheak_peach = Sanguosha->cloneCard("peach", Card::NoSuit, 0);
 
-        if (player->isProhibited(dying.who, cheak_peach) || player->isLocked(cheak_peach)) break;
-
         while (dying.who->getHp() <= 0) {
+            if (player->isProhibited(dying.who, cheak_peach) || player->isLocked(cheak_peach)) break;
             peach = NULL;
             if (dying.who->isAlive())
                 peach = room->askForSinglePeach(player, dying.who);

@@ -73,7 +73,7 @@ class GlobalRecord : public TriggerSkill
 public:
     GlobalRecord() : TriggerSkill("#global-record")
     {
-        events << CardsMoveOneTime << Death << PreDamageDone << CardUsed << CardResponded << TargetChosen;
+        events << CardsMoveOneTime << Dying << Death << PreDamageDone << CardUsed << CardResponded << TargetChosen;
         global = true;
     }
 
@@ -122,6 +122,15 @@ public:
 
                 }
             }
+
+        } else if (triggerEvent == Dying) {
+            DyingStruct dying = data.value<DyingStruct>();
+            if (dying.who != player) return;
+            ServerPlayer *killer = dying.damage ? dying.damage->from : NULL;
+            ServerPlayer *current = room->getCurrent();
+
+            if (killer && current && current->getPhase() != Player::NotActive)
+                room->addPlayerMark(killer, "GlobalDyingCausedCount");
 
         } else if (triggerEvent == Death) {
             DeathStruct death = data.value<DeathStruct>();
@@ -323,6 +332,7 @@ public:
                 foreach (ServerPlayer *p, room->getAlivePlayers()) {
                     room->setPlayerMark(p, "GlobalRuleDisCardCount", 0);
                     room->setPlayerMark(p, "GlobalDisCardCount", 0);
+                    room->setPlayerMark(p, "GlobalDyingCausedCount", 0);
                     room->setPlayerMark(p, "GlobalKilledCount", 0);
                     room->setPlayerMark(p, "GlobalInjuredCount", 0);
                     room->setPlayerMark(p, "Global_MaxcardsIncrease", 0);
