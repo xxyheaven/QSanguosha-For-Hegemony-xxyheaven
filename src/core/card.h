@@ -103,6 +103,7 @@ public:
     QString getFullName(bool include_suit = false) const;
     QString getLogName() const;
     QString getName() const;
+    bool sameCardNameWith(const Card *other) const;
     QString getSkillName(bool removePrefix = true) const;
     virtual void setSkillName(const QString &skill_name);
     QString getDescription(bool inToolTip = true) const;

@@ -1970,15 +1970,21 @@ void RoomScene::getCards(int moveId, QList<CardsMoveStruct> card_moves)
             if (!reason.m_skillName.isEmpty() && movement.from && movement.to_place != Player::PlaceHand && movement.to_place != Player::PlaceSpecial
                     && movement.to_place != Player::PlaceEquip && movement.to_place != Player::PlaceDelayedTrick) {
                 ClientPlayer *target = ClientInstance->getPlayer(movement.from->objectName());
-                if (!reason.m_playerId.isEmpty() && reason.m_playerId != movement.from->objectName()) target = ClientInstance->getPlayer(reason.m_playerId);
-                if (!reason.m_eventName.isEmpty() && reason.m_eventName == target->getActualGeneral1Name()
-                        || reason.m_eventName == target->getActualGeneral2Name())
+                if (!reason.m_playerId.isEmpty() && reason.m_playerId != movement.from->objectName())
+                    target = ClientInstance->getPlayer(reason.m_playerId);
+
+                if (!reason.m_eventName.isEmpty() && (reason.m_eventName == target->getActualGeneral1Name()
+                        || reason.m_eventName == target->getActualGeneral2Name()))
                     card->showAvatar(reason.m_eventName == target->getActualGeneral1Name() ? target->getGeneral() : target->getGeneral2(), reason.m_skillName);
                 else if (target->hasSkill(reason.m_skillName) && !target->getSkillList().contains(Sanguosha->getSkill(reason.m_skillName)))
                     card->showAvatar(target->hasShownGeneral1() ? target->getGeneral() : target->getGeneral2(), reason.m_skillName);
-                else if (target->inHeadSkills(reason.m_skillName) || (target->getActualGeneral1() ? target->getActualGeneral1()->hasSkill(reason.m_skillName) : NULL))
+                else if (target->getActualGeneral1() && target->getActualGeneral1()->ownSkill(reason.m_skillName))
+                    card->showAvatar(target->getActualGeneral1(), reason.m_skillName);
+                else if (target->getActualGeneral2() && target->getActualGeneral2()->ownSkill(reason.m_skillName))
+                    card->showAvatar(target->getActualGeneral2(), reason.m_skillName);
+                else if (target->inHeadSkills(reason.m_skillName))
                     card->showAvatar(target->getGeneral(), reason.m_skillName);
-                else if (target->inDeputySkills(reason.m_skillName) || (target->getActualGeneral2() ? target->getActualGeneral2()->hasSkill(reason.m_skillName) : NULL))
+                else if (target->inDeputySkills(reason.m_skillName))
                     card->showAvatar(target->getGeneral2(), reason.m_skillName);
             }
 
@@ -4513,7 +4519,7 @@ void RoomScene::setEmotion(const QString &who, const QString &emotion, bool perm
 void RoomScene::showSkillInvocation(const QString &who, const QString &skill_name)
 {
     const ClientPlayer *player = ClientInstance->findChild<const ClientPlayer *>(who);
-    if (!player->hasSkill(skill_name) && !player->hasEquipSkill(skill_name)) return;
+    if (!player->hasSkill(skill_name) && !player->hasEquipSkill(skill_name) && !player->ownSkill(skill_name)) return;
     const Skill *skill = Sanguosha->getSkill(skill_name);
     if (skill && (skill->inherits("SPConvertSkill") || !skill->isVisible())) return;
     QString type = "#InvokeSkill";

@@ -199,6 +199,11 @@ QStringList General::getRelatedSkillNames() const
     return related_skills;
 }
 
+bool General::ownSkill(const QString &skill_name) const
+{
+    return hasSkill(skill_name) || related_skills.contains(skill_name);
+}
+
 QString General::getPackage() const
 {
     QObject *p = parent();

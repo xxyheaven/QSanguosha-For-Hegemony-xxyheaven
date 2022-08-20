@@ -581,6 +581,7 @@ enum TriggerEvent
     BeforeGameOverJudge,
     GameOverJudge,
     GameFinished,
+    DeathFinished,
 
     SlashEffected,
     SlashProceed,

@@ -150,23 +150,23 @@ public:
     virtual void use(Room *room, ServerPlayer *source, QList<ServerPlayer *> &targets) const;
 };
 
-class QizhanCard : public SkillCard
+class MingfaCard : public SkillCard
 {
     Q_OBJECT
 
 public:
-    Q_INVOKABLE QizhanCard();
+    Q_INVOKABLE MingfaCard();
 
     virtual bool targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const;
     virtual void onEffect(const CardEffectStruct &effect) const;
 };
 
-class QizhanZonghengCard : public SkillCard
+class MingfaZonghengCard : public SkillCard
 {
     Q_OBJECT
 
 public:
-    Q_INVOKABLE QizhanZonghengCard();
+    Q_INVOKABLE MingfaZonghengCard();
 
     virtual bool targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const;
     virtual void onEffect(const CardEffectStruct &effect) const;

@@ -1250,11 +1250,12 @@ public:
 
         if (to) {
             Room *room = caopi->getRoom();
-            if (room->askForDiscard(to, "fangzhu_discard", 1, 1, true, true, "@fangzhu-discard:::"+QString::number(caopi->getLostHp())))
+            int x = caopi->getLostHp();
+            if (x > 0 && room->askForDiscard(to, "fangzhu_discard", x, x, true, true, "@fangzhu-discard:::"+QString::number(x)))
                 room->loseHp(to);
             else {
-                if (caopi->isAlive() && caopi->isWounded())
-                    to->drawCards(caopi->getLostHp(), objectName());
+                if (caopi->isAlive() && x > 0)
+                    to->drawCards(x, objectName());
                 to->turnOver();
             }
 

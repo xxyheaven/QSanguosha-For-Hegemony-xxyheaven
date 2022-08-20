@@ -1712,8 +1712,9 @@ public:
 
                     QList<ServerPlayer *> targets = room->getOtherPlayers(player);
                     targets.removeOne(target);
+
                     ServerPlayer *victim = room->askForPlayerChosen(player, targets, "diaodu_give",
-                                                                    "@diaodu-give:::" + card->objectName(), true);
+                                                                    "@diaodu-give:::" + card->objectName(), (target != player));
                     if (victim != NULL) {
                         CardMoveReason reason2(CardMoveReason::S_REASON_GIVE, player->objectName(), victim->objectName(), "diaodu", QString());
                         room->obtainCard(victim, card, reason2, true);
@@ -1741,7 +1742,7 @@ public:
     {
         if (player != NULL && player->isAlive()) {
             CardUseStruct use = data.value<CardUseStruct>();
-            if (use.card->getTypeId() == Card::TypeEquip) {
+            if (use.card->getTypeId() == Card::TypeEquip && !use.card->isKindOf("ImperialEdict")) {
                 QList<ServerPlayer *> owners = room->findPlayersBySkillName("diaodu");
                 TriggerList skill_list;
                 foreach (ServerPlayer *owner, owners)

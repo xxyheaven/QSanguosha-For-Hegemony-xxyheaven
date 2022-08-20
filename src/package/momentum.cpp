@@ -677,20 +677,21 @@ DuanxieCard::DuanxieCard()
 
 bool DuanxieCard::targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
 {
-    return targets.isEmpty() && !to_select->isChained() && to_select != Self && to_select->canBeChainedBy(Self);
+    return targets.length() < qMax(1, Self->getLostHp()) && !to_select->isChained() && to_select != Self && to_select->canBeChainedBy(Self);
 }
 
-void DuanxieCard::extraCost(Room *room, const CardUseStruct &card_use) const
+void DuanxieCard::onUse(Room *room, const CardUseStruct &card_use) const
 {
-    if (card_use.to.first()->canBeChainedBy(card_use.from))
-        room->setPlayerProperty(card_use.to.first(), "chained", true);
+    SkillCard::onUse(room, card_use);
+    if (card_use.from->isAlive() && card_use.from->canBeChainedBy(card_use.from))
+        room->setPlayerProperty(card_use.from, "chained", true);
 }
 
 void DuanxieCard::onEffect(const CardEffectStruct &effect) const
 {
-    if (!effect.from->isChained() && effect.from->canBeChainedBy(effect.from)) {
-        Room *room = effect.from->getRoom();
-        room->setPlayerProperty(effect.from, "chained", true);
+    Room *room = effect.from->getRoom();
+    if (effect.to->isAlive() && !effect.to->isChained() && effect.to->canBeChainedBy(effect.from)) {
+        room->setPlayerProperty(effect.to, "chained", true);
     }
 }
 

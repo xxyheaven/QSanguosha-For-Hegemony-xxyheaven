@@ -2042,7 +2042,6 @@ bool Player::isFriendWith(const Player *player) const
 
     if (property("CareeristFriend").toString() == player->objectName()) return true;
 
-
     if (!hasShownOneGeneral() || !player->hasShownOneGeneral()) return false;
 
     if (role == "careerist" || player->role == "careerist") return false;

@@ -129,6 +129,16 @@ public:
     virtual void onUse(Room *room, const CardUseStruct &use) const;
 };
 
+class ShefuCard : public SkillCard
+{
+    Q_OBJECT
+
+public:
+    Q_INVOKABLE ShefuCard();
+
+    virtual void extraCost(Room *room, const CardUseStruct &card_use) const;
+};
+
 
 
 

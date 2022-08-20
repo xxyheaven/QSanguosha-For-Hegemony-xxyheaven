@@ -350,6 +350,13 @@ QString Card::getName() const
     return Sanguosha->translate(objectName());
 }
 
+bool Card::sameCardNameWith(const Card *other) const
+{
+    if (isKindOf("Slash") && other->isKindOf("Slash")) return true;
+    if (isKindOf("Nullification") && other->isKindOf("Nullification")) return true;
+    return objectName() == other->objectName();
+}
+
 QString Card::getSkillName(bool removePrefix) const
 {
     if (m_skillName.startsWith("_") && removePrefix)

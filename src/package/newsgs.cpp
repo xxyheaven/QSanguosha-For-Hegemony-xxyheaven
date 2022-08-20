@@ -2733,17 +2733,28 @@ public:
     }
 };
 
-class Mingde : public TriggerSkill
+class Deshao : public TriggerSkill
 {
 public:
-    Mingde() : TriggerSkill("mingde")
+    Deshao() : TriggerSkill("deshao")
     {
-        events << TargetChosen;
+        events << TargetChosen << EventPhaseStart;
     }
 
-    virtual TriggerList triggerable(TriggerEvent , Room *, ServerPlayer *player, QVariant &data) const
+    virtual void record(TriggerEvent , Room *room, ServerPlayer *player, QVariant &) const
+    {
+        if (player->getPhase() ==  Player::NotActive) {
+            QList<ServerPlayer *> allplayers = room->getAlivePlayers();
+            foreach (ServerPlayer *p, allplayers) {
+                room->setPlayerMark(p, "deshaoUsedTimes", 0);
+            }
+        }
+    }
+
+    virtual TriggerList triggerable(TriggerEvent triggerEvent, Room *, ServerPlayer *player, QVariant &data) const
     {
         TriggerList skill_list;
+        if (triggerEvent != TargetChosen) return skill_list;
         CardUseStruct use = data.value<CardUseStruct>();
         if (player && player->isAlive() && use.card->getTypeId() != Card::TypeSkill && use.card->isBlack()) {
             ServerPlayer *yanghu = NULL;
@@ -2755,7 +2766,8 @@ public:
                         return skill_list;
                 }
             }
-            if (yanghu && yanghu != player && TriggerSkill::triggerable(yanghu) && yanghu->canDiscard(player, "he")) {
+            if (yanghu && yanghu != player && TriggerSkill::triggerable(yanghu)
+                    && yanghu->getMark("deshaoUsedTimes") < yanghu->getHp() && yanghu->canDiscard(player, "he")) {
                 int x = 0, y = 0;
                 if (yanghu->hasShownGeneral1()) x++;
                 if (yanghu->hasShownGeneral2()) x++;
@@ -2770,13 +2782,14 @@ public:
 
     virtual bool cost(TriggerEvent, Room *room, ServerPlayer *player, QVariant &data, ServerPlayer *yanghu) const
     {
-        yanghu->tag["MingdeUsedata"] = data;
+        yanghu->tag["DeshaoUsedata"] = data;
         bool invoke = yanghu->askForSkillInvoke(this, QVariant::fromValue(player));
-        yanghu->tag.remove("MingdeUsedata");
+        yanghu->tag.remove("DeshaoUsedata");
 
         if (invoke) {
             room->doAnimate(QSanProtocol::S_ANIMATE_INDICATE, yanghu->objectName(), player->objectName());
             room->broadcastSkillInvoke(objectName(), yanghu);
+            room->addPlayerMark(yanghu, "deshaoUsedTimes");
             return true;
         }
         return false;
@@ -2792,75 +2805,74 @@ public:
     }
 };
 
-QizhanCard::QizhanCard()
+MingfaCard::MingfaCard()
 {
 }
 
-bool QizhanCard::targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
+bool MingfaCard::targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
 {
     return targets.isEmpty() && !Self->willBeFriendWith(to_select);
 }
 
-void QizhanCard::onEffect(const CardEffectStruct &effect) const
+void MingfaCard::onEffect(const CardEffectStruct &effect) const
 {
     ServerPlayer *source = effect.from;
     ServerPlayer *target = effect.to;
     Room *room = source->getRoom();
 
-    QStringList target_list = source->tag["QizhanTarget"].toStringList();
+    QStringList target_list = source->tag["MingfaTarget"].toStringList();
     target_list.append(target->objectName());
-    source->tag["QizhanTarget"] = target_list;
-    room->addPlayerMark(target, "##qizhan");
+    source->tag["MingfaTarget"] = target_list;
+    room->addPlayerMark(target, "##mingfa");
 
-    if (source->isAlive() && target->isAlive() &&
-            (room->askForChoice(source, "qizhan", "yes+no", QVariant::fromValue(target),
-                               "@qizhan-zongheng::"+target->objectName()) == "yes")) {
-
-        room->acquireSkill(target, "qizhanzongheng", true, false);
-    }
+//    if (source->isAlive() && target->isAlive() &&
+//            (room->askForChoice(source, "mingfa", "yes+no", QVariant::fromValue(target),
+//                               "@mingfa-zongheng::"+target->objectName()) == "yes")) {
+//        room->acquireSkill(target, "mingfazongheng", true, false);
+//    }
 }
 
-class QizhanViewAsSkill : public ZeroCardViewAsSkill
+class MingfaViewAsSkill : public ZeroCardViewAsSkill
 {
 public:
-    QizhanViewAsSkill() : ZeroCardViewAsSkill("qizhan")
+    MingfaViewAsSkill() : ZeroCardViewAsSkill("mingfa")
     {
 
     }
 
     virtual bool isEnabledAtPlay(const Player *player) const
     {
-        return !player->hasUsed("QizhanCard");
+        return !player->hasUsed("MingfaCard");
     }
 
     virtual const Card *viewAs() const
     {
-        QizhanCard *first = new QizhanCard;
+        MingfaCard *first = new MingfaCard;
         first->setSkillName(objectName());
         first->setShowSkill(objectName());
         return first;
     }
 };
 
-class Qizhan : public TriggerSkill
+class Mingfa : public TriggerSkill
 {
 public:
-    Qizhan() : TriggerSkill("qizhan")
+    Mingfa() : TriggerSkill("mingfa")
     {
         events << EventPhaseStart;
-        view_as_skill = new QizhanViewAsSkill;
+        view_as_skill = new MingfaViewAsSkill;
     }
 
     virtual void record(TriggerEvent , Room *room, ServerPlayer *player, QVariant &) const
     {
         if (player->getPhase() == Player::NotActive) {
-            room->detachSkillFromPlayer(player, "qizhanzongheng", false, false, false);
-            room->setPlayerMark(player, "##qizhan", 0);
+            room->detachSkillFromPlayer(player, "mingfazongheng", false, false, false);
+            room->setPlayerMark(player, "##mingfa", 0);
             QList<ServerPlayer *> players = room->getAlivePlayers();
             foreach (ServerPlayer *p, players) {
-                QStringList target_list = p->tag["QizhanTarget"].toStringList();
+                QStringList target_list = p->tag["MingfaTarget"].toStringList();
                 target_list.removeAll(player->objectName());
-                p->tag["QizhanTarget"] = target_list;
+                p->tag["MingfaTarget"] = target_list;
             }
         }
     }
@@ -2871,10 +2883,10 @@ public:
     }
 };
 
-class QizhanEffect : public TriggerSkill
+class MingfaEffect : public TriggerSkill
 {
 public:
-    QizhanEffect() : TriggerSkill("#qizhan-effect")
+    MingfaEffect() : TriggerSkill("#mingfa-effect")
     {
         events << EventPhaseChanging;
     }
@@ -2886,8 +2898,8 @@ public:
         if (change.to == Player::NotActive && player->isAlive()) {
             QList<ServerPlayer *> players = room->getAlivePlayers();
             foreach (ServerPlayer *p, players) {
-                QStringList target_list = p->tag["QizhanTarget"].toStringList();
-                if (target_list.contains(player->objectName()) && player->getHandcardNum() < p->getHandcardNum()) {
+                QStringList target_list = p->tag["MingfaTarget"].toStringList();
+                if (target_list.contains(player->objectName()) && player->getHandcardNum() != p->getHandcardNum()) {
                     skill_list.insert(p, QStringList(objectName()));
                 }
             }
@@ -2903,59 +2915,65 @@ public:
     virtual bool effect(TriggerEvent, Room *room, ServerPlayer *player, QVariant &, ServerPlayer *yanghu) const
     {
         LogMessage log;
-        log.type = "#QizhanEffect";
+        log.type = "#MingfaEffect";
         log.from = yanghu;
         log.to << player;
-        log.arg = "qizhan";
+        log.arg = "mingfa";
         room->sendLog(log);
         room->doAnimate(QSanProtocol::S_ANIMATE_INDICATE, yanghu->objectName(), player->objectName());
-        room->damage(DamageStruct("qizhan", yanghu, player));
-        if (yanghu->isAlive() && player->isAlive() && yanghu->canGetCard(player, "h")) {
-            int card_id = room->askForCardChosen(yanghu, player, "h", "qizhan", false, Card::MethodGet);
-            CardMoveReason reason(CardMoveReason::S_REASON_EXTRACTION, yanghu->objectName());
-            room->obtainCard(yanghu, Sanguosha->getCard(card_id), reason, false);
+
+        int x = player->getHandcardNum() - yanghu->getHandcardNum();
+        if (x > 0) {
+            yanghu->drawCards(qMin(x, 5), "mingfa");
+        } else if (x < 0)  {
+            room->damage(DamageStruct("mingfa", yanghu, player));
+            if (yanghu->isAlive() && player->isAlive() && yanghu->canGetCard(player, "h")) {
+                int card_id = room->askForCardChosen(yanghu, player, "h", "mingfa", false, Card::MethodGet);
+                CardMoveReason reason(CardMoveReason::S_REASON_EXTRACTION, yanghu->objectName());
+                room->obtainCard(yanghu, Sanguosha->getCard(card_id), reason, false);
+            }
         }
         return false;
     }
 };
 
-QizhanZonghengCard::QizhanZonghengCard()
+MingfaZonghengCard::MingfaZonghengCard()
 {
 }
 
-bool QizhanZonghengCard::targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
+bool MingfaZonghengCard::targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
 {
     return targets.isEmpty() && !Self->isFriendWith(to_select);
 }
 
-void QizhanZonghengCard::onEffect(const CardEffectStruct &effect) const
+void MingfaZonghengCard::onEffect(const CardEffectStruct &effect) const
 {
     ServerPlayer *source = effect.from;
     ServerPlayer *target = effect.to;
     Room *room = source->getRoom();
 
-    QStringList target_list = source->tag["QizhanTarget"].toStringList();
+    QStringList target_list = source->tag["MingfaTarget"].toStringList();
     target_list.append(target->objectName());
-    source->tag["QizhanTarget"] = target_list;
-    room->addPlayerMark(target, "##qizhan");
+    source->tag["MingfaTarget"] = target_list;
+    room->addPlayerMark(target, "##mingfa");
 }
 
-class QizhanZongheng : public OneCardViewAsSkill
+class MingfaZongheng : public OneCardViewAsSkill
 {
 public:
-    QizhanZongheng() : OneCardViewAsSkill("qizhanzongheng")
+    MingfaZongheng() : OneCardViewAsSkill("mingfazongheng")
     {
         filter_pattern = ".!";
     }
 
     virtual bool isEnabledAtPlay(const Player *player) const
     {
-        return !player->hasUsed("QizhanZonghengCard");
+        return !player->hasUsed("MingfaZonghengCard");
     }
 
     virtual const Card *viewAs(const Card *originalCard) const
     {
-        QizhanZonghengCard *first = new QizhanZonghengCard;
+        MingfaZonghengCard *first = new MingfaZonghengCard;
         first->addSubcard(originalCard);
         return first;
     }
@@ -2978,15 +2996,29 @@ ManoeuvrePackage::ManoeuvrePackage()
     huaxin->addSkill(new Wanggui);
     huaxin->addSkill(new Xibing);
 
+    General *yanghu = new General(this, "yanghu", "wei", 3);
+    yanghu->addSkill(new Deshao);
+    yanghu->addSkill(new Mingfa);
+    yanghu->addSkill(new MingfaEffect);
+    insertRelatedSkills("mingfa", "#mingfa-effect");
+
+    General *zongyux = new General(this, "zongyux", "shu", 3);
+    zongyux->addSkill(new Qiao);
+    zongyux->addSkill(new Chengshang);
+
+    General *dengzhi = new General(this, "dengzhi", "shu", 3);
+    dengzhi->addSkill(new Jianliang);
+    dengzhi->addSkill(new Weimeng);
+
     General *luyusheng = new General(this, "luyusheng", "wu", 3, false);
     luyusheng->addSkill(new Zhente);
     luyusheng->addSkill(new Zhiwei);
     luyusheng->addSkill(new ZhiweiEffect);
     insertRelatedSkills("zhiwei", "#zhiwei-effect");
 
-    General *zongyux = new General(this, "zongyux", "shu", 3);
-    zongyux->addSkill(new Qiao);
-    zongyux->addSkill(new Chengshang);
+    General *fengxi = new General(this, "fengxi", "wu", 3);
+    fengxi->addSkill(new Yusui);
+    fengxi->addSkill(new Boyan);
 
     General *miheng = new General(this, "miheng", "qun", 3);
     miheng->addSkill(new Kuangcai);
@@ -2995,23 +3027,9 @@ ManoeuvrePackage::ManoeuvrePackage()
     miheng->addSkill(new Shejian);
     insertRelatedSkills("kuangcai", 2, "#kuangcai-maxcards", "#kuangcai-target");
 
-    General *fengxi = new General(this, "fengxi", "wu", 3);
-    fengxi->addSkill(new Yusui);
-    fengxi->addSkill(new Boyan);
-
-    General *dengzhi = new General(this, "dengzhi", "shu", 3);
-    dengzhi->addSkill(new Jianliang);
-    dengzhi->addSkill(new Weimeng);
-
     General *xunchen = new General(this, "xunchen", "qun", 3);
     xunchen->addSkill(new Fenglve);
     xunchen->addSkill(new Anyong);
-
-    General *yanghu = new General(this, "yanghu", "wei", 3);
-    yanghu->addSkill(new Mingde);
-    yanghu->addSkill(new Qizhan);
-    yanghu->addSkill(new QizhanEffect);
-    insertRelatedSkills("qizhan", "#qizhan-effect");
 
     addMetaObject<BoyanCard>();
     addMetaObject<BoyanZonghengCard>();
@@ -3019,10 +3037,10 @@ ManoeuvrePackage::ManoeuvrePackage()
     addMetaObject<WeimengZonghengCard>();
     addMetaObject<FenglveCard>();
     addMetaObject<FenglveZonghengCard>();
-    addMetaObject<QizhanCard>();
-    addMetaObject<QizhanZonghengCard>();
+    addMetaObject<MingfaCard>();
+    addMetaObject<MingfaZonghengCard>();
 
-    skills << new BoyanZongheng << new WeimengZongheng << new FenglveZongheng << new QizhanZongheng;
+    skills << new BoyanZongheng << new WeimengZongheng << new FenglveZongheng << new MingfaZongheng;
 }
 
 NewSGSPackage::NewSGSPackage()
