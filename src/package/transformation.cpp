@@ -1163,18 +1163,15 @@ class YiguiShow : public TriggerSkill
 public:
     YiguiShow() : TriggerSkill("#yigui-show")
     {
-        events << GeneralShown;
+        events << GeneralShowed;
         frequency = Compulsory;
     }
 
-    virtual QStringList triggerable(TriggerEvent triggerEvent, Room *, ServerPlayer *player, QVariant &data, ServerPlayer* &) const
+    virtual QStringList triggerable(TriggerEvent , Room *, ServerPlayer *player, QVariant &data, ServerPlayer* &) const
     {
-        if (triggerEvent == GeneralShown) {
-            if (TriggerSkill::triggerable(player) && player->cheakSkillLocation("yigui", data.toBool())) {
-                if ((data.toBool() && player->getMark("HaventShowGeneral") > 0)
-                        || (!data.toBool() && player->getMark("HaventShowGeneral2") > 0))
-                return QStringList(objectName());
-            }
+        if (player && player->isAlive() && player->hasShownSkill("yigui") &&
+                player->cheakSkillLocation("yigui", data.toStringList()) && player->getMark("yiguiUsed") == 0) {
+            return QStringList(objectName());
         }
         return QStringList();
     }
@@ -1183,6 +1180,7 @@ public:
     {
         room->sendCompulsoryTriggerLog(player, "yigui");
         room->broadcastSkillInvoke("yigui");
+        room->addPlayerMark(player, "yiguiUsed");
         return true;
     }
 

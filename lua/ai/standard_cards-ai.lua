@@ -3079,7 +3079,7 @@ function SmartAI:willUseLightning(card)
 
 	local function hasDangerousFriend()
 		for _, aplayer in ipairs(self.enemies) do
-			if aplayer:hasShownSkills("hongyan|wendao") and #self.enemies < 3 then return true end
+			if aplayer:hasShownSkills(sgs.wizard_skill.."|hongyan|wendao") and #self.enemies < 3 then return true end
 			if aplayer:hasShownSkills("guanxing|yizhi") and self:isFriend(aplayer:getNextAlive()) then return true end
 		end
 		return false
@@ -3090,7 +3090,7 @@ function SmartAI:willUseLightning(card)
 	elseif self:getFinalRetrial(self.player) == 1 then
 		return true
 	elseif not hasDangerousFriend() then
-		if self.player:hasSkills("guanxing|kongcheng") and self.player:isLastHandCard(card) then return true end
+		if self.player:hasSkills("guanxing+kongcheng") and self.player:isLastHandCard(card) then return true end
 		local players = self.room:getAllPlayers()
 		players = sgs.QList2Table(players)
 

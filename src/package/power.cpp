@@ -1025,9 +1025,8 @@ public:
                 }
             }
         } else if (triggerEvent == CardUsed) {
-            if (player->getPhase() == Player::Play && use.card && use.card->isKindOf("Slash") && use.card->hasFlag("GlobalSecondSlash")) {
+            if (use.card && use.card->isKindOf("Slash") && player->getCardUsedTimes("Slash") == 2)
                 return QStringList(objectName());
-            }
         }
         return QStringList();
     }

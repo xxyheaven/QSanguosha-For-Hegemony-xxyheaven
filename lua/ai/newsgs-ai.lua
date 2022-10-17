@@ -656,8 +656,7 @@ sgs.ai_skill_playerchosen["#guowu_effect"] = function(self, targets, max_num, mi
 				table.insert(result, target)
 			end
 		end
-	end
-	if card:isKindOf("ExNihilo") then
+	elseif card:isKindOf("ExNihilo") then
 		self:sort(targetlist, "handcard")
 		for _, target in ipairs(targetlist) do
 			if self:isFriendWith(target) and #result < max_num and not table.contains(result, target) then
@@ -669,8 +668,7 @@ sgs.ai_skill_playerchosen["#guowu_effect"] = function(self, targets, max_num, mi
 		  		table.insert(result, target)
 			end
 		end
-	end
-	if card:isKindOf("BefriendAttacking") then
+	elseif card:isKindOf("BefriendAttacking") then
 		self:sort(targetlist, "handcard")
 		for _, target in ipairs(targetlist) do
 			if self:isFriend(target) and #result < max_num and not table.contains(result, target) then
@@ -682,8 +680,7 @@ sgs.ai_skill_playerchosen["#guowu_effect"] = function(self, targets, max_num, mi
 		  		table.insert(result, target)
 			end
 		end
-	end
-	if card:isKindOf("Dismantlement") or card:isKindOf("Snatch") then
+	elseif card:isKindOf("Dismantlement") or card:isKindOf("Snatch") then
 		local method = card:isKindOf("Snatch") and sgs.Card_MethodGet or sgs.Card_MethodDiscard
 		local extratargets = self:findPlayerToDiscard("hej", false, method, targets, true)
 		for _, target in ipairs(extratargets) do
@@ -691,8 +688,7 @@ sgs.ai_skill_playerchosen["#guowu_effect"] = function(self, targets, max_num, mi
 		  		table.insert(result, target)
 			end
 		end
-	end
-	if card:isKindOf("Duel") or card:isKindOf("Drowning") then--决斗详细？
+	elseif card:isKindOf("Duel") or card:isKindOf("Drowning") then--决斗详细？
 		self:sort(targetlist, "hp")
 		for _, target in ipairs(targetlist) do
 			if self:isEnemy(target) and #result < max_num and not table.contains(result, target) then
@@ -704,8 +700,7 @@ sgs.ai_skill_playerchosen["#guowu_effect"] = function(self, targets, max_num, mi
 		  		table.insert(result, target)
 			end
 		end
-	end
-	if card:isKindOf("TrickCard") and (not self:slashIsAvailable() or self:getCardsNum("Slash") == 0) then--其他锦囊暂不考虑
+	elseif card:isKindOf("TrickCard") and (not self:slashIsAvailable() or self:getCardsNum("Slash") == 0) then--其他锦囊暂不考虑
 		for _, target in ipairs(targetlist) do
 			if #result < max_num and not table.contains(result, target) then
 		  		table.insert(result, target)
@@ -721,6 +716,7 @@ zhuangrong_skill.name = "zhuangrong"
 table.insert(sgs.ai_skills, zhuangrong_skill)
 zhuangrong_skill.getTurnUseCard = function(self)
 	if self.player:hasUsed("ZhuangrongCard") or self.player:hasSkill("wushuang") then return end
+	if self.player:hasSkill("wushuang") and self:getCardsNum("Duel") == 0 then return end--新无双
 	if (not self:slashIsAvailable() or self:getCardsNum("Slash") == 0) and self:getCardsNum("Duel") == 0  then return end
 	local cards = self.player:getCards("he")
 	cards = sgs.QList2Table(cards)

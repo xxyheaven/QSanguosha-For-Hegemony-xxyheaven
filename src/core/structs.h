@@ -622,9 +622,12 @@ enum TriggerEvent
     TurnBroken, // For the skill 'DanShou'. Do not use it to trigger events
 
     GeneralShown, // For Official Hegemony mode
+    GeneralShowed, // For Official Hegemony mode
     GeneralHidden, // For Official Hegemony mode
     GeneralRemoved, // For Official Hegemony mode
     GeneralTransforming, // For Official Hegemony mode
+
+    CommandVerifying,
 
     DFDebut, // for Dragon Phoenix Debut
 

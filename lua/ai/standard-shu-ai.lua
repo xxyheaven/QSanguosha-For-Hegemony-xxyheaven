@@ -782,7 +782,7 @@ sgs.ai_cardneed.lianhuan = function(to, card)
 end
 
 sgs.ai_skill_invoke.niepan = function(self, data)
-	if self.player:getMark("command5_effect") > 0 then
+	if not self.player:canRecover() then
 		return false
 	end
 	local dying = data:toDying()

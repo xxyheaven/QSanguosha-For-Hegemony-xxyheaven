@@ -337,6 +337,7 @@ public:
     bool inDeputySkills(const QString &skill_name) const;
     bool inDeputySkills(const Skill *skill) const;
     bool cheakSkillLocation(const QString &skill_name, bool is_head) const;
+    bool cheakSkillLocation(const QString &skill_name, const QStringList &show_list) const;
     const General *getActualGeneral1() const;
     const General *getActualGeneral2() const;
     QString getActualGeneral1Name() const;

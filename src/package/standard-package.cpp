@@ -215,11 +215,6 @@ public:
 
                 if (current && current->getPhase() != Player::NotActive) {
 
-                    if (is_use) {
-                        if (player->getCardUsedTimes("Slash") == 1)
-                            room->setCardFlag(card, "GlobalSecondSlash");
-                    }
-
                     if (current->getPhase() == Player::Play) {
 
                         if (is_use) {

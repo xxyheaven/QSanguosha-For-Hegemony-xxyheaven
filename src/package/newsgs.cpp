@@ -303,7 +303,7 @@ class Zhiwei : public TriggerSkill
 public:
     Zhiwei() : TriggerSkill("zhiwei")
     {
-        events << GeneralShown << GeneralHidden << GeneralRemoved << Death;
+        events << GeneralShowed << GeneralHidden << GeneralRemoved << Death;
     }
 
     virtual bool canPreshow() const
@@ -348,8 +348,8 @@ public:
 
     virtual QStringList triggerable(TriggerEvent triggerEvent, Room *, ServerPlayer *player, QVariant &data, ServerPlayer* &) const
     {
-        if (triggerEvent == GeneralShown && TriggerSkill::triggerable(player))
-            return (player->cheakSkillLocation(objectName(), data.toBool())) ? QStringList(objectName()) : QStringList();
+        if (triggerEvent == GeneralShowed && TriggerSkill::triggerable(player))
+            return (player->cheakSkillLocation(objectName(), data.toStringList())) ? QStringList(objectName()) : QStringList();
 
         return QStringList();
     }
@@ -2129,7 +2129,7 @@ void FenglveCard::onEffect(const CardEffectStruct &effect) const
 
         int x1 = pd->from_number,x2 = pd->to_number;
 
-        if (x1 > x2 && !target->isNude()) {
+        if (x1 > x2 && !target->isAllNude()) {
             QList<int> to_get;
             QList<const Card *> cards = target->getCards("hej");
 
@@ -2247,7 +2247,7 @@ void FenglveZonghengCard::onEffect(const CardEffectStruct &effect) const
 
         int x1 = pd->from_number,x2 = pd->to_number;
 
-        if (x1 > x2 && !target->isNude()) {
+        if (x1 > x2 && !target->isAllNude()) {
             int card_id = room->askForCardChosen(target, target, "hej", "fenglve");
             CardMoveReason reason(CardMoveReason::S_REASON_GIVE, target->objectName(), source->objectName(), "fenglve", QString());
             reason.m_playerId = source->objectName();

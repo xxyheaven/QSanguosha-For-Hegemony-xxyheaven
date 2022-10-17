@@ -292,17 +292,24 @@ end
 
 sgs.ai_skill_use_func.DuanxieCard = function(card, use, self)
 	self:sort(self.enemies, "defense")
-	local target
+	local num = math.max(1, self.player:getLostHp())
+	local targets = {}
 	for _, enemy in ipairs(self.enemies) do
 		if not enemy:isChained() and not self:needDamagedEffects(enemy) and not self:needToLoseHp(enemy) and sgs.isGoodTarget(enemy, self.enemies, self) then
-			target = enemy
-			break
+			table.insert(targets, enemy)
+			if #targets == num then
+				break
+			end
 		end
 	end
-	if not target then return end
-	if not self:isWeak() or self.player:isChained() then
+	if #targets == 0 then return end
+	if not self:isWeak() or self.player:isChained() or #targets > 2 then
 		use.card = card
-		if use.to then use.to:append(target) end
+		if use.to then
+			for _, p in ipairs(targets) do
+				use.to:append(p)
+			end
+		end
 	end
 end
 

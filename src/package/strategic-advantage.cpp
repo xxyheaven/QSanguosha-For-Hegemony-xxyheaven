@@ -1163,9 +1163,9 @@ ThreatenEmperor::ThreatenEmperor(Suit suit, int number)
     transferable = true;
 }
 
-bool ThreatenEmperor::targetRated(const Player *to_select, const Player *Self) const
+bool ThreatenEmperor::targetRated(const Player *to_select, const Player *) const
 {
-    return to_select->isBigKingdomPlayer() && to_select == Self;
+    return to_select->isBigKingdomPlayer() && to_select->getPhase() == Player::Play;
 }
 
 void ThreatenEmperor::onUse(Room *room, const CardUseStruct &card_use) const
@@ -1178,7 +1178,7 @@ void ThreatenEmperor::onUse(Room *room, const CardUseStruct &card_use) const
 
 bool ThreatenEmperor::isAvailable(const Player *player) const
 {
-    return player->isBigKingdomPlayer() && !player->isProhibited(player, this) && TrickCard::isAvailable(player);
+    return targetRated(player, player) && !player->isProhibited(player, this) && TrickCard::isAvailable(player);
 }
 
 void ThreatenEmperor::onEffect(const CardEffectStruct &effect) const

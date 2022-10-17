@@ -1389,7 +1389,7 @@ sgs.ai_skill_use_func.QingchengCard = function(card, use, self)
 		return
 	end
 	local gongsunyuan = self.room:findPlayerBySkillName("zisui")
-	if gongsunyuan and gongsunyuan:getPile("disloyalty"):length() > 1 and gongsunyuan:hasShownAllGenerals() and self:isEnemy(gongsunyuan) then
+	if gongsunyuan and gongsunyuan:getPile("&disloyalty"):length() > 1 and gongsunyuan:hasShownAllGenerals() and self:isEnemy(gongsunyuan) then
 		use.card = card
 		if not use.isDummy and use.to then
 			self.qingcheng = "gongsunyuan"
@@ -1469,7 +1469,7 @@ sgs.ai_skill_playerchosen["qingcheng_second"] = function(self, targets)
 		return sunchen
 	end
 	local gongsunyuan = self.room:findPlayerBySkillName("zisui")
-	if gongsunyuan and gongsunyuan:getPile("disloyalty"):length() > 1 and gongsunyuan:hasShownAllGenerals() and self:isEnemy(gongsunyuan) then
+	if gongsunyuan and gongsunyuan:getPile("&disloyalty"):length() > 1 and gongsunyuan:hasShownAllGenerals() and self:isEnemy(gongsunyuan) then
 		return gongsunyuan
 	end
 	local zhoutai = self.room:findPlayerBySkillName("buqu")

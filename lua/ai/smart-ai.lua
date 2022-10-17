@@ -157,13 +157,14 @@ function SetInitialTables()
 							"shouyue|paoxiao|jizhi|tieqi|liegong|jili|xuanhuo|tongdu|" ..
 							"jiahe|xiaoji|guose|tianxiang|fanjian|buqu|xuanlue|diaodu|" ..
 							"hongfa|jijiu|luanji|wansha|jianchu|qianhuan|yigui|fudi|yongsi|"..
-							"paiyi|suzhi|shilu|huaiyi|shicai|congcha|jinfa|"..
+							"paiyi|suzhi|shilu|huaiyi|chenglve|congcha|jinfa|lixia|"..
 							"zhukou|jinghe|guowu|shenwei|wanggui|boyan|kuangcai|"..
-							"guishu|sidi|danlao|wanglie|miewu"
-	sgs.masochism_skill = "yiji|fankui|jieming|ganglie|fangzhu|hengjiang|jianxiong|qianhuan|zhiyu|jihun|fudi|bushi|shicai|quanji|zhaoxin|fankui_simazhao|wanggui|sidi"
+							"miewu|guishu|sidi|danlao|wanglie|zhuidu"
+	sgs.masochism_skill = "yiji|fankui|jieming|ganglie|fangzhu|hengjiang|jianxiong|qianhuan|zhiyu|jihun|fudi|" ..
+						  "bushi|shicai|quanji|zhaoxin|fankui_simazhao|wanggui|sidi|shangshi|benyu"
 	sgs.defense_skill = "qingguo|longdan|kongcheng|niepan|bazhen|kanpo|xiangle|tianxiang|liuli|qianxun|leiji|duanchang|beige|weimu|" ..
 						"tuntian|shoucheng|yicheng|qianhuan|jizhao|wanwei|enyuan|buyi|keshou|qiuan|biluan|jiancai|aocai|" ..
-						"xibing|zhente|qiao|shejian|yusui|mingde|yuanyu|mingzhe|jilei"
+						"xibing|zhente|qiao|shejian|yusui|deshao|yuanyu|mingzhe|jilei|shigong|dingke|shefu"
 	sgs.usefull_skill = "tiandu|qiaobian|xingshang|xiaoguo|wusheng|guanxing|qicai|jizhi|kuanggu|lianhuan|huoshou|juxiang|shushen|zhiheng|keji|" ..
 						"duoshi|xiaoji|hongyan|haoshi|guzheng|zhijian|shuangxiong|guidao|guicai|xiongyi|mashu|lirang|yizhi|shengxi|" ..
 						"xunxun|wangxi|yingyang|hunshang|biyue"
@@ -185,7 +186,7 @@ function SetInitialTables()
 	sgs.notActive_cardneed_skill =	"guicai|xiaoguo|kanpo|guidao|beige|jijiu|liuli|tianxiang|zhendu|qianhuan|keshou|fudi|shejian|huanshi"
 	sgs.cardneed_skill =  	sgs.Active_cardneed_skill .. "|" .. sgs.notActive_cardneed_skill
 	sgs.use_lion_skill =	"duanliang|guicai|guidao|lijian|qingcheng|zhiheng|qixi|fenxun|kurou|diaogui|quanji|jinfa|xishe"
-	sgs.need_equip_skill = 	"shensu|huyuan|beige|qingcheng|xiaoji|xuanlue|diaodu"
+	sgs.need_equip_skill = 	"shensu|huyuan|beige|qingcheng|xiaoji|xuanlue|diaodu|biluan|xishe"
 	sgs.judge_reason =		"bazhen|EightDiagram|supply_shortage|indulgence|lightning|leiji|beige|tieqi|luoshen|ganglie|tuntian"
 
 	sgs.rule_skill = "transfer|aozhan|companion|halfmaxhp|firstshow|careerman|showhead|showdeputy"
@@ -358,6 +359,23 @@ function SmartAI:getTurnUse()
 	local slashes = {}
 
 	for _, card in ipairs(cards) do
+
+		local next = false
+		for _, c in ipairs(turnUse) do--减少同名牌重复检索
+			if c:objectName() == card:objectName() and c:sameColorWith(card) then
+				if card:isKindOf("Slash")  then
+					table.insert(slashes, card)
+				else
+					table.insert(turnUse, card)
+				end
+				next = true
+				break
+			end
+		end
+		if next then
+			continue
+		end
+
 		local dummy_use = { isDummy = true }
 
 		local type = card:getTypeId()
@@ -1260,7 +1278,7 @@ function sgs.getChaofeng(player)--嘲讽值
 		defense = defense + #huashens
 	end
 	if player:hasShownSkill("paiyi") then defense = defense + player:getPile("power_pile"):length() end
-	if player:hasShownSkill("zisui") then defense = defense + player:getPile("disloyalty"):length() end
+	if player:hasShownSkill("zisui") then defense = defense + player:getPile("&disloyalty"):length() end
 	if player:hasShownSkill("xiongnve") then defense = defense + player:getMark("#massacre") end
 	if player:hasShownSkill("sidi") then defense = defense + player:getPile("drive"):length() end
 
@@ -1825,6 +1843,10 @@ function SmartAI:getDynamicUsePriority(card)
 			and self:getSameEquip(card) and self:getSameEquip(card):isBlack() then
 				return 3.3
 		end
+		if (self.player:hasSkills("xiaoji+guose") or self.player:hasSkills("xuanlue+guose"))
+			and self:getSameEquip(card) and self:getSameEquip(card):getSuit() == sgs.Card_Diamond then
+				return 0.4
+		end
 		local lvfan = sgs.findPlayerByShownSkillName("diaodu")--重复装备时应比烽火优先度20低
 		if (lvfan and self.player:isFriendWith(lvfan)) or self.player:hasSkills(sgs.lose_equip_skill) then value = value + 6 end
 
@@ -2380,6 +2402,9 @@ sgs.ai_choicemade_filter.Yiji.general = function(self, f, promptlist)
 end
 
 function SmartAI:filterEvent(event, player, data)
+	--self.room:writeToConsole("事件记录："..event)
+	--self.room:outputEventStack()
+	--self.room:throwEvent(event)
 	if not sgs.recorder then
 		sgs.recorder = self
 	end
@@ -2444,7 +2469,7 @@ function SmartAI:filterEvent(event, player, data)
 	end
 
 	if event == sgs.GameStart and sgs.GetConfig("ViewNextPlayerDeputyGeneral", true) then--查看下家副将，不是每次游戏开始都会进入filterEvent？
-		Global_room:writeToConsole("查看下家的副将")
+		self.room:writeToConsole("查看下家的副将")
 		sgs.viewNextPlayerDeputy()
 	end
 
@@ -2578,6 +2603,7 @@ function SmartAI:filterEvent(event, player, data)
 			local card = sgs.Sanguosha:getCard(card_id)
 
 			if move.to_place == sgs.Player_PlaceHand and to and player:objectName() == to:objectName() then
+				self.room:writeToConsole("手牌可见事件记录")
 				if card:hasFlag("visible") then
 					if isCard("Slash", card, player) then sgs.card_lack[player:objectName()]["Slash"] = 0 end
 					if isCard("Jink", card, player) then sgs.card_lack[player:objectName()]["Jink"] = 0 end
@@ -2614,7 +2640,7 @@ function SmartAI:filterEvent(event, player, data)
 	elseif event == sgs.EventPhaseEnd and player:getPhase() == sgs.Player_Player then
 		player:setFlags("AI_Playing")
 		if player:getTag("AI_FireAttack_NoSuit"):toString() ~= "" then--火攻失败标记处理
-			Global_room:writeToConsole("回合结束火攻失败标记去除")
+			self.room:writeToConsole("回合结束火攻失败标记去除")
 			player:removeTag("AI_FireAttack_NoSuit")
 		end
 	elseif event == sgs.EventPhaseStart then
@@ -3664,7 +3690,7 @@ function SmartAI:getCardNeedPlayer(cards, friends_table, skillname)
 
 	local found
 	local xunyu, huatuo
-	local friends_table = friends_table or self.friends_noself
+	friends_table = friends_table or self.friends_noself
 	for i = 1, #friends_table do
 		local player = friends_table[i]
 		local exclude = self:needKongcheng(player) or self:willSkipPlayPhase(player)
@@ -3729,7 +3755,7 @@ function SmartAI:getCardNeedPlayer(cards, friends_table, skillname)
 	end
 
 	if (skillname == "rende" and self.player:hasSkill("rende") and self.player:isWounded() and self.player:getMark("rende") < 2) and not self.player:hasSkill("kongcheng") then
-		if (self.player:getHandcardNum() < 3 and self.player:getMark("rende") == 0 and self:getOverflow() <= 0) then return end
+		if (self.player:getHandcardNum() < 2 and self.player:getMark("rende") == 0 and self:getOverflow() <= 0) then return end
 	end
 
 	for _, friend in ipairs(friends) do
@@ -5133,7 +5159,7 @@ end
 
 function SmartAI:useBasicCard(card, use)
 	if not card then Global_room:writeToConsole(debug.traceback()) return end
-	if self:needRende() then return end
+	--if self:needRende() then return end
 	self:useCardByClassName(card, use)
 end
 
@@ -5196,7 +5222,7 @@ function SmartAI:exclude(players, card, from)
 		for _, id in sgs.qlist(from:getHandPile()) do
 			table.insert(cards, sgs.Sanguosha:getCard(id))
 		end
-		for _,acard in ipairs(cards)  do
+		for _,acard in ipairs(cards) do
 			if acard:isBlack() and (acard:isKindOf("BasicCard") or acard:isKindOf("EquipCard")) and (self:getUseValue(acard) < sgs.ai_use_value.SupplyShortage) then
 				duanliang_count = duanliang_count + 1
 			end
@@ -5563,7 +5589,7 @@ end
 
 function SmartAI:useTrickCard(card, use)
 	if not card then Global_room:writeToConsole(debug.traceback()) return end
-	if self:needRende() and not card:isKindOf("ExNihilo") then return end
+	--if self:needRende() and not card:isKindOf("ExNihilo") then return end
 	self:useCardByClassName(card, use)
 end
 
@@ -5793,7 +5819,8 @@ function SmartAI:useEquipCard(card, use)
 		return
 	end
 	local same = self:getSameEquip(card)
-	local zzzh, isfriend_zzzh, isenemy_zzzh = sgs.findPlayerByShownSkillName("guzheng")
+	local zzzh = sgs.findPlayerByShownSkillName("guzheng")
+	local isfriend_zzzh, isenemy_zzzh = false, false
 	if zzzh then
 		if self:isFriend(zzzh) then isfriend_zzzh = true
 		else isenemy_zzzh = true
@@ -6602,7 +6629,7 @@ function SmartAI:imitateDrawNCards(player, skills)
 				if congcha_draw then
 					count = count + 2
 				end
-			elseif skillname == "zisui" then count = count + player:getPile("disloyalty"):length() end
+			elseif skillname == "zisui" then count = count + player:getPile("&disloyalty"):length() end
 		end
 	end
 	return count

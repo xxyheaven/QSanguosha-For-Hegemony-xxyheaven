@@ -319,6 +319,7 @@ public:
     void handleUsedGeneral(const QString &general);
     bool dropHuashenCard(ServerPlayer *p, const QString &name);
     bool dropHuashenCardbySkillName(ServerPlayer *p, const QString &name);
+    void freeChain();
     int getCardFromPile(const QString &card_name);
     ServerPlayer *findPlayer(const QString &general_name, bool include_dead = false) const;
     QList<ServerPlayer *> findPlayersBySkillName(const QString &skill_name) const;

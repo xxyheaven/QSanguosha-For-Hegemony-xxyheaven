@@ -109,83 +109,101 @@ end
 local function huyuan_validate(self, equip_type, is_handcard)
 	local targets = {}
 	if is_handcard then targets = self.friends else targets = self.friends_noself end
-	if equip_type == "SilverLion" then
+	if equip_type == "po_bazhen" then
 		for _, enemy in ipairs(self.enemies) do
 			if self:hasKnownSkill("bazhen", enemy) and not enemy:getArmor() then table.insert(targets, enemy) end
 		end
+		equip_type = "Armor"
 	end
-	for _, friend in ipairs(targets) do
+	self:sort(targets, "defense")
+	for _, p in ipairs(targets) do
 		local has_equip = false
-		for _, equip in sgs.qlist(friend:getEquips()) do
-			if equip:isKindOf(equip_type == "SilverLion" and "Armor" or equip_type) then
+		for _, equip in sgs.qlist(p:getEquips()) do
+			if equip:isKindOf(equip_type) then
 				has_equip = true
 				break
 			end
 		end
-		if not has_equip and not ((equip_type == "Armor" or equip_type == "SilverLion") and self:hasKnownSkill("bazhen", friend)) then
+		if not has_equip and not (equip_type == "Armor" and self:hasKnownSkill("bazhen", p) and self:isFriend(p)) then
+			--[[
 			self:sort(self.enemies, "defense")
 			for _, enemy in ipairs(self.enemies) do
-				if friend:distanceTo(enemy) == 1 and self.player:canDiscard(enemy, "he") then
+				if p:distanceTo(enemy) == 1 and self.player:canDiscard(enemy, "he") then
 					enemy:setFlags("AI_HuyuanToChoose")
-					return friend
+					return p
 				end
 			end
+			]]
+			return p
 		end
 	end
 	return nil
 end
 
 sgs.ai_skill_use["@@huyuan"] = function(self, prompt)
-	local cards = self.player:getHandcards()
-	cards = sgs.QList2Table(cards)
-	self:sortByKeepValue(cards)
-	if self.player:hasArmorEffect("SilverLion") then
-		local player = huyuan_validate(self, "SilverLion", false)
-		if player then return "@HuyuanCard=" .. self.player:getArmor():getEffectiveId() .. "->" .. player:objectName() end
-	end
-	if self.player:getOffensiveHorse() then
-		local player = huyuan_validate(self, "OffensiveHorse", false)
-		if player then return "@HuyuanCard=" .. self.player:getOffensiveHorse():getEffectiveId() .. "->" .. player:objectName() end
-	end
-	if self.player:getWeapon() then
-		local player = huyuan_validate(self, "Weapon", false)
-		if player then return "@HuyuanCard=" .. self.player:getWeapon():getEffectiveId() .. "->" .. player:objectName() end
-	end
-	if self.player:getArmor() and self.player:getLostHp() <= 1 and self.player:getHandcardNum() >= 3 then
-		local player = huyuan_validate(self, "Armor", false)
-		if player then return "@HuyuanCard=" .. self.player:getArmor():getEffectiveId() .. "->" .. player:objectName() end
-	end
-	for _, card in ipairs(cards) do
-		if card:isKindOf("DefensiveHorse") then
-			local player = huyuan_validate(self, "DefensiveHorse", true)
-			if player then return "@HuyuanCard=" .. card:getEffectiveId() .. "->" .. player:objectName() end
+	if self:findPlayerToDiscard("ej") then
+		if self:needToThrowArmor() and not self.player:hasArmorEffect("PeaceSpell") then
+			local player = huyuan_validate(self, "po_bazhen", false)
+			if player then return "@HuyuanCard=" .. self.player:getArmor():getEffectiveId() .. "->" .. player:objectName() end
 		end
-	end
-	for _, card in ipairs(cards) do
-		if card:isKindOf("OffensiveHorse") then
-			local player = huyuan_validate(self, "OffensiveHorse", true)
-			if player then return "@HuyuanCard=" .. card:getEffectiveId() .. "->" .. player:objectName() end
+
+		local eq, friend = self:getCardNeedPlayer(sgs.QList2Table(self.player:getCards("he")))
+		if eq and eq:getTypeId() == sgs.Card_TypeEquip and friend then return
+			"@HuyuanCard=" .. eq:getEffectiveId() .. "->" .. friend:objectName()
 		end
-	end
-	for _, card in ipairs(cards) do
-		if card:isKindOf("Weapon") then
-			local player = huyuan_validate(self, "Weapon", true)
-			if player then return "@HuyuanCard=" .. card:getEffectiveId() .. "->" .. player:objectName() end
+
+		local cards = self.player:getHandcards()--先给手牌中的装备
+		cards = sgs.QList2Table(cards)
+		self:sortByKeepValue(cards)
+		for _, card in ipairs(cards) do
+			if card:isKindOf("SilverLion") or card:isKindOf("Vine") then
+				local player = huyuan_validate(self, "po_bazhen", true)
+				if player then return "@HuyuanCard=" .. card:getEffectiveId() .. "->" .. player:objectName() end
+			end
+			if card:isKindOf("Armor") then
+				local player = huyuan_validate(self, "Armor", true)
+				if player then return "@HuyuanCard=" .. card:getEffectiveId() .. "->" .. player:objectName() end
+			end
 		end
-	end
-	for _, card in ipairs(cards) do
-		if card:isKindOf("SilverLion") then
-			local player = huyuan_validate(self, "SilverLion", true)
-			if player then return "@HuyuanCard=" .. card:getEffectiveId() .. "->" .. player:objectName() end
+		for _, card in ipairs(cards) do
+			if card:isKindOf("DefensiveHorse") then
+				local player = huyuan_validate(self, "DefensiveHorse", true)
+				if player then return "@HuyuanCard=" .. card:getEffectiveId() .. "->" .. player:objectName() end
+			end
 		end
-		if card:isKindOf("Armor") and huyuan_validate(self, "Armor", true) then
-			local player = huyuan_validate(self, "Armor", true)
-			if player then return "@HuyuanCard=" .. card:getEffectiveId() .. "->" .. player:objectName() end
+		for _, card in ipairs(cards) do
+			if card:isKindOf("OffensiveHorse") then
+				local player = huyuan_validate(self, "OffensiveHorse", true)
+				if player then return "@HuyuanCard=" .. card:getEffectiveId() .. "->" .. player:objectName() end
+			end
 		end
+		for _, card in ipairs(cards) do
+			if card:isKindOf("Weapon") then
+				local player = huyuan_validate(self, "Weapon", true)
+				if player then return "@HuyuanCard=" .. card:getEffectiveId() .. "->" .. player:objectName() end
+			end
+		end
+
+		if self.player:getOffensiveHorse() then
+			local player = huyuan_validate(self, "OffensiveHorse", false)
+			if player then return "@HuyuanCard=" .. self.player:getOffensiveHorse():getEffectiveId() .. "->" .. player:objectName() end
+		end
+		if self.player:getWeapon() then
+			local player = huyuan_validate(self, "Weapon", false)
+			if player then return "@HuyuanCard=" .. self.player:getWeapon():getEffectiveId() .. "->" .. player:objectName() end
+		end
+		if self.player:getArmor() and self.player:getLostHp() <= 1 and self.player:getHandcardNum() >= 3 then
+			local player = huyuan_validate(self, "Armor", false)
+			if player then return "@HuyuanCard=" .. self.player:getArmor():getEffectiveId() .. "->" .. player:objectName() end
+		end
+	else
+		local c, friend = self:getCardNeedPlayer()
+		if c and friend then return "@HuyuanCard=" .. c:getEffectiveId() .. "->" .. friend:objectName() end
 	end
 end
 
 sgs.ai_skill_playerchosen.huyuan = function(self, targets)
+--[[
 	targets = sgs.QList2Table(targets)
 	for _, p in ipairs(targets) do
 		if p:hasFlag("AI_HuyuanToChoose") then
@@ -193,12 +211,13 @@ sgs.ai_skill_playerchosen.huyuan = function(self, targets)
 			return p
 		end
 	end
-	return targets[1]
+]]
+	return self:findPlayerToDiscard("ej", false, sgs.Card_MethodDiscard, targets)
 end
 
 sgs.ai_card_intention.HuyuanCard = function(self, card, from, to)
 	if self:hasKnownSkill("bazhen", to[1]) then
-		if sgs.Sanguosha:getCard(card:getEffectiveId()):isKindOf("SilverLion") then
+		if sgs.Sanguosha:getCard(card:getEffectiveId()):isKindOf("Armor") then
 			sgs.updateIntention(from, to[1], 10)
 			return
 		end
@@ -393,7 +412,7 @@ sgs.ai_card_intention.ShangyiCard = 50
 
 --徐盛
 sgs.ai_skill_invoke.yicheng = function(self, data)
-	if not self:willShowForDefence() then
+	if not self:willShowForDefence() and not self:willShowForAttack() then
 		return false
 	end
 	return true
@@ -401,7 +420,7 @@ end
 
 sgs.ai_skill_discard.yicheng = function(self, discard_num, min_num, optional, include_equip)
 	if self.player:hasSkill("hongyan") then
-		return self:askForDiscard("dummyreason", 1, 1, false, true)
+		return self:askForDiscard("dummyreason", discard_num, min_num, false, true)
 	end
 
 	local unpreferedCards = {}
@@ -448,8 +467,10 @@ sgs.ai_skill_discard.yicheng = function(self, discard_num, min_num, optional, in
 		if not self.player:isJilei(sgs.Sanguosha:getCard(unpreferedCards[index])) then return { unpreferedCards[index] } end
 	end
 
-	return self:askForDiscard("dummyreason", 1, 1, false, true)
+	return self:askForDiscard("dummyreason", discard_num, min_num, false, true)
 end
+
+sgs.ai_skill_choice.yicheng = "yes"
 
 --于吉
 sgs.ai_skill_invoke.qianhuan = function(self, data)
@@ -496,7 +517,7 @@ local invoke_qianhuan = function(self, use)
 	if (use.from and self:isFriend(use.from)) then return false end
 	if use.to:isEmpty() then return false end
 	if use.card:isKindOf("Peach") or use.card:isKindOf("Analeptic") then return false end
-	if use.card:isKindOf("Lightning") then return end
+	if use.card:isKindOf("Lightning") or use.card:isKindOf("KnownBoth") then return end
 	local to = use.to:first()
 	if use.card:isKindOf("Slash") and not self:slashIsEffective(use.card, to, use.from) then return end
 	if use.card:isKindOf("TrickCard") and not self:trickIsEffective(use.card, to, use.from) then return end

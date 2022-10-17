@@ -751,7 +751,7 @@ function SmartAI:useCardFireAttack(fire_attack, use)
 	if self.fireattack_onlyview then
 		if #targets == 0 and #self.enemies > 0 then
 			for _,p in ipairs(self.enemies) do
-				if not p:isKongcheng() then
+				if not p:isKongcheng() and not p:hasArmorEffect("IronArmor") and not p:isRemoved() then
 					table.insert(targets, p)
 					break
 				end
@@ -759,7 +759,7 @@ function SmartAI:useCardFireAttack(fire_attack, use)
 		end
 		if #targets == 0 then
 			for _,p in sgs.qlist(self.room:getOtherPlayers(self.player)) do
-				if not p:isKongcheng() then
+				if not p:isKongcheng() and not p:hasArmorEffect("IronArmor") and not p:isRemoved() then
 					table.insert(targets, p)
 					break
 				end

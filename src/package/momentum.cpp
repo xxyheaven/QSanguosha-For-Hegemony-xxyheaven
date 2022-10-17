@@ -327,7 +327,7 @@ class Guixiu : public TriggerSkill
 public:
     Guixiu() : TriggerSkill("guixiu")
     {
-        events << GeneralShown << GeneralRemoved;
+        events << GeneralShowed << GeneralRemoved;
         frequency = Frequent;
     }
 
@@ -338,9 +338,9 @@ public:
 
     virtual QStringList triggerable(TriggerEvent triggerEvent, Room *, ServerPlayer *player, QVariant &data, ServerPlayer* &) const
     {
-        if (triggerEvent == GeneralShown) {
+        if (triggerEvent == GeneralShowed) {
             if (TriggerSkill::triggerable(player))
-                return (player->cheakSkillLocation(objectName(), data.toBool())) ? QStringList(objectName()) : QStringList();
+                return (player->cheakSkillLocation(objectName(), data.toStringList())) ? QStringList(objectName()) : QStringList();
         } else if (data.toString() == "mifuren")
             return QStringList(objectName());
         return QStringList();
@@ -361,7 +361,7 @@ public:
 
     virtual bool effect(TriggerEvent triggerEvent, Room *room, ServerPlayer *player, QVariant &, ServerPlayer *) const
     {
-        if (triggerEvent == GeneralShown)
+        if (triggerEvent == GeneralShowed)
             player->drawCards(2, objectName());
         else if (triggerEvent == GeneralRemoved) {
             RecoverStruct recover;

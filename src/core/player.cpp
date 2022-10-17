@@ -1890,6 +1890,18 @@ bool Player::cheakSkillLocation(const QString &skill_name, bool is_head) const
     return inDeputySkills(skill->objectName());
 }
 
+bool Player::cheakSkillLocation(const QString &skill_name, const QStringList &show_list) const
+{
+    if (!hasShownSkill(skill_name)) return false;
+    if (show_list.contains("head") && general1_showed && general->ownSkill(skill_name))
+        return true;
+
+    if (show_list.contains("deputy") && general2_showed && general2 && general2->ownSkill(skill_name))
+        return true;
+
+    return false;
+}
+
 const General *Player::getActualGeneral1() const
 {
     return actual_general1;

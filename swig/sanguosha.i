@@ -912,6 +912,7 @@ enum TriggerEvent
     BeforeGameOverJudge,
     GameOverJudge,
     GameFinished,
+    DeathFinished,
 
     SlashEffected,
     SlashProceed,
@@ -922,10 +923,16 @@ enum TriggerEvent
 
     CardAsked,
     CardResponded,
-    BeforeCardsMove, // sometimes we need to record cards before the move
+
+    ConfirmMoveCards,
+    BeforeCardsMove,
+    PreCardsMoveOneTime,
     CardsMoveOneTime,
 
+    PlayCard,
+
     PreCardUsed,
+    TargetSelected,
     CardUsed,
     TargetChoosing, //distinguish "choose target" and "confirm target"
     TargetConfirming,
@@ -933,7 +940,7 @@ enum TriggerEvent
     TargetConfirmed,
     CardEffect,
     CardEffected,
-    CardEffectConfirmed,
+    CardEffectConfirmed, //after Nullification
     PostCardEffected,
     CardFinished,
     TrickCardCanceling,
@@ -946,10 +953,16 @@ enum TriggerEvent
     TurnBroken, // For the skill 'DanShou'. Do not use it to trigger events
 
     GeneralShown, // For Official Hegemony mode
+    GeneralShowed, // For Official Hegemony mode
     GeneralHidden, // For Official Hegemony mode
     GeneralRemoved, // For Official Hegemony mode
+    GeneralTransforming, // For Official Hegemony mode
+
+    CommandVerifying,
 
     DFDebut, // for Dragon Phoenix Debut
+
+    VHDebut, // for VH Skill Debut
 
     NumOfEvents
 };

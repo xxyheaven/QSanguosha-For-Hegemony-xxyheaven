@@ -372,18 +372,18 @@ public:
     virtual bool ViewHas(const Player *player, const QString &skill_name, const QString &flag) const
     {
         if (flag != "skill" || skill_name != "feiying") return false;
-        QList<const Player *> caohongs;
         QList<const Player *> sib = player->getAliveSiblings();
         sib << player;
         if (sib.length() < 4) return false;
 
-        foreach (const Player *p, sib)
-            if (p->hasShownSkill("heyi"))
-                caohongs << p;
+        QList<const Player *> teammates = player->getFormation();
 
-        foreach (const Player *caohong, caohongs)
-            if (caohong->getFormation().contains(player))
+        if (teammates.length() < 2) return false;
+
+        foreach (const Player *caohong, teammates) {
+            if (caohong->hasShownSkill("heyi"))
                 return true;
+        }
 
         return false;
     }
@@ -843,7 +843,8 @@ public:
                 && use.card != NULL && use.card->isKindOf("Slash")) {
                 QStringList targets;
                 foreach (ServerPlayer *to, use.to) {
-                    if (player->inSiegeRelation(skill_owner, to))
+                    if (player->inSiegeRelation(skill_owner, to) ||
+                            (skill_owner == player && player->isAdjacentTo(to) && to->getFormation().length() == 1))
                         targets << to->objectName();
                 }
                 if (!targets.isEmpty())

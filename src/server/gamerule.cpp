@@ -181,6 +181,7 @@ void GameRule::onPhaseProceed(ServerPlayer *player) const
             bool on_effect = room->cardEffect(trick, NULL, player);
             if (!on_effect)
                 trick->onNullified(player);
+            room->freeChain();
         }
         break;
     }
@@ -194,20 +195,25 @@ void GameRule::onPhaseProceed(ServerPlayer *player) const
         qnum = num;
         Q_ASSERT(room->getThread() != NULL);
         room->getThread()->trigger(DrawNCards, room, player, qnum);
+        room->freeChain();
+
         num = qnum.toInt();
         if (num > 0)
             player->drawCards(num);
+        room->freeChain();
         qnum = num;
         room->getThread()->trigger(AfterDrawNCards, room, player, qnum);
+        room->freeChain();
         break;
     }
     case Player::Play: {
         while (player->isAlive()) {
             CardUseStruct card_use;
             room->activate(player, card_use);
-            if (card_use.card != NULL)
+            if (card_use.card != NULL) {
                 room->useCard(card_use);
-            else
+                room->freeChain();
+            } else
                 break;
         }
         break;
@@ -373,6 +379,7 @@ bool GameRule::effect(TriggerEvent triggerEvent, Room *room, ServerPlayer *playe
         if (!player->faceUp()) {
             room->setPlayerFlag(player, "-Global_FirstRound");
             player->turnOver();
+            room->freeChain();
 #ifndef QT_NO_DEBUG
             if (player->isAlive() && !player->getAI() && player->askForSkillInvoke("userdefine:playNormally")) {
                 room->addPlayerMark(player, "Global_RoundCount");
@@ -931,28 +938,16 @@ bool GameRule::effect(TriggerEvent triggerEvent, Room *room, ServerPlayer *playe
                 return true;
             }
         }
-        if (player->isAlive() && player->hasShownAllGenerals()) {
-            if (player->getMark("CompanionEffect") > 0) {
-                room->removePlayerMark(player, "CompanionEffect");
-                room->addPlayerMark(player, "@companion");
-            }
-            if (player->getMark("HalfMaxHpLeft") > 0) {
-                room->removePlayerMark(player, "HalfMaxHpLeft");
-                room->addPlayerMark(player, "@halfmaxhp");
-            }
-        }
-        if (player->isAlive() && data.toBool() && player->getMark("HaventShowGeneral") > 0) {
-            room->removePlayerMark(player, "HaventShowGeneral");
-            if (player->getGeneral()->getKingdom() == "careerist")
-                room->addPlayerMark(player, "@careerist");
-        }
-        if (player->isAlive() && !data.toBool() && player->getMark("HaventShowGeneral2") > 0)
-            room->removePlayerMark(player, "HaventShowGeneral2");
+
+        if (data.toBool())
+            room->addPlayerMark(player, "Global_GeneralShown");
+        else
+            room->addPlayerMark(player, "Global_General2Shown");
 
         if (Config.RewardTheFirstShowingPlayer && room->getScenario() == NULL) {
             if (room->getTag("TheFirstToShowRewarded").isNull()) {
                 room->setTag("TheFirstToShowRewarded", true);
-                room->addPlayerMark(player, "@firstshow");
+                room->addPlayerMark(player, "Global_TheFirstToShowRewarded");
             }
         }
         break;

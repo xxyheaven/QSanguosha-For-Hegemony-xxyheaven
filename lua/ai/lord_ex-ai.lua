@@ -417,9 +417,11 @@ end
 sgs.ai_skill_invoke.tunjiang = true
 
 --士燮
+sgs.ai_skill_invoke.lixia = true
+
 sgs.ai_skill_choice.lixia = function(self, choices, data)
   local shixie = sgs.findPlayerByShownSkillName("lixia")
-  if not shixie then
+  --[[if not shixie then
     return "no"
   end
   if self.player:objectName() ~= shixie:objectName() and self:isFriend(shixie) then
@@ -427,7 +429,7 @@ sgs.ai_skill_choice.lixia = function(self, choices, data)
       and (shixie:getEquips():length() - (shixie:getArmor() and 1 or 0) - (shixie:getTreasure() and 1 or 0)) > 0)) then
       return "yes"
     end
-  end
+  end]]
   if self:isEnemy(shixie) then
     local canslash_shixie = false
     for _, p in ipairs(self.friends) do
@@ -436,14 +438,15 @@ sgs.ai_skill_choice.lixia = function(self, choices, data)
         break
       end
     end
-    if self:getOverflow() > 2 or shixie:getEquips():length() > 2 or not canslash_shixie
-    or (shixie:hasTreasure("WoodenOx") and shixie:getPile("wooden_ox"):length() > 1) then
-      return "yes"
+    if self.player:getHp() > 2 and (not canslash_shixie
+      or (shixie:hasTreasure("WoodenOx") and shixie:getPile("wooden_ox"):length() > 1)) then
+      return "discard"
     end
   end
-	return "no"
+	return "draw"
 end
 
+--[[
 sgs.ai_skill_choice["lixia_effect"]= function(self, choices, data)
   choices = choices:split("+")
   local shixie = sgs.findPlayerByShownSkillName("lixia")
@@ -465,7 +468,7 @@ sgs.ai_skill_choice["lixia_effect"]= function(self, choices, data)
   end
 	return shixie_draw
 end
-
+]]
 
 --董昭
 local quanjin_skill = {}
@@ -959,16 +962,22 @@ local paiyi_skill = {}
 paiyi_skill.name = "paiyi"
 table.insert(sgs.ai_skills, paiyi_skill)
 paiyi_skill.getTurnUseCard = function(self)
-	if (self.player:getPile("power_pile"):length() > 0 and not self.player:hasUsed("PaiyiCard")) then
+  if self.player:getPile("power_pile"):length() > 0 and not self.player:hasUsed("PaiyiCard") then
 		return sgs.Card_Parse("@PaiyiCard=" .. self.player:getPile("power_pile"):first())
 	end
+	--[[if self.player:getPile("power_pile"):length() > 0 then--self.player:usedTimes("PaiyiCard") < 2
+    if self.player:getHandcardNum() < 2
+    or self.player:getHandcardNum() + (self:isWeak() and 1 or 2) < self.player:getMaxCards() then
+      return sgs.Card_Parse("@PaiyiCard=" .. self.player:getPile("power_pile"):first())
+    end
+	end]]
 	return nil
 end
 
 sgs.ai_skill_use_func.PaiyiCard = function(card, use, self)
   sgs.ai_use_priority.PaiyiCard = 2.4
 	local target
-  if self.player:getPile("power_pile"):length() > 3 then
+  if self.player:getPile("power_pile"):length() > 3 then--技能修改
     self:sort(self.friends, "defense")
 	  for _, friend in ipairs(self.friends) do
 		  if friend:getHandcardNum() < 2 and not self:needKongcheng(friend, true) and self.player:isFriendWith(friend) then
@@ -1590,10 +1599,10 @@ local huaiyi_skill = {
       if self.player:hasUsed("HuaiyiCard") or self.player:isKongcheng() then
         return nil
       end
-      if self.player:getPile("disloyalty"):length() == self.player:getMaxHp() then
+      if self.player:getPile("&disloyalty"):length() == self.player:getMaxHp() then
         return nil
       end
-      if self.player:getPile("disloyalty"):length() + 1 == self.player:getMaxHp() and math.random(1, 5) > 1 then
+      if self.player:getPile("&disloyalty"):length() + 1 == self.player:getMaxHp() and math.random(1, 5) > 3 then
         return nil
       end
       local handcards = self.player:getHandcards()
@@ -1709,9 +1718,9 @@ end
 
 sgs.ai_skill_cardchosen.huaiyi = function(self, who, flags, method, disable_list)
   local flag_str
-  if self.player:getPile("disloyalty"):length() + 1 == self.player:getMaxHp() then
+  if self.player:getPile("&disloyalty"):length() + 1 == self.player:getMaxHp() then
     flag_str = "h"
-  elseif self.player:getPile("disloyalty"):length() + 2 == self.player:getMaxHp() and math.random(1, 5) > 2  then
+  elseif self.player:getPile("&disloyalty"):length() + 2 == self.player:getMaxHp() and math.random(1, 5) > 2  then
     flag_str = "h"
   elseif math.random(1, 5) > 4 then
     flag_str = "h"
@@ -2292,7 +2301,8 @@ qingyin_skill.getTurnUseCard = function(self)
   local count = 0
 	for _, friend in ipairs(self.friends) do
 		if self.player:isFriendWith(friend) and friend:canRecover()
-    and (friend:getHp() <= 1 or (friend:getHp() <= 2 and friend:getHandcardNum() < 2) or friend:getLostHp() > 2) then
+    and (friend:getHp() <= 1 or friend:getLostHp() > 2
+      or (friend:getHp() <= 2 and friend:getHandcardNum() < 2 and friend:getLostHp() > 1)) then
       count = count + 1
 		end
 	end
@@ -2596,7 +2606,8 @@ sgs.ai_card_intention.Conquering = -80
 
 sgs.ai_skill_playerchosen["conquering_slash"] = function(self, targets)
   local target = sgs.ai_skill_playerchosen.zero_card_as_slash(self, targets)
-	if self:isFriend(target) then--缺势力锦囊使用者和使用卡信息hasFlag("CompleteEffect")，无法判断势力加成。蜀加成杀基数+1，暂不考虑队友
+	if self:isFriend(target) or not self:slashIsEffective(sgs.cloneCard("slash"), target) then
+  --缺势力锦囊使用者和使用卡信息hasFlag("CompleteEffect")，无法判断势力加成。蜀加成杀基数+1，暂不考虑队友
 		return {}
 	end
   return target

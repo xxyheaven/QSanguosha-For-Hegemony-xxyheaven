@@ -916,6 +916,12 @@ bool ServerPlayer::doCommand(const QString &reason, int index, ServerPlayer *sou
     room->sendLog(log);
 
     if (choice == "yes") {
+        QVariant qnum;
+        qnum = index;
+        Q_ASSERT(room->getThread() != NULL);
+        room->getThread()->trigger(CommandVerifying, room, this, qnum);
+        index = qnum.toInt();
+
         switch (index+1) {
         case 1: {
             ServerPlayer *dest = room->askForPlayerChosen(source, room->getAlivePlayers(), "command_"+reason, "@command-damage");
@@ -1084,6 +1090,7 @@ void ServerPlayer::play(QList<Player::Phase> set_phases)
         QVariant data = QVariant::fromValue(phase_change);
 
         bool skip = thread->trigger(EventPhaseChanging, room, this, data);
+        room->freeChain();
         phase_change = data.value<PhaseChangeStruct>();
         _m_phases_state[i].phase = phases[i] = phase_change.to;
 
@@ -1095,13 +1102,20 @@ void ServerPlayer::play(QList<Player::Phase> set_phases)
             && phases[i] != NotActive)
             continue;
 
-        if (!thread->trigger(EventPhaseStart, room, this)) {
-            if (getPhase() != NotActive)
+        bool phase_end = thread->trigger(EventPhaseStart, room, this);
+        room->freeChain();
+
+        if (!phase_end) {
+            if (getPhase() != NotActive) {
                 thread->trigger(EventPhaseProceeding, room, this);
+                room->freeChain();
+            }
         }
         if (getPhase() != NotActive) {
-            if (isAlive())
+            if (isAlive()) {
                 thread->trigger(EventPhaseEnd, room, this);
+                room->freeChain();
+            }
         }
         else
             break;
@@ -1768,23 +1782,26 @@ void ServerPlayer::showGeneral(bool head_general, bool trigger_event, bool sendL
             room->setPlayerProperty(this, "kingdom", kingdom);
 
             QString role = HegemonyMode::GetMappedRole(kingdom);
-            int i = 1;
-            bool has_lord = isAlive() && getGeneral()->isLord();
-            if (!has_lord) {
-                foreach (ServerPlayer *p, room->getOtherPlayers(this, true)) {
-                    if (p->getKingdom() == kingdom) {
-                        if (p->getGeneral()->isLord()) {
-                            has_lord = true;
-                            break;
+
+            if (!room->getTag("GlobalQuanjiaShow").toBool()) {
+                int i = 1;
+                bool has_lord = isAlive() && getGeneral()->isLord();
+                if (!has_lord) {
+                    foreach (ServerPlayer *p, room->getOtherPlayers(this, true)) {
+                        if (p->getKingdom() == kingdom) {
+                            if (p->getGeneral()->isLord()) {
+                                has_lord = true;
+                                break;
+                            }
+                            if (p->hasShownOneGeneral() && p->getRole() != "careerist")
+                                ++i;
                         }
-                        if (p->hasShownOneGeneral() && p->getRole() != "careerist")
-                            ++i;
                     }
                 }
-            }
 
-            if ((!has_lord && i > (room->getPlayers().length() / 2)) || (has_lord && getLord(true)->isDead()))
-                role = "careerist";
+                if ((!has_lord && i > (room->getPlayers().length() / 2)) || (has_lord && getLord(true)->isDead()))
+                    role = "careerist";
+            }
 
             room->setPlayerProperty(this, "role", role);
         }
@@ -1846,23 +1863,26 @@ void ServerPlayer::showGeneral(bool head_general, bool trigger_event, bool sendL
             room->setPlayerProperty(this, "kingdom", kingdom);
 
             QString role = HegemonyMode::GetMappedRole(kingdom);
-            int i = 1;
-            bool has_lord = isAlive() && getGeneral()->isLord();
-            if (!has_lord) {
-                foreach (ServerPlayer *p, room->getOtherPlayers(this, true)) {
-                    if (p->getKingdom() == kingdom) {
-                        if (p->getGeneral()->isLord()) {
-                            has_lord = true;
-                            break;
+
+            if (!room->getTag("GlobalQuanjiaShow").toBool()) {
+                int i = 1;
+                bool has_lord = isAlive() && getGeneral()->isLord();
+                if (!has_lord) {
+                    foreach (ServerPlayer *p, room->getOtherPlayers(this, true)) {
+                        if (p->getKingdom() == kingdom) {
+                            if (p->getGeneral()->isLord()) {
+                                has_lord = true;
+                                break;
+                            }
+                            if (p->hasShownOneGeneral() && p->getRole() != "careerist")
+                                ++i;
                         }
-                        if (p->hasShownOneGeneral() && p->getRole() != "careerist")
-                            ++i;
                     }
                 }
-            }
 
-            if ((!has_lord && i > (room->getPlayers().length() / 2)) || (has_lord && getLord(true)->isDead()))
-                role = "careerist";
+                if ((!has_lord && i > (room->getPlayers().length() / 2)) || (has_lord && getLord(true)->isDead()))
+                    role = "careerist";
+            }
 
             room->setPlayerProperty(this, "role", role);
         }
@@ -2145,21 +2165,17 @@ bool ServerPlayer::askForGeneralShow(const QString &reason, bool head, bool depu
 
     if (choice == "cancel") return false;
 
-    bool show_head=false, show_deputy=false;
-
     if ((choice == "show_head_general" || choice == "show_both_generals") && !hasShownGeneral1()) {
-        show_head = true;
 
         if (change_to_lord && property("CareeristFriend").toString().isEmpty()
                 && room->askForChoice(this, "changetolord", "yes+no", QVariant(), "@changetolord") == "yes")
             changeToLord();
 
-        showGeneral(true, false, false);
+        showGeneral(true, true, false);
     }
 
     if ((choice == "show_deputy_general" || choice == "show_both_generals") && !hasShownGeneral2()) {
-        show_deputy = true;
-        showGeneral(false, false, false);
+        showGeneral(false, true, false);
     }
 
     LogMessage log;
@@ -2168,18 +2184,6 @@ bool ServerPlayer::askForGeneralShow(const QString &reason, bool head, bool depu
     log.arg = getGeneralName();
     log.arg2 = getGeneral2Name();
     room->sendLog(log);
-
-    Q_ASSERT(room->getThread() != NULL);
-
-    if (show_head) {
-        QVariant data = true;
-        room->getThread()->trigger(GeneralShown, room, this, data);
-    }
-
-    if (show_deputy) {
-        QVariant data = false;
-        room->getThread()->trigger(GeneralShown, room, this, data);
-    }
 
     return true;
 }

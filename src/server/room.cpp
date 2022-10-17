@@ -264,7 +264,7 @@ void Room::enterDying(ServerPlayer *player, DamageStruct *reason)
 
     QVariant dying_data = QVariant::fromValue(dying);
     foreach (ServerPlayer *p, getAllPlayers()) {
-        if (thread->trigger(Dying, this, p, dying_data) || player->getHp() > 0 || player->isDead())
+        if (thread->trigger(Dying, this, p, dying_data))
             break;
     }
 
@@ -3151,6 +3151,57 @@ bool Room::dropHuashenCardbySkillName(ServerPlayer *p, const QString &skill_name
         }
     }
     return false;
+}
+
+void Room::freeChain()
+{
+    foreach (ServerPlayer *p, m_players) {
+        QStringList showndata;
+        if (p->getMark("Global_GeneralShown") > 0) {
+            showndata << "head";
+            setPlayerMark(p, "Global_GeneralShown", 0);
+        }
+
+        if (p->getMark("Global_General2Shown") > 0) {
+            showndata << "deputy";
+            setPlayerMark(p, "Global_General2Shown", 0);
+        }
+
+        if (!showndata.isEmpty() && p->isAlive()) {
+            QVariant shown_data = QVariant::fromValue(showndata);
+            thread->trigger(GeneralShowed, this, p, shown_data);
+
+            if (p->isAlive() && p->hasShownAllGenerals() && p->getMark("Global_hasShownAllGenerals") == 0) {
+                addPlayerMark(p, "Global_hasShownAllGenerals");
+                if (p->getGeneral2() && !p->getGeneral()->objectName().contains("sujiang") &&
+                        !p->getGeneral2()->objectName().contains("sujiang")) {
+                    if (p->getGeneral()->isCompanionWith(p->getGeneral2()->objectName()))
+                        addPlayerMark(p, "@companion");
+
+                    int max_hp = p->getGeneral()->getMaxHpHead() + p->getGeneral2()->getMaxHpDeputy();
+                    if (max_hp % 2 > 0)
+                        addPlayerMark(p, "@halfmaxhp");
+                }
+            }
+
+            if (showndata.contains("head") && p->getMark("HaventShowGeneral") > 0) {
+                removePlayerMark(p, "HaventShowGeneral");
+                if (p->getGeneral()->getKingdom() == "careerist")
+                    addPlayerMark(p, "@careerist");
+            }
+
+            if (showndata.contains("deputy") && p->getMark("HaventShowGeneral2") > 0)
+                removePlayerMark(p, "HaventShowGeneral2");
+
+            if (p->getMark("Global_TheFirstToShowRewarded") > 0) {
+                removePlayerMark(p, "Global_TheFirstToShowRewarded");
+                addPlayerMark(p, "@firstshow");
+            }
+
+            freeChain();
+            break;
+        }
+    }
 }
 
 lua_State *Room::getLuaState() const

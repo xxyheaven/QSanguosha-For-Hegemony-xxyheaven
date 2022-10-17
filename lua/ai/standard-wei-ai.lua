@@ -397,7 +397,7 @@ sgs.ai_skill_discard.luoyi = function(self, discard_num, min_num, optional, incl
 	end
 	if (slashtarget+dueltarget) > 0 then
 		--self:speak("luoyi")
-		return self:askForDiscard("dummy_reason", 1, 1, false, true)
+		return self:askForDiscard("dummy_reason", discard_num, min_num, false, true)
 	end
 	return {}
 end
@@ -1684,11 +1684,14 @@ sgs.ai_skill_discard["fangzhu_discard"] = function(self, discard_num, min_num, o
 		return {}
 	end
 	local caopi = sgs.findPlayerByShownSkillName("fangzhu")
-	if caopi and self:isFriend(caopi) and caopi:getLostHp() > 2 then--翻队友的情况
+	if self:isFriend(caopi) and caopi:getLostHp() > 2 then--翻队友的情况
 		return {}
 	end
-	if (self.player:isRemoved() and not self.player:isNude()) or (self.player:hasSkill("hongfa") and not self.player:getPile("heavenly_army"):isEmpty()) then
-		return self:askForDiscard("dummy_reason", 1, 1, false, true)
+	if not self.player:faceUp() or self.player:getCardCount(true) < min_num then
+		return {}
+	end
+	if self.player:isRemoved() or (self.player:hasSkill("hongfa") and not self.player:getPile("heavenly_army"):isEmpty()) then
+		return self:askForDiscard("dummy_reason", discard_num, min_num, false, true)
 	end
 	if self.player:getMark("##xiongnve_avoid") > 0 then
 		return {}
@@ -1696,10 +1699,10 @@ sgs.ai_skill_discard["fangzhu_discard"] = function(self, discard_num, min_num, o
 	if self.player:hasSkill("jushou") and self.player:getPhase() <= sgs.Player_Finish then
 		return {}
 	end
-	if not self.player:faceUp() or self:isWeak() or self.player:isNude() then
+	if self:isWeak() then
 		return {}
 	else
-		return self:askForDiscard("dummy_reason", 1, 1, false, true)
+		return self:askForDiscard("dummy_reason", discard_num, min_num, false, true)
 	end
 	return {}
 end
