@@ -3941,9 +3941,16 @@ public:
         if (remove_mark)
             room->setPlayerMark(player, "##congcha", 0);
 
-        if (panjun->isFriendWith(player))
-            player->drawCards(2, "congcha");
-        else
+        if (panjun->isFriendWith(player)) {
+            QList<ServerPlayer *> players;
+            players << player << panjun;
+            room->sortByActionOrder(players);
+            foreach (ServerPlayer *p, players) {
+                if (p->isAlive())
+                    p->drawCards(2, "congcha");
+            }
+
+        } else
             room->loseHp(player);
 
         return false;
@@ -4135,7 +4142,7 @@ public:
 
     virtual TriggerList triggerable(TriggerEvent triggerEvent, Room *room, ServerPlayer *player, QVariant &) const
     {
-        if (triggerEvent == EventPhaseStart && player->getPhase() == Player::Start) {
+        if (triggerEvent == EventPhaseStart && player->getPhase() == Player::Start && player->isAlive()) {
             QList<ServerPlayer *> owners = room->findPlayersBySkillName(objectName());
             TriggerList skill_list;
             foreach (ServerPlayer *owner, owners)
@@ -4351,238 +4358,6 @@ public:
             data = data.toInt() + player->getPile("&disloyalty").length();
         else if (triggerEvent == EventPhaseStart)
             room->killPlayer(player);
-        return false;
-    }
-};
-
-TonglingCard::TonglingCard()
-{
-
-}
-
-bool TonglingCard::targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
-{
-    const Card *mutable_card = Sanguosha->getCard(getEffectiveId());
-    if (targets.isEmpty() && to_select->objectName() != Self->property("tongling_usetarget").toString())
-        return false;
-    return mutable_card && mutable_card->targetFilter(targets, to_select, Self) && !Self->isProhibited(to_select, mutable_card, targets);
-}
-
-bool TonglingCard::targetFixed() const
-{
-    const Card *mutable_card = Sanguosha->getCard(getEffectiveId());
-    return mutable_card && mutable_card->targetFixed();
-}
-
-bool TonglingCard::targetsFeasible(const QList<const Player *> &targets, const Player *Self) const
-{
-    const Card *mutable_card = Sanguosha->getCard(getEffectiveId());
-    return mutable_card && mutable_card->targetsFeasible(targets, Self);
-}
-
-void TonglingCard::onUse(Room *room, const CardUseStruct &card_use) const
-{
-    ServerPlayer *source = card_use.from;
-
-    const Card *tongling_card = Sanguosha->getCard(getEffectiveId());
-
-    const Card *use_card = Card::Parse(tongling_card->toString());
-
-    if (use_card->isAvailable(source)) {
-
-        room->useCard(CardUseStruct(use_card, source, card_use.to));
-
-        DamageStruct damage = source->tag["tongling-damage"].value<DamageStruct>();
-        if (use_card->tag["GlobalCardDamagedTag"].isNull()) {
-
-            if (damage.to && damage.card) {
-                QList<int> table_cardids = room->getCardIdsOnTable(damage.card);
-                if (table_cardids.length() == damage.card->subcardsLength())
-                    damage.to->obtainCard(damage.card);
-            }
-        } else {
-            if (damage.from && damage.from != source)
-                damage.from->drawCards(2, "tongling");
-
-            source->drawCards(2, "tongling");
-        }
-
-
-    }
-}
-
-
-
-class TonglingUseCard : public OneCardViewAsSkill
-{
-public:
-    TonglingUseCard() : OneCardViewAsSkill("tongling_usecard")
-    {
-        response_pattern = "@@tongling_usecard";
-        response_or_use = true;
-    }
-
-    virtual bool viewFilter(const Card *to_select) const
-    {
-        if (to_select->isAvailable(Self) && !to_select->isEquipped()) {
-            QString target_name = Self->property("tongling_usetarget").toString();
-
-            const Player *target = NULL;
-
-            foreach (const Player *p, Self->getAliveSiblings()) {
-                if (p->objectName() == target_name) {
-                    target = p;
-                    break;
-                }
-            }
-
-            if (target == NULL || !to_select->targetRated(target, Self)) return false;
-            if (to_select->targetFixed() && !to_select->isKindOf("AOE") && !to_select->isKindOf("GlobalEffect")) return false;
-            return true;
-        }
-        return false;
-    }
-
-    virtual const Card *viewAs(const Card *originalCard) const
-    {
-        TonglingCard *tongling_card = new TonglingCard;
-        tongling_card->addSubcard(originalCard->getId());
-        return tongling_card;
-    }
-};
-
-class Tongling : public TriggerSkill
-{
-public:
-    Tongling() : TriggerSkill("tongling")
-    {
-        events << Damage;
-    }
-
-    virtual void record(TriggerEvent triggerEvent, Room *room, ServerPlayer *player, QVariant &data) const
-    {
-        if (triggerEvent == EventPhaseChanging && data.value<PhaseChangeStruct>().from == Player::Play) {
-            room->setPlayerFlag(player, "-tonglingUsed");
-        }
-    }
-
-    virtual QStringList triggerable(TriggerEvent triggerEvent, Room *, ServerPlayer *player, QVariant &data, ServerPlayer* &) const
-    {
-        if (triggerEvent != Damage) return QStringList();
-        if (!TriggerSkill::triggerable(player) || !player->hasShownOneGeneral()) return QStringList();
-        if (player->getPhase() != Player::Play || player->hasFlag("tonglingUsed")) return QStringList();
-        DamageStruct damage = data.value<DamageStruct>();
-        if (!player->isFriendWith(damage.to) && damage.to->hasShownOneGeneral()) {
-            return QStringList(objectName());
-        }
-        return QStringList();
-    }
-
-    virtual bool cost(TriggerEvent, Room *room, ServerPlayer *player, QVariant &data, ServerPlayer *) const
-    {
-        DamageStruct damage = data.value<DamageStruct>();
-        QList<ServerPlayer *> to_choose, all_players = room->getAlivePlayers();
-        foreach (ServerPlayer *p, all_players) {
-            if (player->isFriendWith(p))
-                to_choose << p;
-        }
-        if (to_choose.isEmpty()) return false;
-
-        ServerPlayer *to = room->askForPlayerChosen(player, to_choose, objectName(),
-                "@tongling-invoke::" + damage.to->objectName(), true, true);
-        if (to != NULL) {
-            room->broadcastSkillInvoke(objectName(), player);
-            player->setFlags("tonglingUsed");
-
-            QStringList target_list = player->tag["tongling_target"].toStringList();
-            target_list.append(to->objectName());
-            player->tag["tongling_target"] = target_list;
-            return true;
-        }
-        return false;
-    }
-
-    virtual bool effect(TriggerEvent, Room *room, ServerPlayer *source, QVariant &data, ServerPlayer *) const
-    {
-        QStringList target_list = source->tag["tongling_target"].toStringList();
-        QString target_name = target_list.takeLast();
-        source->tag["tongling_target"] = target_list;
-
-        ServerPlayer *to = room->findPlayerbyobjectName(target_name);
-        if (to) {
-            DamageStruct damage = data.value<DamageStruct>();
-            if (damage.to && damage.to->isAlive()) {
-                room->setPlayerProperty(to, "tongling_usetarget", damage.to->objectName());
-                to->tag["tongling-damage"] = data;
-                room->askForUseCard(to, "@@tongling_usecard", "@tongling-usecard::" + damage.to->objectName(), -1, Card::MethodUse, false);
-
-            }
-        }
-        return false;
-    }
-};
-
-class Jinyu : public TriggerSkill
-{
-public:
-    Jinyu() : TriggerSkill("jinyu")
-    {
-        events << GeneralShowed;
-    }
-
-    virtual bool canPreshow() const
-    {
-        return false;
-    }
-
-    virtual QStringList triggerable(TriggerEvent , Room *, ServerPlayer *player, QVariant &data, ServerPlayer* &) const
-    {
-        if (TriggerSkill::triggerable(player) && player->cheakSkillLocation(objectName(), data.toStringList()))
-            return QStringList(objectName());
-        return QStringList();
-    }
-
-    virtual bool cost(TriggerEvent , Room *room, ServerPlayer *player, QVariant &, ServerPlayer *) const
-    {
-        room->sendCompulsoryTriggerLog(player, objectName());
-        room->broadcastSkillInvoke(objectName(), player);
-        return true;
-    }
-
-    virtual bool effect(TriggerEvent , Room *room, ServerPlayer *player, QVariant &, ServerPlayer *) const
-    {
-        QList<ServerPlayer *> targets, allplayers = room->getAlivePlayers();
-        foreach (ServerPlayer *p, allplayers) {
-            if (player->distanceTo(p) < 2) {
-                room->doAnimate(QSanProtocol::S_ANIMATE_INDICATE, player->objectName(), p->objectName());
-                targets << p;
-            }
-        }
-        room->sortByActionOrder(targets);
-        foreach (ServerPlayer *p, targets) {
-            if (p->isAlive()) {
-                if (p->hasShownAllGenerals()) {
-
-                    QStringList generals, allchoices;
-                    allchoices << "head" << "deputy";
-                    if (!p->getActualGeneral1Name().contains("sujiang") && !p->isLord())
-                        generals << "head";
-
-                    if (p->getGeneral2() != NULL && !p->getGeneral2Name().contains("sujiang"))
-                        generals << "deputy";
-
-                    if (generals.isEmpty()) continue;
-
-                    QString choice = room->askForChoice(p, "jinyu_hide", generals.join("+"), QVariant(),
-                                                        "@jinyu-hide", allchoices.join("+"));
-                    bool head = (choice == "head");
-
-                    p->hideGeneral(head);
-                } else
-                    room->askForDiscard(p, "jinyu_discard", 2, 2, false, true);
-            }
-        }
-
         return false;
     }
 };
@@ -5055,6 +4830,236 @@ public:
     }
 };
 
+TonglingCard::TonglingCard()
+{
+
+}
+
+bool TonglingCard::targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
+{
+    const Card *mutable_card = Sanguosha->getCard(getEffectiveId());
+    if (targets.isEmpty() && to_select->objectName() != Self->property("tongling_usetarget").toString())
+        return false;
+    return mutable_card && mutable_card->targetFilter(targets, to_select, Self) && !Self->isProhibited(to_select, mutable_card, targets);
+}
+
+bool TonglingCard::targetFixed() const
+{
+    const Card *mutable_card = Sanguosha->getCard(getEffectiveId());
+    return mutable_card && mutable_card->targetFixed();
+}
+
+bool TonglingCard::targetsFeasible(const QList<const Player *> &targets, const Player *Self) const
+{
+    const Card *mutable_card = Sanguosha->getCard(getEffectiveId());
+    return mutable_card && mutable_card->targetsFeasible(targets, Self);
+}
+
+void TonglingCard::onUse(Room *room, const CardUseStruct &card_use) const
+{
+    ServerPlayer *source = card_use.from;
+
+    const Card *tongling_card = Sanguosha->getCard(getEffectiveId());
+
+    const Card *use_card = Card::Parse(tongling_card->toString());
+
+    if (use_card->isAvailable(source)) {
+
+        room->useCard(CardUseStruct(use_card, source, card_use.to));
+
+        DamageStruct damage = source->tag["tongling-damage"].value<DamageStruct>();
+        if (use_card->tag["GlobalCardDamagedTag"].isNull()) {
+
+            if (damage.to && damage.card) {
+                QList<int> table_cardids = room->getCardIdsOnTable(damage.card);
+                if (table_cardids.length() == damage.card->subcardsLength())
+                    damage.to->obtainCard(damage.card);
+            }
+        } else {
+            if (damage.from && damage.from != source)
+                damage.from->drawCards(2, "tongling");
+
+            source->drawCards(2, "tongling");
+        }
+    }
+}
+
+
+
+class TonglingUseCard : public OneCardViewAsSkill
+{
+public:
+    TonglingUseCard() : OneCardViewAsSkill("tongling_usecard")
+    {
+        response_pattern = "@@tongling_usecard";
+        response_or_use = true;
+    }
+
+    virtual bool viewFilter(const Card *to_select) const
+    {
+        if (to_select->isAvailable(Self) && !to_select->isEquipped()) {
+            QString target_name = Self->property("tongling_usetarget").toString();
+
+            const Player *target = NULL;
+
+            foreach (const Player *p, Self->getAliveSiblings()) {
+                if (p->objectName() == target_name) {
+                    target = p;
+                    break;
+                }
+            }
+
+            if (target == NULL || !to_select->targetRated(target, Self) || Self->isProhibited(target, to_select)) return false;
+            if (to_select->targetFixed() && !to_select->isKindOf("AOE") && !to_select->isKindOf("GlobalEffect")) return false;
+            return true;
+        }
+        return false;
+    }
+
+    virtual const Card *viewAs(const Card *originalCard) const
+    {
+        TonglingCard *tongling_card = new TonglingCard;
+        tongling_card->addSubcard(originalCard->getId());
+        return tongling_card;
+    }
+};
+
+class Tongling : public TriggerSkill
+{
+public:
+    Tongling() : TriggerSkill("tongling")
+    {
+        events << Damage;
+    }
+
+    virtual void record(TriggerEvent triggerEvent, Room *room, ServerPlayer *player, QVariant &data) const
+    {
+        if (triggerEvent == EventPhaseChanging && data.value<PhaseChangeStruct>().from == Player::Play) {
+            room->setPlayerFlag(player, "-tonglingUsed");
+        }
+    }
+
+    virtual QStringList triggerable(TriggerEvent triggerEvent, Room *, ServerPlayer *player, QVariant &data, ServerPlayer* &) const
+    {
+        if (triggerEvent != Damage) return QStringList();
+        if (!TriggerSkill::triggerable(player) || !player->hasShownOneGeneral()) return QStringList();
+        if (player->getPhase() != Player::Play || player->hasFlag("tonglingUsed")) return QStringList();
+        DamageStruct damage = data.value<DamageStruct>();
+        if (damage.to->isAlive() && !player->isFriendWith(damage.to) && damage.to->hasShownOneGeneral()) {
+            return QStringList(objectName());
+        }
+        return QStringList();
+    }
+
+    virtual bool cost(TriggerEvent, Room *room, ServerPlayer *player, QVariant &data, ServerPlayer *) const
+    {
+        DamageStruct damage = data.value<DamageStruct>();
+        QList<ServerPlayer *> to_choose, all_players = room->getAlivePlayers();
+        foreach (ServerPlayer *p, all_players) {
+            if (player->isFriendWith(p))
+                to_choose << p;
+        }
+        if (to_choose.isEmpty()) return false;
+
+        ServerPlayer *to = room->askForPlayerChosen(player, to_choose, objectName(),
+                "@tongling-invoke::" + damage.to->objectName(), true, true);
+        if (to != NULL) {
+            room->broadcastSkillInvoke(objectName(), player);
+            player->setFlags("tonglingUsed");
+
+            QStringList target_list = player->tag["tongling_target"].toStringList();
+            target_list.append(to->objectName());
+            player->tag["tongling_target"] = target_list;
+            return true;
+        }
+        return false;
+    }
+
+    virtual bool effect(TriggerEvent, Room *room, ServerPlayer *source, QVariant &data, ServerPlayer *) const
+    {
+        QStringList target_list = source->tag["tongling_target"].toStringList();
+        QString target_name = target_list.takeLast();
+        source->tag["tongling_target"] = target_list;
+
+        ServerPlayer *to = room->findPlayerbyobjectName(target_name);
+        if (to) {
+            DamageStruct damage = data.value<DamageStruct>();
+            if (damage.to && damage.to->isAlive()) {
+                room->setPlayerProperty(to, "tongling_usetarget", damage.to->objectName());
+                to->tag["tongling-damage"] = data;
+                room->askForUseCard(to, "@@tongling_usecard", "@tongling-usecard::" + damage.to->objectName(), -1, Card::MethodUse, false);
+
+            }
+        }
+        return false;
+    }
+};
+
+class Jinxian : public TriggerSkill
+{
+public:
+    Jinxian() : TriggerSkill("jinxian")
+    {
+        events << GeneralShowed;
+    }
+
+    virtual bool canPreshow() const
+    {
+        return false;
+    }
+
+    virtual QStringList triggerable(TriggerEvent , Room *, ServerPlayer *player, QVariant &data, ServerPlayer* &) const
+    {
+        if (TriggerSkill::triggerable(player) && player->cheakSkillLocation(objectName(), data.toStringList()))
+            return QStringList(objectName());
+        return QStringList();
+    }
+
+    virtual bool cost(TriggerEvent , Room *room, ServerPlayer *player, QVariant &, ServerPlayer *) const
+    {
+        room->sendCompulsoryTriggerLog(player, objectName());
+        room->broadcastSkillInvoke(objectName(), player);
+        return true;
+    }
+
+    virtual bool effect(TriggerEvent , Room *room, ServerPlayer *player, QVariant &, ServerPlayer *) const
+    {
+        QList<ServerPlayer *> targets, allplayers = room->getAlivePlayers();
+        foreach (ServerPlayer *p, allplayers) {
+            if (player->distanceTo(p) == 0 || player->distanceTo(p) == 1) {
+                room->doAnimate(QSanProtocol::S_ANIMATE_INDICATE, player->objectName(), p->objectName());
+                targets << p;
+            }
+        }
+        room->sortByActionOrder(targets);
+        foreach (ServerPlayer *p, targets) {
+            if (p->isAlive()) {
+                if (p->hasShownAllGenerals()) {
+
+                    QStringList generals, allchoices;
+                    allchoices << "head" << "deputy";
+                    if (!p->getActualGeneral1Name().contains("sujiang") && !p->isLord())
+                        generals << "head";
+
+                    if (p->getGeneral2() != NULL && !p->getGeneral2Name().contains("sujiang"))
+                        generals << "deputy";
+
+                    if (generals.isEmpty()) continue;
+
+                    QString choice = room->askForChoice(p, "jinxian_hide", generals.join("+"), QVariant(),
+                                                        "@jinxian-hide", allchoices.join("+"));
+                    bool head = (choice == "head");
+
+                    p->hideGeneral(head);
+                } else
+                    room->askForDiscard(p, "jinxian_discard", 2, 2, false, true);
+            }
+        }
+
+        return false;
+    }
+};
+
 LordEXPackage::LordEXPackage()
     : Package("lord_ex")
 {
@@ -5144,7 +5149,7 @@ LordEXPackage::LordEXPackage()
     General *pengyang = new General(this, "pengyang", "shu", 3);
     pengyang->setSubordinateKingdom("qun");
     pengyang->addSkill(new Tongling);
-    pengyang->addSkill(new Jinyu);
+    pengyang->addSkill(new Jinxian);
 
     General *xuyou = new General(this, "xuyou", "qun", 3);
     xuyou->addSkill(new Chenglve);

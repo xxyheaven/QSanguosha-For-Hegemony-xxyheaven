@@ -180,12 +180,8 @@ public:
 
     virtual bool viewFilter(const Card *card) const
     {
-        if (!card->isRed()) {
-            if (!Self->hasShownSkill(objectName())) return false;
-            const Player *lord = Self->getLord();
-            if (lord == NULL || !lord->hasLordSkill("shouyue") || !lord->hasShownGeneral1())
-                return false;
-        }
+        if (!card->isRed() && (Self->getSeemingKingdom() != "shu" || !Self->enjoyingSkill("shouyue")))
+            return false;
 
         if (Sanguosha->currentRoomState()->getCurrentCardUseReason() == CardUseStruct::CARD_USE_REASON_PLAY) {
             Slash *slash = new Slash(Card::SuitToBeDecided, -1);
@@ -251,21 +247,18 @@ public:
         frequency = Compulsory;
     }
 
-    virtual QStringList triggerable(TriggerEvent triggerEvent, Room *room, ServerPlayer *player, QVariant &data, ServerPlayer* &) const
+    virtual QStringList triggerable(TriggerEvent triggerEvent, Room *, ServerPlayer *player, QVariant &data, ServerPlayer* &) const
     {
         if (!TriggerSkill::triggerable(player)) return QStringList();
 
         CardUseStruct use = data.value<CardUseStruct>();
-        if (triggerEvent == TargetChosen && player->hasShownSkill(objectName())) {
-            ServerPlayer *lord = room->getLord(player->getSeemingKingdom());
-            if (lord != NULL && lord->hasShownSkill("shouyue")) {
-                if (use.card != NULL && use.card->isKindOf("Slash")) {
-                    QStringList targets;
-                    foreach(ServerPlayer *to, use.to)
-                        targets << to->objectName();
-                    if (!targets.isEmpty())
-                        return QStringList(objectName() + "->" + targets.join("+"));
-                }
+        if (triggerEvent == TargetChosen && player->enjoyingSkill("shouyue") && player->getSeemingKingdom() == "shu") {
+            if (use.card != NULL && use.card->isKindOf("Slash")) {
+                QStringList targets;
+                foreach(ServerPlayer *to, use.to)
+                    targets << to->objectName();
+                if (!targets.isEmpty())
+                    return QStringList(objectName() + "->" + targets.join("+"));
             }
         } else if (triggerEvent == CardUsed) {
             if (use.card && use.card->isKindOf("Slash") && player->getCardUsedTimes("Slash") == 2)
@@ -640,20 +633,18 @@ public:
         global = true;
     }
 
-    virtual QStringList triggerable(TriggerEvent triggerEvent, Room *room, ServerPlayer *player, QVariant &data, ServerPlayer * &) const
+    virtual QStringList triggerable(TriggerEvent triggerEvent, Room *, ServerPlayer *player, QVariant &data, ServerPlayer * &) const
     {
-        ServerPlayer *lord = room->getLord(player->getSeemingKingdom());
-        if (lord != NULL && lord->hasLordSkill("shouyue") && lord->hasShownGeneral1()) {
-            const Card *card = NULL;
-            if (triggerEvent == CardUsed)
-                card = data.value<CardUseStruct>().card;
-            else
-                card = data.value<CardResponseStruct>().m_card;
+        const Card *card = NULL;
+        if (triggerEvent == CardUsed)
+            card = data.value<CardUseStruct>().card;
+        else
+            card = data.value<CardResponseStruct>().m_card;
 
-            if (card != NULL && (card->getSkillName() == "longdan" || card->getSkillName() == "longdan_xh")) {
-                if (player && player->isAlive() && player->hasShownSkill(card->getSkillName()))
-                    return QStringList(objectName());
-            }
+        if (card != NULL && (card->getSkillName() == "longdan" || card->getSkillName() == "longdan_xh")) {
+            if (player && player->isAlive() && player->hasSkill(card->getSkillName())
+                    && player->enjoyingSkill("shouyue") && player->getSeemingKingdom() == "shu")
+                return QStringList(objectName());
         }
 
         return QStringList();
@@ -739,8 +730,7 @@ bool Tieqi::effect(TriggerEvent, Room *room, ServerPlayer *target, QVariant &dat
 
     room->judge(judge);
 
-    ServerPlayer *lord = room->getLord(player->getSeemingKingdom());
-    if (lord != NULL && lord->hasLordSkill("shouyue") && lord->hasShownGeneral1()) {
+    if (player->enjoyingSkill("shouyue") && player->getSeemingKingdom() == "shu") {
 
         LogMessage log;
         log.type = "#TieqiAllSkills";
@@ -980,9 +970,7 @@ public:
 
     virtual int getExtra(const Player *target, bool) const
     {
-
-        const Player *lord = target->getLord();
-        if (lord != NULL && lord->hasLordSkill("shouyue") && lord->hasShownGeneral1()) {
+        if (target->enjoyingSkill("shouyue") && target->getSeemingKingdom() == "shu") {
             int x = 0;
             if (target->hasShownSkill("liegong")) x++;
             if (target->hasShownSkill("liegong_xh")) x++;

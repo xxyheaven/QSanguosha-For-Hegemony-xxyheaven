@@ -1655,8 +1655,7 @@ public:
             }
         } else if (triggerEvent == CardUsed) {
             CardUseStruct use = data.value<CardUseStruct>();
-            if (TriggerSkill::triggerable(player) && use.card->getTypeId() == Card::TypeEquip
-                    && !use.card->isKindOf("ImperialEdict"))
+            if (TriggerSkill::triggerable(player) && use.card->getTypeId() == Card::TypeEquip)
                 return QStringList(objectName());
         }
         return QStringList();
@@ -1740,7 +1739,7 @@ public:
     {
         if (player != NULL && player->isAlive()) {
             CardUseStruct use = data.value<CardUseStruct>();
-            if (use.card->getTypeId() == Card::TypeEquip && !use.card->isKindOf("ImperialEdict")) {
+            if (use.card->getTypeId() == Card::TypeEquip) {
                 QList<ServerPlayer *> owners = room->findPlayersBySkillName("diaodu");
                 TriggerList skill_list;
                 foreach (ServerPlayer *owner, owners)

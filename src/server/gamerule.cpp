@@ -1088,7 +1088,8 @@ QString GameRule::getWinner(ServerPlayer *victim) const
                         room->sendLog(log);
 
                         room->setTag("GlobalCareeristShow", true);
-                        p->showGeneral();
+                        p->showGeneral(true, false);
+                        room->removePlayerMark(p, "HaventShowGeneral");
                         room->setTag("GlobalCareeristShow", false);
 
                         careerists << p;
@@ -1121,7 +1122,6 @@ QString GameRule::getWinner(ServerPlayer *victim) const
                      foreach (ServerPlayer *p2, to_ask) {
                          if (room->askForChoice(p2, "GameRule:CareeristAdd", "yes+no", QVariant(), "@careerist-add:" + p->objectName()) == "yes") {
                              room->setPlayerMark(p2, "@"+p->getGeneral()->objectName(), 1);
-                             room->removePlayerMark(p, "@careerist");
 
                              LogMessage log;
                              log.type = "#GameRule_CareeristAdd";

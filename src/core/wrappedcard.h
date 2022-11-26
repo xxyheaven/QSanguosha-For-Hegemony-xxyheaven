@@ -228,6 +228,11 @@ public:
         return m_card->targetFilter(targets, to_select, Self, maxVotes);
     }
 
+    inline virtual bool targetRated(const Player *to_select, const Player *Self) const
+    {
+        return m_card->targetRated(to_select, Self);
+    }
+
     inline virtual bool isAvailable(const Player *player) const
     {
         return m_card->isAvailable(player);

@@ -570,7 +570,20 @@ bool Player::hasLordSkill(const QString &skill_name, bool include_lose) const
 {
     const Skill *skill = Sanguosha->getSkill(skill_name);
 
-    return skill && skill->isLordSkill() && isLord() && hasSkill(skill_name, include_lose);
+    return skill && skill->isLordSkill() && hasSkill(skill_name, include_lose);
+}
+
+bool Player::enjoyingSkill(const QString &skill_name, bool include_self, bool friend_only) const
+{
+    QList<const Player *> sib = getAliveSiblings();
+    if (include_self)
+        sib << this;
+    foreach (const Player *p, sib) {
+        if (p->hasShownSkill(skill_name) && (!friend_only || isFriendWith(p)))
+            return true;
+    }
+
+    return false;
 }
 
 void Player::acquireSkill(const QString &skill_name, bool head)

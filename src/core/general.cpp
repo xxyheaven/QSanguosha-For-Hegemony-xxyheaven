@@ -358,8 +358,8 @@ bool General::isCompanionWith(const QString &name) const
 {
     const General *other = Sanguosha->getGeneral(name);
     Q_ASSERT(other);
-    return ((lord || other->lord) && kingdom == other->kingdom) || companions.contains(name)
-        || other->companions.contains(objectName());
+    return (lord && other->getKingdoms().contains(kingdom)) || (other->lord && getKingdoms().contains(other->kingdom))
+            || companions.contains(name) || other->companions.contains(objectName());
 }
 
 void General::setHeadMaxHpAdjustedValue(int adjusted_value /* = -1 */)

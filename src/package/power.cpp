@@ -368,6 +368,11 @@ public:
         te->setSkillName(objectName());
         return !player->isProhibited(player, te) && !player->isLocked(te);
     }
+
+    virtual int getEffectIndex(const ServerPlayer *, const Card *card) const
+    {
+        return card->isKindOf("ThreatenEmperor") ? 0 : -1;
+    }
 };
 
 class FengyingAfter : public TriggerSkill
@@ -968,12 +973,8 @@ public:
 
     virtual bool viewFilter(const Card *card) const
     {
-        if (!card->isRed()) {
-            if (!Self->hasShownSkill(objectName())) return false;
-            const Player *lord = Self->getLord();
-            if (lord == NULL || !lord->hasLordSkill("shouyue") || !lord->hasShownGeneral1())
-                return false;
-        }
+        if (!card->isRed() && (Self->getSeemingKingdom() != "shu" || !Self->enjoyingSkill("shouyue")))
+            return false;
 
         if (Sanguosha->currentRoomState()->getCurrentCardUseReason() == CardUseStruct::CARD_USE_REASON_PLAY) {
             Slash *slash = new Slash(Card::SuitToBeDecided, -1);
@@ -1009,20 +1010,17 @@ public:
         return false;
     }
 
-    virtual QStringList triggerable(TriggerEvent triggerEvent, Room *room, ServerPlayer *player, QVariant &data, ServerPlayer* &) const
+    virtual QStringList triggerable(TriggerEvent triggerEvent, Room *, ServerPlayer *player, QVariant &data, ServerPlayer* &) const
     {
         if (!TriggerSkill::triggerable(player)) return QStringList();
         CardUseStruct use = data.value<CardUseStruct>();
-        if (triggerEvent == TargetChosen) {
-            ServerPlayer *lord = room->getLord(player->getSeemingKingdom());
-            if (lord != NULL && lord->hasShownSkill("shouyue")) {
-                if (use.card != NULL && use.card->isKindOf("Slash")) {
-                    QStringList targets;
-                    foreach(ServerPlayer *to, use.to)
-                        targets << to->objectName();
-                    if (!targets.isEmpty())
-                        return QStringList(objectName() + "->" + targets.join("+"));
-                }
+        if (triggerEvent == TargetChosen && player->enjoyingSkill("shouyue") && player->getSeemingKingdom() == "shu") {
+            if (use.card != NULL && use.card->isKindOf("Slash")) {
+                QStringList targets;
+                foreach(ServerPlayer *to, use.to)
+                    targets << to->objectName();
+                if (!targets.isEmpty())
+                    return QStringList(objectName() + "->" + targets.join("+"));
             }
         } else if (triggerEvent == CardUsed) {
             if (use.card && use.card->isKindOf("Slash") && player->getCardUsedTimes("Slash") == 2)

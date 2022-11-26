@@ -49,7 +49,7 @@ public:
     {
         if (triggerEvent == CardUsed && player != NULL && player->hasShownOneGeneral()) {
             CardUseStruct use = data.value<CardUseStruct>();
-            if (use.card->getTypeId() == Card::TypeEquip && !use.card->isKindOf("ImperialEdict")) {
+            if (use.card->getTypeId() == Card::TypeEquip) {
                 QList<ServerPlayer *> owners = room->findPlayersBySkillName(objectName());
                 TriggerList skill_list;
                 foreach (ServerPlayer *owner, owners)
@@ -1161,8 +1161,7 @@ public:
             }
         } else if (triggerEvent == CardFinished && player->getMark("#reward") > 0) {
             CardUseStruct use = data.value<CardUseStruct>();
-            if (use.card->getTypeId() == Card::TypeBasic ||
-                    (use.card->isNDTrick() && !use.card->isKindOf("ThreatenEmperor"))) {
+            if (use.card->getTypeId() == Card::TypeBasic || use.card->isNDTrick()) {
                 Card *new_card = Sanguosha->cloneCard(use.card->objectName(), Card::NoSuit, 0);
                 new_card->setSkillName("_zhaofu");
                 new_card->deleteLater();
@@ -2526,14 +2525,11 @@ public:
         return true;
     }
 
-    virtual QStringList triggerable(TriggerEvent, Room *, ServerPlayer *player, QVariant &data, ServerPlayer* &) const
+    virtual QStringList triggerable(TriggerEvent, Room *, ServerPlayer *player, QVariant &, ServerPlayer* &) const
     {
-        if (!TriggerSkill::triggerable(player) || player->isNude()) return QStringList();
-        DamageStruct damage = data.value<DamageStruct>();
-        QStringList trigger_skill;
-        for (int i = 1; i <= damage.damage; i++)
-            trigger_skill << objectName();
-        return trigger_skill;
+        if (TriggerSkill::triggerable(player) && !player->isNude())
+            return QStringList(objectName());
+        return QStringList();
     }
 
     virtual bool cost(TriggerEvent, Room *room, ServerPlayer *player, QVariant &, ServerPlayer *) const
@@ -3727,6 +3723,11 @@ public:
             room->setPlayerFlag(player, "Global_PlayPhaseTerminated");
         return false;
     }
+
+    virtual int getEffectIndex(const ServerPlayer *, const Card *) const
+    {
+        return 0;
+    }
 };
 
 
@@ -3742,7 +3743,7 @@ public:
     virtual QStringList triggerable(TriggerEvent triggerEvent, Room *, ServerPlayer *player, QVariant &, ServerPlayer* &) const
     {
         if (TriggerSkill::triggerable(player)) {
-            if (triggerEvent == TurnedOver || (triggerEvent == ChainStateChanged && player->isChained())) {
+            if ((triggerEvent == TurnedOver && !player->faceUp()) || (triggerEvent == ChainStateChanged && player->isChained())) {
                 return QStringList(objectName());
             } else if (triggerEvent == CommandVerifying) {
                 return QStringList(objectName());
@@ -3783,18 +3784,7 @@ public:
     virtual bool effect(TriggerEvent triggerEvent, Room *room, ServerPlayer *source, QVariant &data, ServerPlayer *) const
     {
         if (triggerEvent == CommandVerifying) {
-            QStringList commands;
-            commands << "command1" << "command2" << "command3" << "command4" << "command5" << "command6";
-            QString choice = room->askForChoice(source, objectName(), commands.join("+"), QVariant(), "@zhuke-select");
-
-            LogMessage log;
-            log.type = "#CommandChoice";
-            log.from = source;
-            log.arg = "#"+choice;
-            room->sendLog(log);
-
-            data = commands.indexOf(choice);
-
+            data = source->startCommand(objectName());
         } else if (triggerEvent == TurnedOver || triggerEvent == ChainStateChanged) {
             QStringList target_list = source->tag["zhuke_target"].toStringList();
             QString target_name = target_list.takeLast();
@@ -3871,11 +3861,11 @@ public:
                 p->drawCards(1, objectName());
         }
         foreach (ServerPlayer *p, room->getAlivePlayers()) {
-            if ((p->hasShownGeneral1() && p->getGeneral()->ownSkill("rende")) ||
-                    (p->hasShownGeneral2() && p->getGeneral2()->ownSkill("rende"))) {
+            bool head = (p->hasShownGeneral1() && p->getGeneral()->hasSkill("rende"));
+            if (head || (p->hasShownGeneral2() && p->getGeneral2()->hasSkill("rende"))) {
                 room->addPlayerMark(p, "##quanjia");
-                room->acquireSkill(p, "zhangwu", true, p->inHeadSkills("rende"));
-                room->acquireSkill(p, "shouyue", true, p->inHeadSkills("rende"));
+                room->acquireSkill(p, "zhangwu", true, head);
+                room->acquireSkill(p, "shouyue", true, head);
                 room->sendCompulsoryTriggerLog(p, "shouyue");
                 room->broadcastSkillInvoke("shouyue", p);
             }
