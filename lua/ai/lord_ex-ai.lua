@@ -1180,7 +1180,7 @@ sgs.ai_skill_cardask["@shilu"] = function(self, data, pattern, target, target2, 
 
   local xiongnve_nolimit = false
   self.xiongnve_choice = nil
-  local name = sgs.ai_skill_choice.xiongnve_attack(self, self.player:property("massacre_pile"):toString())
+  local name = sgs.ai_skill_choice.xiongnve_attack(self, table.concat(self.player:getGeneralPile("massacre"), "+"))
   if name and self.xiongnve_choice == "nolimit" then
     self.xiongnve_choice = nil
     xiongnve_nolimit = true
@@ -1310,7 +1310,7 @@ end
 sgs.ai_skill_invoke.xiongnve = function(self, data)
   if data:toString() == "attack" then
     self.xiongnve_choice = nil
-    local name = sgs.ai_skill_choice.xiongnve_attack(self, self.player:property("massacre_pile"):toString())
+    local name = sgs.ai_skill_choice.xiongnve_attack(self, table.concat(self.player:getGeneralPile("massacre"), "+"))
     if name and self.xiongnve_choice then
       Global_room:writeToConsole("凶虐进攻选择:"..name.."|"..self.xiongnve_choice)
       return true
@@ -1330,7 +1330,7 @@ sgs.ai_skill_invoke.xiongnve = function(self, data)
       return true
     end
     local useless_num = 0
-    local generals = self.player:property("massacre_pile"):toString():split("+")
+    local generals = self.player:getGeneralPile("massacre")
     local xiongnve_kingdom = {["wei"] = {}, ["shu"] = {}, ["wu"] = {}, ["qun"] = {}, ["careerist"] = {}, ["double"] = {}}
     for _, name in ipairs(generals) do
       local general = sgs.Sanguosha:getGeneral(name)

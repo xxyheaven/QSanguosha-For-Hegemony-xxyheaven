@@ -297,6 +297,13 @@ public:
         QRect m_cardFrameArea;
         QSanShadowTextFont m_cardFootnoteFont;
 
+        QSize m_generalCardSize;
+        QRect m_generalCardKingdomArea;
+        QRect m_generalCardNameArea;
+        QSanShadowTextFont m_generalCardNameFont;
+        QRect m_generalCardMagatamasArea;
+        int m_generalCardDoubleMagatamasWidth;
+
         QSize m_promptInfoSize;
         QSanShadowTextFont m_promptInfoFont;
 
@@ -461,6 +468,9 @@ public:
     static const char *S_SKIN_KEY_DEPUTY_ICON;
     static const char *S_SKIN_KEY_DISABLE_SHOW_LOCK;
     static const char *S_SKIN_KEY_SKILL_NAME_BG;
+    static const char *S_SKIN_KEY_GENERAL_CARD_BG;
+    static const char *S_SKIN_KEY_GENERAL_CARD_KINGDOM;
+    static const char *S_SKIN_KEY_GENERAL_CARD_MAGATAMAS;
 
     //CardContainer
 
@@ -489,6 +499,9 @@ public:
 
     //TablePile
     static const char *S_SKIN_KEY_TABLE_BG_BATTLE;
+
+    static const char *S_SKIN_KEY_CARD_ITEM_SMALL_CARDS;
+    static const char *S_SKIN_KEY_CARD_ITEM_CHECK;
 
 protected:
     RoomLayout _m_roomLayout;

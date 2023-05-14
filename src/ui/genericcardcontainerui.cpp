@@ -397,7 +397,7 @@ void PlayerCardContainer::updatePhase()
             _getPhaseParent());
         _m_phaseIcon->show();
     } else {
-        if (_m_progressBar) _m_progressBar->hide();
+        //if (_m_progressBar) _m_progressBar->hide();
         if (_m_phaseIcon) _m_phaseIcon->hide();
     }
 }
@@ -412,7 +412,7 @@ void PlayerCardContainer::updateHp()
         _m_saveMeIcon->setVisible(false);
 }
 
-void PlayerCardContainer::updatePile(const QString &pile_name)
+void PlayerCardContainer::updatePile(const QString &pile_name, bool is_card_pile)
 {
     ClientPlayer *player = qobject_cast<ClientPlayer *>(sender());
     if (!player)
@@ -421,16 +421,12 @@ void PlayerCardContainer::updatePile(const QString &pile_name)
     QString treasure_name;
     if (player->getTreasure()) treasure_name = player->getTreasure()->objectName();
 
-    QList<int> pile;
-    if (pile_name == "huashencard") {
-        QStringList huashens = player->tag["Huashens"].toStringList();
-        int n = huashens.length();
-        for (int i = 0; i < n; i ++) {
-            pile.append(i + 1);
-        }
-    } else {
-        pile = player->getPile(pile_name);
-    }
+    int pile_length = 0;
+
+    if (is_card_pile)
+        pile_length = player->getPile(pile_name).length();
+    else
+        pile_length = player->getGeneralPile(pile_name).length();
 
     QString shownpilename = RoomSceneInstance->getCurrentShownPileName();
     if (!shownpilename.isEmpty() && shownpilename == pile_name)
@@ -439,7 +435,7 @@ void PlayerCardContainer::updatePile(const QString &pile_name)
     if (Self == player && Self->getHandPileList(false).contains(pile_name)) return;
 
     int new_length = 0;
-    if (pile.size() == 0) {
+    if (pile_length == 0) {
         if (_m_privatePiles.contains(pile_name)) {
             delete _m_privatePiles[pile_name];
             _m_privatePiles[pile_name] = NULL;
@@ -466,19 +462,19 @@ void PlayerCardContainer::updatePile(const QString &pile_name)
         }
         QString text = Sanguosha->translate(pile_name);
 
-        int x= pile.length();
-
-        if (pile_name == "ImperialEdict") x--;
-
-        text.append(QString("[%1]").arg(x));
+        text.append(QString("[%1]").arg(pile_length));
         button->setText(text);
 
         QFontMetrics fontMetrics(button->font());
         new_length = fontMetrics.width(text) + 4;
 
-        disconnect(button, &QPushButton::pressed, this, &PlayerCardContainer::showPile);
-        connect(button, &QPushButton::pressed, this, &PlayerCardContainer::showPile);
-
+        if (is_card_pile) {
+            disconnect(button, &QPushButton::pressed, this, &PlayerCardContainer::showPile);
+            connect(button, &QPushButton::pressed, this, &PlayerCardContainer::showPile);
+        } else {
+            disconnect(button, &QPushButton::pressed, this, &PlayerCardContainer::showGeneralPile);
+            connect(button, &QPushButton::pressed, this, &PlayerCardContainer::showGeneralPile);
+        }
         disconnect(button, &QPushButton::released, this, &PlayerCardContainer::hidePile);
         connect(button, &QPushButton::released, this, &PlayerCardContainer::hidePile);
     }
@@ -627,7 +623,7 @@ void PlayerCardContainer::updateTip(const QString &pile_name, bool add_in)
         QFontMetrics fontMetrics(button->font());
         new_length = fontMetrics.width(text) + 4;
 
-        if (mark_name == "massacre" || mark_name == "money") {
+        if (mark_name == "money") {
 
             disconnect(button, &QPushButton::pressed, this, &PlayerCardContainer::showPile);
             connect(button, &QPushButton::pressed, this, &PlayerCardContainer::showPile);
@@ -668,18 +664,21 @@ void PlayerCardContainer::showPile()
         const ClientPlayer *player = getPlayer();
         if (!player) return;
         QList<int> card_ids = player->getPile(button->objectName());
-        if (button->objectName() == "huashencard" && player == Self) RoomSceneInstance->showPile(card_ids, button->objectName(), player);
-        if (button->objectName() == "massacre" && player == Self) RoomSceneInstance->showPile(card_ids, button->objectName(), player);
-        if (button->objectName() == "money" && !player->property("jiansu_record").isNull()) {
-            QStringList jiansu_ids = player->property("jiansu_record").toString().split("+");
-            QList<int> _ids;
-            foreach (QString card_data, jiansu_ids) {
-                _ids << card_data.toInt();
-            }
-            RoomSceneInstance->showPile(_ids, button->objectName(), player);
-        }
         if (card_ids.isEmpty() || card_ids.contains(-1)) return;
-        RoomSceneInstance->showPile(card_ids, button->objectName(), player);
+        RoomSceneInstance->showPile(card_ids, button->objectName());
+    }
+}
+
+void PlayerCardContainer::showGeneralPile()
+{
+    QPushButton *button = qobject_cast<QPushButton *>(sender());
+    if (button) {
+        const ClientPlayer *player = getPlayer();
+        if (!player) return;
+        QStringList card_ids = player->getGeneralPile(button->objectName());
+
+        if (card_ids.contains("unknown")) return;
+        RoomSceneInstance->showGeneralPile(card_ids, button->objectName());
     }
 }
 
@@ -1474,14 +1473,9 @@ void PlayerCardContainer::mouseReleaseEvent(QGraphicsSceneMouseEvent *event)
     QGraphicsItem *item1 = getMouseClickReceiver();
     QGraphicsItem *item2 = getMouseClickReceiver2();
     if (_isSelected(item1) || _isSelected(item2)) {
-        if (event->button() == Qt::RightButton && ClientInstance->getStatus() != Client::GlobalCardChosen)
+        if (event->button() == Qt::RightButton)
             setSelected(false);
-        else if (event->button() == Qt::LeftButton) {
-            if (ClientInstance->getStatus() == Client::GlobalCardChosen) {
-                setSelected(true);
-                emit global_selected_changed(getPlayer());
-                return;
-            }
+        else if (event->button() == Qt::LeftButton) {            
             _m_votesGot++;
             setSelected(_m_votesGot <= _m_maxVotes);
             if (_m_votesGot > 1) emit selected_changed();
@@ -1519,9 +1513,8 @@ QVariant PlayerCardContainer::itemChange(GraphicsItemChange change, const QVaria
                 _m_selectedFrame2->show();
             }
         }
-        updateVotes();
-        if (ClientInstance->getStatus() != Client::GlobalCardChosen)
-            emit selected_changed();
+        updateVotes();        
+        emit selected_changed();
     } else if (change == ItemEnabledHasChanged) {
         _m_votesGot = 0;
         emit enable_changed();

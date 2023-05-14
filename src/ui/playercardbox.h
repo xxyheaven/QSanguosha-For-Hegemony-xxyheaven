@@ -29,6 +29,7 @@
 
 class ClientPlayer;
 class QGraphicsProxyWidget;
+class Button;
 class QSanCommandProgressBar;
 
 class PlayerCardBox : public GraphicsBox
@@ -41,12 +42,13 @@ public:
     void chooseCard(const QString &reason, const ClientPlayer *player,
         const QString &flags = "hej", bool handcardVisible = false,
         Card::HandlingMethod method = Card::MethodNone,
-        const QList<int> &disabledIds = QList<int>(), const QList<int> &handcards = QList<int>());
+        const QList<int> &disabledIds = QList<int>(), const QList<int> &handcards = QList<int>(), int min_num = 0, int max_num = 0);
     void globalchooseCard(const ClientPlayer *player, const QString &reason, const QString &flags, bool handcardVisible, const QList<int> &disabledIds, const QList<int> &handcards);
     void clear();
     void setfalse();
     void reset();
-    QList<CardItem *> items;
+    int min_num, max_num;
+    QList<CardItem *> items, selected;
 
 protected:
     // GraphicsBox interface
@@ -62,10 +64,11 @@ private:
 
     const ClientPlayer *player;
     QString flags;
-    bool handcardVisible;
+    bool single_result, handcardVisible;
     Card::HandlingMethod method;
     QList<int> disabledIds;
 
+    Button *confirm;
     QGraphicsProxyWidget *progressBarItem;
     QSanCommandProgressBar *progressBar;
 
@@ -89,6 +92,7 @@ private:
     static const int intervalBetweenCards;
 
 public slots:
+    void selectCardItem();
     void reply();
     void global_click();
 

@@ -46,13 +46,9 @@ public:
             return QStringList();
 
         if (use.card != NULL && use.card->isKindOf("Slash")) {
-            QStringList targets;
-            foreach (ServerPlayer *to, use.to) {
-                if (genderDiff(player, to))
-                    targets << to->objectName();
-            }
-            if (!targets.isEmpty())
-                return QStringList(objectName() + "->" + targets.join("+"));
+            ServerPlayer *target = use.to.at(use.index);
+            if (target != NULL && genderDiff(player, target))
+                return QStringList(objectName() + "->" + target->objectName());
         }
         return QStringList();
     }
@@ -110,11 +106,9 @@ public:
             return QStringList();
 
         if (use.card != NULL && use.card->isKindOf("Slash")) {
-            QStringList targets;
-            foreach(ServerPlayer *to, use.to)
-                targets << to->objectName();
-            if (!targets.isEmpty())
-                return QStringList(objectName() + "->" + targets.join("+"));
+            ServerPlayer *target = use.to.at(use.index);
+            if (target != NULL)
+                return QStringList(objectName() + "->" + target->objectName());
         }
         return QStringList();
     }

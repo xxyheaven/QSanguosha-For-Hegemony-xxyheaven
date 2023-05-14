@@ -305,7 +305,7 @@ public:
         }
         if (to_choose.isEmpty()) return false;
 
-        ServerPlayer *victim = room->askForPlayerChosen(target, to_choose, objectName(), "@qianxi-choose:::"+color);
+        ServerPlayer *victim = room->askForPlayerChosen(target, to_choose, "qianxi_target", "@qianxi-choose:::"+color);
         room->doAnimate(QSanProtocol::S_ANIMATE_INDICATE, target->objectName(), victim->objectName());
 
         QString pattern = QString(".|%1|.|hand").arg(color);
@@ -339,10 +339,11 @@ public:
     virtual QStringList triggerable(TriggerEvent triggerEvent, Room *, ServerPlayer *player, QVariant &data, ServerPlayer* &) const
     {
         if (triggerEvent == GeneralShowed) {
-            if (TriggerSkill::triggerable(player))
-                return (player->cheakSkillLocation(objectName(), data.toStringList())) ? QStringList(objectName()) : QStringList();
-        } else if (data.toString() == "mifuren")
-            return QStringList(objectName());
+            return (player->cheakSkillLocation(objectName(), data)) ? QStringList(objectName()) : QStringList();
+        } else if (triggerEvent == GeneralRemoved && player && player->isAlive() && player->isWounded()) {
+            if (data.toString().split(":").last().split("+").contains(objectName()))
+                return QStringList(objectName());
+        }
         return QStringList();
     }
 
@@ -515,9 +516,9 @@ public:
     {
         if (!TriggerSkill::triggerable(sunce)) return QStringList();
         CardUseStruct use = data.value<CardUseStruct>();
-        bool invoke = triggerEvent == TargetChosen;
+        bool invoke = triggerEvent == TargetConfirmed;
         if (!invoke)
-            invoke = (use.to.contains(sunce));
+            invoke = (use.index == 0);
 
         if (invoke) {
             if (use.card->isKindOf("Duel") || (use.card->isKindOf("Slash") && use.card->isRed()))
@@ -526,15 +527,10 @@ public:
         return QStringList();
     }
 
-    virtual bool cost(TriggerEvent, Room *room, ServerPlayer *sunce, QVariant &data, ServerPlayer *) const
+    virtual bool cost(TriggerEvent, Room *room, ServerPlayer *sunce, QVariant &, ServerPlayer *) const
     {
         if (sunce->askForSkillInvoke(this)) {
-            CardUseStruct use = data.value<CardUseStruct>();
-
-            int index = 1;
-            if (use.from != sunce)
-                index = 2;
-            room->broadcastSkillInvoke(objectName(), index, sunce);
+            room->broadcastSkillInvoke(objectName(), sunce);
             return true;
         }
 
@@ -972,17 +968,13 @@ public:
     {
         TriggerList skill_list;
         CardUseStruct use = data.value<CardUseStruct>();
+        if (use.card == NULL || !use.card->isKindOf("Slash")) return skill_list;
         QList<ServerPlayer *> skill_owners = room->findPlayersBySkillName(objectName());
         foreach (ServerPlayer *skill_owner, skill_owners) {
-            if (BattleArraySkill::triggerable(skill_owner) && skill_owner->hasShownSkill(this)
-                && use.card != NULL && use.card->isKindOf("Slash")) {
-                QStringList targets;
-                foreach (ServerPlayer *to, use.to) {
-                    if (player->inSiegeRelation(skill_owner, to) && to->canDiscard(to, "e"))
-                        targets << to->objectName();
-                }
-                if (!targets.isEmpty())
-                    skill_list.insert(skill_owner, QStringList(objectName() + "->" + targets.join("+")));
+            if (BattleArraySkill::triggerable(skill_owner) && skill_owner->hasShownSkill(this)) {
+                ServerPlayer *target = use.to.at(use.index);
+                if (player->inSiegeRelation(skill_owner, target) && target->canDiscard(target, "e"))
+                    skill_list.insert(skill_owner, QStringList(objectName() + "->" + target->objectName()));
             }
         }
         return skill_list;

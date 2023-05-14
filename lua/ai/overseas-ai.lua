@@ -1236,25 +1236,18 @@ sgs.ai_skill_choice.huxun = function(self, choices, data)
     end
 end
 
-sgs.ai_skill_use["@@huxun_move"] = function(self, prompt, method)
-	self:updatePlayers()
-	if prompt ~= "@huxun-move" then
-		return "."
-	end
-	local MDCard = "@HuxunMoveCard=.&->"
+sgs.ai_skill_playerchosen.huxun = function(self, _targets, max_num, min_num)
 
-		self:sort(self.enemies, "defense")
+	self:sort(self.enemies, "defense")
 		for _, friend in ipairs(self.friends) do
-			if not friend:getCards("j"):isEmpty() and self:getMoveCardorTarget(friend, ".") then
-				self.huxuncard = self:getMoveCardorTarget(friend, "card")
-				return MDCard .. friend:objectName() .. "+" .. self:getMoveCardorTarget(friend, "target"):objectName()
+			if not friend:getCards("j"):isEmpty() and self:getMoveCardorTarget(friend, ".", "e") then
+				return {friend, self:getMoveCardorTarget(friend, "target", "e")}
 			end
 		end
 
 		for _, friend in ipairs(self.friends_noself) do
-			if friend:hasEquip() and friend:hasShownSkills(sgs.lose_equip_skill) and self:getMoveCardorTarget(friend, ".") then
-				self.huxuncard = self:getMoveCardorTarget(friend, "card")
-				return MDCard .. friend:objectName() .. "+" .. self:getMoveCardorTarget(friend, "target"):objectName()
+			if friend:hasEquip() and friend:hasShownSkills(sgs.lose_equip_skill) and self:getMoveCardorTarget(friend, ".", "e") then
+				return {friend, self:getMoveCardorTarget(friend, "target", "e")}
 			end
 		end
 
@@ -1267,13 +1260,11 @@ sgs.ai_skill_use["@@huxun_move"] = function(self, prompt, method)
 
 		if #targets > 0 then
 			self:sort(targets, "defense")
-			self.huxuncard = self:getMoveCardorTarget(targets[#targets], "card")
-			return MDCard .. targets[#targets]:objectName() .. "+" .. self:getMoveCardorTarget(targets[#targets], "target"):objectName()
+			return {targets[#targets], self:getMoveCardorTarget(targets[#targets], "target", "e")}
 		end
 
-		if self.player:hasEquip() and self.player:hasShownSkills(sgs.lose_equip_skill) and self:getMoveCardorTarget(self.player, ".") then
-			self.huxuncard = self:getMoveCardorTarget(self.player, "card","e")
-			return MDCard .. self.player:objectName() .. "+" .. self:getMoveCardorTarget(self.player, "target" ,"e"):objectName()
+		if self.player:hasEquip() and self.player:hasShownSkills(sgs.lose_equip_skill) and self:getMoveCardorTarget(self.player, ".", "e") then
+			return {self.player, self:getMoveCardorTarget(self.player, "target" ,"e")}
 		end
 
 		local friends = {}--没有敌人则简单转移队友装备
@@ -1285,15 +1276,14 @@ sgs.ai_skill_use["@@huxun_move"] = function(self, prompt, method)
 
 		if #friends > 0 then
 			self:sort(friends, "hp", true)
-			self.huxuncard = self:getMoveCardorTarget(friends[#friends], "card")
-			return MDCard .. friends[#friends]:objectName() .. "+" .. self:getMoveCardorTarget(friends[#friends], "target"):objectName()
+			return {friends[#friends], self:getMoveCardorTarget(friends[#friends], "target", "e")}
 		end
 
-	return "."
+	return {}
 end
 
-sgs.ai_skill_askforag["huxun"] = function(self, card_ids)
-	return self.huxuncard:getId()
+sgs.ai_skill_transfercardchosen.huxun = function(self, targets, equipArea, judgingArea)
+	return self:getMoveCardorTarget(targets:first(), "card", "e")
 end
 
 sgs.ai_skill_exchange["yuancong_give"] = function(self,pattern,max_num,min_num,expand_pile)

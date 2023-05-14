@@ -434,48 +434,9 @@ public:
     virtual void onDamaged(ServerPlayer *guojia, const DamageStruct &) const
     {
         Room *room = guojia->getRoom();
-
-        QList<ServerPlayer *> _guojia;
-        _guojia.append(guojia);
         QList<int> yiji_cards = room->getNCards(2, false);
-
-        CardMoveReason preview_reason(CardMoveReason::S_REASON_PREVIEW, guojia->objectName(), objectName(), QString());
-
-        CardsMoveStruct move(yiji_cards, NULL, guojia, Player::PlaceTable, Player::PlaceHand, preview_reason);
-        QList<CardsMoveStruct> moves;
-        moves.append(move);
-        room->notifyMoveCards(true, moves, false, _guojia);
-        room->notifyMoveCards(false, moves, false, _guojia);
-        QList<int> origin_yiji = yiji_cards;
-        while (room->askForYiji(guojia, yiji_cards, objectName(), true, false, true, -1, room->getAlivePlayers())) {
-            CardsMoveStruct move(QList<int>(), guojia, NULL, Player::PlaceHand, Player::PlaceTable, preview_reason);
-            foreach (int id, origin_yiji) {
-                if (room->getCardPlace(id) != Player::DrawPile) {
-                    move.card_ids << id;
-                    yiji_cards.removeOne(id);
-                }
-            }
-            origin_yiji = yiji_cards;
-            QList<CardsMoveStruct> moves;
-            moves.append(move);
-            room->notifyMoveCards(true, moves, false, _guojia);
-            room->notifyMoveCards(false, moves, false, _guojia);
-            if (!guojia->isAlive())
-                return;
-        }
-
-        if (!yiji_cards.isEmpty()) {
-            CardsMoveStruct move(yiji_cards, guojia, NULL, Player::PlaceHand, Player::PlaceTable, preview_reason);
-            QList<CardsMoveStruct> moves;
-            moves.append(move);
-            room->notifyMoveCards(true, moves, false, _guojia);
-            room->notifyMoveCards(false, moves, false, _guojia);
-
-
-            foreach (int id, yiji_cards) {
-                guojia->obtainCard(Sanguosha->getCard(id), false);
-            }
-        }
+        room->askForRende(guojia, yiji_cards, objectName(), true, false, false, -1, -1,
+                          room->getAlivePlayers(), CardMoveReason(), "@yiji-give", "#yiji");
     }
 };
 
@@ -694,117 +655,6 @@ public:
     }
 };
 
-QiaobianAskCard::QiaobianAskCard()
-{
-    mute = true;
-}
-
-bool QiaobianAskCard::targetsFeasible(const QList<const Player *> &targets, const Player *Self) const
-{
-    Player::Phase phase = (Player::Phase)Self->getMark("qiaobianPhase");
-    if (phase == Player::Draw)
-        return targets.length() <= 2 && !targets.isEmpty();
-    else if (phase == Player::Play)
-        return targets.length() == 2;
-    return false;
-}
-
-bool QiaobianAskCard::targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
-{
-    Player::Phase phase = (Player::Phase)Self->getMark("qiaobianPhase");
-    if (phase == Player::Draw)
-        return targets.length() < 2 && to_select != Self && Self->canGetCard(to_select, "h");
-    else if (phase == Player::Play) {
-        if (targets.isEmpty())
-            return (!to_select->getJudgingArea().isEmpty() || !to_select->getEquips().isEmpty());
-        else if (targets.length() == 1){
-            for (int i = 0; i < S_EQUIP_AREA_LENGTH; i++) {
-                if (targets.first()->getEquip(i) && to_select->canSetEquip(i))
-                    return true;
-            }
-            foreach(const Card *card, targets.first()->getJudgingArea()){
-                if (!Sanguosha->isProhibited(NULL, to_select, card))
-                    return true;
-            }
-
-        }
-    }
-    return false;
-}
-
-void QiaobianAskCard::onUse(Room *room, const CardUseStruct &card_use) const
-{
-    CardUseStruct use = card_use;
-    ServerPlayer *zhanghe = use.from;
-    Player::Phase phase = (Player::Phase)zhanghe->getMark("qiaobianPhase");
-    if (phase == Player::Draw) {
-        if (use.to.isEmpty())
-            return;
-
-        room->sortByActionOrder(use.to);
-        foreach (ServerPlayer *p, use.to) {
-            room->doAnimate(QSanProtocol::S_ANIMATE_INDICATE, zhanghe->objectName(), p->objectName());
-        }
-        foreach (ServerPlayer *target, use.to) {
-            if (zhanghe->isAlive() && target->isAlive())
-                room->cardEffect(this, zhanghe, target);
-        }
-    } else if (phase == Player::Play) {
-        if (use.to.length() != 2)
-            return;
-
-        ServerPlayer *from = use.to.first();
-        ServerPlayer *to = use.to.last();
-
-        bool can_select = false;
-        QList<int> disabled_ids;
-        for (int i = 0; i < S_EQUIP_AREA_LENGTH; i++) {
-            if (from->getEquip(i)){
-                if (to->canSetEquip(i))
-                    can_select = true;
-                else
-                    disabled_ids << from->getEquip(i)->getEffectiveId();
-            }
-        }
-
-        foreach(const Card *card, from->getJudgingArea()){
-            if (!Sanguosha->isProhibited(NULL, to, card))
-                can_select = true;
-            else
-                disabled_ids << card->getEffectiveId();
-        }
-
-        if (can_select) {
-            int card_id = room->askForCardChosen(zhanghe, from, "ej", "qiaobian", false, Card::MethodNone, disabled_ids);
-            room->moveCardTo(Sanguosha->getCard(card_id), from, to, room->getCardPlace(card_id), CardMoveReason(CardMoveReason::S_REASON_TRANSFER, zhanghe->objectName(), "qiaobian", QString()));
-        }
-    }
-}
-
-void QiaobianAskCard::onEffect(const CardEffectStruct &effect) const
-{
-   Room *room = effect.from->getRoom();
-    if (effect.from->canGetCard(effect.to, "h")) {
-        int card_id = room->askForCardChosen(effect.from, effect.to, "h", "qiaobian", false, Card::MethodGet);
-        CardMoveReason reason(CardMoveReason::S_REASON_EXTRACTION, effect.from->objectName());
-        room->obtainCard(effect.from, Sanguosha->getCard(card_id), reason, false);
-    }
-}
-
-class QiaobianAsk : public ZeroCardViewAsSkill
-{
-public:
-    QiaobianAsk() : ZeroCardViewAsSkill("qiaobian_ask")
-    {
-        response_pattern = "@@qiaobian_ask";
-    }
-
-    virtual const Card *viewAs() const
-    {
-        return new QiaobianAskCard;
-    }
-};
-
 Qiaobian::Qiaobian(const QString &owner) : TriggerSkill("qiaobian" + owner)
 {
     events << EventPhaseChanging;
@@ -867,10 +717,31 @@ bool Qiaobian::effect(TriggerEvent, Room *room, ServerPlayer *zhanghe, QVariant 
         case Player::Discard: index = 4; break;
         case Player::PhaseNone: Q_ASSERT(false);
     }
-    if (index == 2 || index == 3) {
-        QString use_prompt = QString("@qiaobian-%1").arg(index);
-        room->askForUseCard(zhanghe, "@@qiaobian_ask", use_prompt, index);
+    QString use_prompt = QString("@qiaobian-%1").arg(index);
+    if (index == 2) {
+        QList<ServerPlayer *> to_choose;
+        foreach(ServerPlayer *p, room->getOtherPlayers(zhanghe)) {
+            if (zhanghe->canGetCard(p, "h"))
+                to_choose << p;
+        }
+        if (to_choose.isEmpty()) return false;
+        QList<ServerPlayer *> choosees = room->askForPlayersChosen(zhanghe, to_choose, "qiaobian_draw", 0, 2, use_prompt, false);
+        if (choosees.length() > 0) {
+            room->sortByActionOrder(choosees);
+            foreach (ServerPlayer *target, choosees) {
+                room->doAnimate(QSanProtocol::S_ANIMATE_INDICATE, zhanghe->objectName(), target->objectName());
+            }
+            foreach (ServerPlayer *target, choosees) {
+                if (!zhanghe->canGetCard(target, "h")) continue;
+                int card_id = room->askForCardChosen(zhanghe, target, "h", objectName(), false, Card::MethodGet);
+                CardMoveReason reason(CardMoveReason::S_REASON_EXTRACTION, zhanghe->objectName());
+                room->obtainCard(zhanghe, Sanguosha->getCard(card_id), reason, false);
+            }
+        }
     }
+    if (index == 3)
+        room->askForQiaobian(zhanghe, room->getAlivePlayers(), "qiaobian_play", use_prompt, true, true);
+
     return false;
 }
 
@@ -1365,9 +1236,8 @@ void StandardPackage::addWeiGenerals()
     yuejin->addSkill(new Xiaoguo);
 
     addMetaObject<ShensuCard>();
-    addMetaObject<QiaobianAskCard>();
     addMetaObject<QiangxiCard>();
     addMetaObject<QuhuCard>();
 
-    skills << new JushouSelect << new QiaobianAsk;
+    skills << new JushouSelect;
 }

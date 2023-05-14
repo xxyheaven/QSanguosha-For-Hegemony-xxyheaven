@@ -159,7 +159,7 @@ public slots:
     // Mogara
     // March 14 2014
     //************************************
-    void updatePile(const QString &pile_name);
+    void updatePile(const QString &pile_name, bool is_card_pile);
     void updateTip(const QString &tag_name, bool add_in);
 
     void updateKingdom(const QString &kingdom);
@@ -173,6 +173,7 @@ public slots:
     void onRemovedChanged();
     virtual void showSeat();
     virtual void showPile();
+    virtual void showGeneralPile();
     virtual void hidePile();
     virtual void refresh();
 

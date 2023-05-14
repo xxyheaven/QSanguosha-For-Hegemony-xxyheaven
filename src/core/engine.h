@@ -110,6 +110,7 @@ public:
     Card::HandlingMethod getCardHandlingMethod(const QString &method_name) const;
     QList<const Skill *> getRelatedSkills(const QString &skill_name) const;
     const Skill *getMainSkill(const QString &skill_name) const;
+    QString getSkillTranslate(const QString &skill_name) const;
 
     QStringList getModScenarioNames() const;
     void addScenario(Scenario *scenario);

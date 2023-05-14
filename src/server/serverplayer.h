@@ -164,6 +164,13 @@ public:
     void addToPile(const QString &pile_name, QList<int> card_ids, bool open, QList<ServerPlayer *> open_players, CardMoveReason reason);
     void pileAdd(const QString &pile_name, QList<int> card_ids);
     void pileClear(const QString &pile_name);
+
+    void addToGeneralPile(const QString &pile_name, const QString &general_name, bool open = true);
+    void addToGeneralPile(const QString &pile_name, const QStringList &general_names, bool open = true);
+
+    void removeGeneralPile(const QString &pile_name, const QString &general_name, bool open = true);
+    void removeGeneralPile(const QString &pile_name, const QStringList &general_names, bool open = true);
+
     void gainAnExtraTurn();
 
     void copyFrom(ServerPlayer *sp);

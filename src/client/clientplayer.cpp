@@ -195,6 +195,13 @@ void ClientPlayer::changePile(const QString &name, bool add, QList<int> card_ids
         emit pile_changed(name);
 }
 
+void ClientPlayer::changeGeneralPile(const QString &pile_name, const QStringList &general_names)
+{
+    general_piles[pile_name] = general_names;
+    if (!pile_name.startsWith("#") && !pile_name.startsWith("^"))
+        emit pile_changed(pile_name, false);
+}
+
 QString ClientPlayer::getDeathPixmapPath() const
 {
     QString basename = getRole() == "careerist" ? "careerist" : getKingdom();
