@@ -126,7 +126,7 @@ sgs.ai_skill_cardask["@qianxi-discard"] = function(self, data, pattern, target, 
 	return cards[1]:toString()--必须弃1
 end
 
-sgs.ai_skill_playerchosen.qianxi = function(self, targets)
+sgs.ai_skill_playerchosen.qianxi_target = function(self, targets)
 	local enemies = {}
 	local slash = self:getCard("Slash") or sgs.cloneCard("slash")
 
@@ -163,7 +163,7 @@ sgs.ai_skill_playerchosen.qianxi = function(self, targets)
 	return sgs.ai_skill_playerchosen.zero_card_as_slash(self, targets)--ai默认函数
 end
 
-sgs.ai_playerchosen_intention.qianxi = 60
+sgs.ai_playerchosen_intention.qianxi_target = 60
 
 function sgs.ai_cardneed.qianxi(to, card, self)
 	return card:isKindOf("Slash") or card:isKindOf("Analeptic") or (card:isRed() and getKnownCard(to, self.player, "red", false) < 2)

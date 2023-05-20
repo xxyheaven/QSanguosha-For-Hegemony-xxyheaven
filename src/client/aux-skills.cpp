@@ -202,11 +202,47 @@ public:
         set = names.toSet();
         this->max = max;
         this->min = min;
+        equipArea = false;
+        judgingArea = false;
+    }
+
+    void setFieldCardTransferRule(const QStringList &names, bool equipArea, bool judgingArea)
+    {
+        set = names.toSet();
+        max = 2;
+        min = 2;
+        this->equipArea = equipArea;
+        this->judgingArea = judgingArea;
     }
 
     virtual bool targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *) const
     {
-        return targets.length() < max && set.contains(to_select->objectName());
+        if (targets.length() < max && set.contains(to_select->objectName())) {
+            if (equipArea || judgingArea) {
+                if (targets.length() == 1) {
+                    if (equipArea) {
+                        for (int i = 0; i < S_EQUIP_AREA_LENGTH; i++) {
+                            if ((targets.first()->getEquip(i) && to_select->canSetEquip(i)) ||
+                                    (to_select->getEquip(i) && targets.first()->canSetEquip(i)))
+                                return true;
+                        }
+                    }
+                    if (judgingArea) {
+                        foreach(const Card *card, targets.first()->getJudgingArea()){
+                            if (!Sanguosha->isProhibited(NULL, to_select, card))
+                                return true;
+                        }
+                        foreach(const Card *card, to_select->getJudgingArea()){
+                            if (!Sanguosha->isProhibited(NULL, targets.first(), card))
+                                return true;
+                        }
+                    }
+                    return false;
+                }
+            }
+            return true;
+        }
+        return false;
     }
 
     virtual bool targetsFeasible(const QList<const Player *> &targets, const Player *) const
@@ -218,6 +254,8 @@ private:
     QSet<QString> set;
     int max;
     int min;
+    bool equipArea;
+    bool judgingArea;
 };
 
 ChoosePlayerSkill::ChoosePlayerSkill()
@@ -230,6 +268,11 @@ ChoosePlayerSkill::ChoosePlayerSkill()
 void ChoosePlayerSkill::setPlayerNames(const QStringList &names, int max, int min)
 {
     card->setPlayerNames(names, max, min);
+}
+
+void ChoosePlayerSkill::setFieldCardTransferRule(const QStringList &names, bool equipArea, bool judgingArea)
+{
+    card->setFieldCardTransferRule(names, equipArea, judgingArea);
 }
 
 const Card *ChoosePlayerSkill::viewAs() const

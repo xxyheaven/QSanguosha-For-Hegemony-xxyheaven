@@ -52,7 +52,7 @@ public:
         ByType, BySuit, ByNumber
     };
 
-    Dashboard(QGraphicsItem *buttonWidget);
+    Dashboard();
 
     virtual QRectF boundingRect() const;
     void refresh();
@@ -100,7 +100,7 @@ public:
     void useSelected();
     const Card *getSelectedCard() const;
     const Card *getSelected() const;
-    void unselectAll(const CardItem *except = NULL);
+    void unselectAll(const CardItem *except = NULL, bool enableTargets = true);
     void hideAvatar();
 
     void disableAllCards();
@@ -126,6 +126,13 @@ public:
     void retractPileCards(const QString &pile_name);
     void updateHandPile(const QString &pile_name, bool add, QList<int> card_ids);
     void updateMarkCard();
+
+    void expandGuhuoCards(const QStringList &card_names);
+    void retractGuhuoCards();
+
+    void expandGeneralCards(const QString &pile_name);
+    void retractGeneralCards();
+
     void retractAllSkillPileCards();
 
     inline QStringList getPileExpanded() const
@@ -258,7 +265,8 @@ protected:
     bool _addCardItems(QList<CardItem *> &card_items, const CardsMoveStruct &moveInfo);
     virtual void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget);
     virtual void mouseReleaseEvent(QGraphicsSceneMouseEvent *mouseEvent);
-    void _addHandCard(CardItem *card_item, int index = 0, const QString &footnote = QString());
+    void _addHandCard(CardItem *card_item, bool isRealHandcard = true, const QString &footnote = QString());
+    void _updateHandCards();
     void _adjustCards();
     void _adjustCards(const QList<CardItem *> &list, int y);
 
@@ -307,6 +315,7 @@ protected:
     const ViewAsSkill *viewAsSkill;
     const FilterSkill *filter;
     QMap<QString, QList<int> > _m_pile_expanded;
+    QList<CardItem *> _m_guhuo_expanded, _m_general_expanded;
 
     // for transfer
     QList<TransferButton *> _transferButtons;
@@ -369,6 +378,9 @@ private slots:
     void updateTrustButton();
     void bringSenderToTop();
     void resetSenderZValue();
+
+    void onGuhuoCardClicked();
+    void onGeneralCardClicked();
 
     void showHeroSkinList();
     void heroSkinButtonMouseOutsideClicked();

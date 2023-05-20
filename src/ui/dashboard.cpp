@@ -38,7 +38,7 @@
 
 using namespace QSanProtocol;
 
-Dashboard::Dashboard(QGraphicsItem *widget)
+Dashboard::Dashboard()
     : // At this stage, we cannot decide the dashboard size yet, the whole
     // point in creating them here is to allow PlayerCardContainer to
     // anchor all controls and widgets to the correct frame.
@@ -50,7 +50,7 @@ Dashboard::Dashboard(QGraphicsItem *widget)
     leftFrame(NULL), middleFrame(NULL), rightFrame(NULL),
     rightFrameBase(NULL), rightFrameBg(NULL), magatamasBase(NULL),
     headGeneralFrame(NULL), deputyGeneralFrame(NULL),
-    buttonWidget(widget), selected(NULL), layout(&G_DASHBOARD_LAYOUT),
+    buttonWidget(NULL), selected(NULL), layout(&G_DASHBOARD_LAYOUT),
     leftHiddenMark(NULL), rightHiddenMark(NULL),
     headIcon(NULL), deputyIcon(NULL),
     pendingCard(NULL), viewAsSkill(NULL), filter(NULL),
@@ -58,8 +58,10 @@ Dashboard::Dashboard(QGraphicsItem *widget)
     m_headHeroSkinContainer(NULL), m_deputyHeroSkinContainer(NULL),
     m_progressBarPositon(Down)
 {
-    Q_ASSERT(buttonWidget);
     _m_pile_expanded = QMap<QString, QList<int> >();
+    _m_guhuo_expanded = QList<CardItem *>();
+    _m_general_expanded = QList<CardItem *>();
+
     for (int i = 0; i < S_EQUIP_AREA_LENGTH; i++) {
         _m_equipSkillBtns[i] = NULL;
         _m_isEquipsAnimOn[i] = false;
@@ -192,6 +194,8 @@ void Dashboard::_createMiddle()
     QRect rect = QRect(0, 0, 1, G_DASHBOARD_LAYOUT.m_normalHeight);
     _paintPixmap(middleFrame, rect, _getPixmap(QSanRoomSkin::S_SKIN_KEY_MIDDLEFRAME), this);
     middleFrame->setZValue(-1000); // nobody should be under me.
+    buttonWidget = new QGraphicsPixmapItem(G_ROOM_SKIN.getPixmap(QSanRoomSkin::S_SKIN_KEY_DASHBOARD_BUTTON_SET_BG)
+        .scaled(G_DASHBOARD_LAYOUT.m_buttonSetSize));
     buttonWidget->setParentItem(middleFrame);
 
     trusting_item = new QGraphicsRectItem(this);
@@ -356,7 +360,7 @@ void Dashboard::killPlayer()
 {
     trusting_item->hide();
     trusting_text->hide();
-    _m_roleComboBox->fix(m_player->getRole() == "careerist" ? "careerist" : m_player->getKingdom());
+    _m_roleComboBox->fix(m_player->getSeemingKingdom());
     _m_roleComboBox->setEnabled(false);
     _updateDeathIcon();
     _m_saveMeIcon->hide();
@@ -409,7 +413,7 @@ void Dashboard::addHandCards(QList<CardItem *> &card_items)
     updateHandcardNum();
 }
 
-void Dashboard::_addHandCard(CardItem *card_item, int index, const QString &footnote)
+void Dashboard::_addHandCard(CardItem *card_item, bool isRealHandcard, const QString &footnote)
 {
     //card item in dashboard should never be disabled
     if (!card_item->isEnabled())
@@ -443,14 +447,10 @@ void Dashboard::_addHandCard(CardItem *card_item, int index, const QString &foot
         card_item->setFootnote(footnote);
         card_item->showFootnote();
     }
-    if (index == 0)
+    if (isRealHandcard) {
         m_middleCards.append(card_item);
-    else if (index > 0)
-        m_rightCards.append(card_item);
-    else if (index < 0)
-        m_leftCards.append(card_item);
-
-    m_handCards = m_leftCards + m_middleCards + m_rightCards;
+        _updateHandCards();
+    }
 
     connect(card_item, &CardItem::clicked, this, &Dashboard::onCardItemClicked);
     connect(card_item, &CardItem::double_clicked, this, &Dashboard::onCardItemDoubleClicked);
@@ -466,6 +466,11 @@ void Dashboard::_addHandCard(CardItem *card_item, int index, const QString &foot
         if (card_item->getTransferButton() && !_transferButtons.contains(card_item->getTransferButton()))
             _transferButtons << card_item->getTransferButton();
     }
+}
+
+void Dashboard::_updateHandCards()
+{
+    m_handCards = m_markCards + m_leftCards + m_middleCards + m_rightCards;
 }
 
 void Dashboard::_createRoleComboBox()
@@ -597,11 +602,12 @@ void Dashboard::selectCard(CardItem *item, bool isSelected)
     m_mutex.unlock();
 }
 
-void Dashboard::unselectAll(const CardItem *except)
+void Dashboard::unselectAll(const CardItem *except, bool enableTargets)
 {
     if (selected != NULL) {
         selected = NULL;
-        emit card_selected(NULL);
+        if (enableTargets)
+            emit card_selected(NULL);
     }
 
     foreach (CardItem *card_item, m_handCards) {
@@ -664,7 +670,7 @@ QSanSkillButton *Dashboard::addSkillButton(const QString &skillName, const bool 
     _mutexEquipAnim.unlock();
 #ifndef QT_NO_DEBUG
     const Skill *skill = Sanguosha->getSkill(skillName);
-    Q_ASSERT(skill && !skill->inherits("WeaponSkill") && !skill->inherits("ArmorSkill"));
+    Q_ASSERT(skill && !skill->isEquipskill());
 #endif
 #ifdef Q_OS_ANDROID
     int screen_width = RoomSceneInstance->sceneRect().width();
@@ -850,7 +856,7 @@ void Dashboard::selectAll()
 void Dashboard::selectCards(const QString &pattern)
 {
     if (viewAsSkill) {
-        unselectAll();
+        unselectAll(NULL, false);
         foreach (CardItem *card_item, m_handCards) {
             if (!Sanguosha->matchExpPattern(pattern, Self, card_item->getCard())) continue;
             selectCard(card_item, true);
@@ -1102,13 +1108,15 @@ void Dashboard::adjustCards(bool playAnimation)
     _adjustCards();
     foreach(CardItem *card, m_handCards)
         card->goBack(playAnimation);
+    foreach(CardItem *card, _m_guhuo_expanded)
+        card->goBack(playAnimation);
+    foreach(CardItem *card, _m_general_expanded)
+        card->goBack(playAnimation);
 }
 
 void Dashboard::_adjustCards()
 {
     int n = m_handCards.size();
-    if (n == 0)
-        return;
 
     QSanRoomSkin::DashboardLayout *layout = (QSanRoomSkin::DashboardLayout *)_m_layout;
     int leftWidth = layout->m_leftWidth;
@@ -1118,13 +1126,6 @@ void Dashboard::_adjustCards()
 
     _m_highestZ = n;
 
-    QList<CardItem *> re_handCards;
-
-    foreach (CardItem *c, m_handCards) {
-        if (!m_markCards.contains(c))
-            re_handCards << c;
-    }
-
     if (!m_markCards.isEmpty()) {
         _disperseCards(m_markCards, rowRect, Qt::AlignLeft, true, true);
         leftWidth += m_markCards.length()*G_COMMON_LAYOUT.m_cardNormalWidth;
@@ -1132,10 +1133,40 @@ void Dashboard::_adjustCards()
         rowRect.setLeft(leftWidth);
     }
 
+    QList<CardItem *> re_handCards;
+
+    if (m_rightCards.isEmpty() && _m_guhuo_expanded.isEmpty() && _m_general_expanded.isEmpty()) {
+        re_handCards << m_leftCards;
+        re_handCards << m_middleCards;
+    } else {
+        QPointF m_pos(leftWidth + G_COMMON_LAYOUT.m_cardNormalWidth/2.0, rowRect.center().y());
+        foreach (CardItem *c, m_leftCards) {
+            c->setHomePos(m_pos);
+        }
+        foreach (CardItem *c, m_middleCards) {
+            c->setHomePos(m_pos);
+        }
+
+        re_handCards << m_rightCards;
+        re_handCards << _m_general_expanded;
+        re_handCards << _m_guhuo_expanded;
+
+        leftWidth += G_COMMON_LAYOUT.m_cardNormalWidth;
+
+        rowRect.setLeft(leftWidth);
+    }
+
     _disperseCards(re_handCards, rowRect, Qt::AlignLeft, true, true);
 
-    for (int i = 0; i < n; i++) {
-        CardItem *card = m_handCards[i];
+    foreach (CardItem *card, m_markCards) {
+        if (card->isSelected()) {
+            QPointF newPos = card->homePos();
+            newPos.setY(newPos.y() + S_PENDING_OFFSET_Y);
+            card->setHomePos(newPos);
+        }
+    }
+
+    foreach (CardItem *card, re_handCards) {
         if (card->isSelected()) {
             QPointF newPos = card->homePos();
             newPos.setY(newPos.y() + S_PENDING_OFFSET_Y);
@@ -1299,7 +1330,7 @@ void Dashboard::beginSorting()
         default: Q_ASSERT(false);
     }
 
-    m_handCards = m_leftCards + m_middleCards + m_rightCards;
+    _updateHandCards();
     adjustCards();
 }
 
@@ -1397,7 +1428,7 @@ void Dashboard::startPending(const ViewAsSkill *skill)
     m_mutexEnableCards.lock();
     viewAsSkill = skill;
     pendings.clear();
-    unselectAll();
+    unselectAll(NULL);
 
     retractAllSkillPileCards();
 
@@ -1405,7 +1436,6 @@ void Dashboard::startPending(const ViewAsSkill *skill)
         foreach(const QString &pile_name, skill->getExpandPile().split(","))
             expandPileCards(pile_name);
     }
-
 
     for (int i = 0; i < S_EQUIP_AREA_LENGTH; i++) {
         if (_m_equipCards[i] != NULL)
@@ -1424,6 +1454,9 @@ void Dashboard::stopPending()
         foreach(const QString &pile_name, viewAsSkill->getExpandPile().split(","))
             retractPileCards(pile_name);
     }
+
+    retractGeneralCards();
+    retractGuhuoCards();
 
     viewAsSkill = NULL;
     pendingCard = NULL;
@@ -1462,13 +1495,25 @@ void Dashboard::expandPileCards(const QString &pile_name)
     }
     if (pile.isEmpty()) return;
     QList<CardItem *> card_items = _createCards(pile);
+
+    QSanRoomSkin::DashboardLayout *layout = (QSanRoomSkin::DashboardLayout *)_m_layout;
+    int leftWidth = layout->m_leftWidth;
+    int cardHeight = G_COMMON_LAYOUT.m_cardNormalHeight;
+    int middleWidth = width - layout->m_leftWidth - layout->m_rightWidth - this->getButtonWidgetWidth();
+    QRect rowRect = QRect(leftWidth, layout->m_normalHeight - cardHeight - 3, middleWidth, cardHeight);
+
+    QPointF m_pos(rowRect.right() - G_COMMON_LAYOUT.m_cardNormalWidth/2.0, rowRect.center().y());
+
     foreach (CardItem *card_item, card_items) {
-        card_item->setPos(mapFromScene(card_item->scenePos()));
+        card_item->setPos(m_pos);
         card_item->setParentItem(this);
     }
 
-    foreach(CardItem *card_item, card_items)
-        _addHandCard(card_item, 1, Sanguosha->translate(new_name));
+    foreach(CardItem *card_item, card_items) {
+        _addHandCard(card_item, false, Sanguosha->translate(new_name));
+        m_rightCards.append(card_item);
+        _updateHandCards();
+    }
 
     adjustCards();
     _playMoveCardsAnimation(card_items, false);
@@ -1519,8 +1564,11 @@ void Dashboard::updateHandPile(const QString &pile_name, bool add, QList<int> ca
             card_item->setPos(mapFromScene(card_item->scenePos()));
             card_item->setParentItem(this);
         }
-        foreach(CardItem *card_item, card_items)
-            _addHandCard(card_item, -1, Sanguosha->translate(pile_name));
+        foreach(CardItem *card_item, card_items) {
+            _addHandCard(card_item, false, Sanguosha->translate(pile_name));
+            m_leftCards.append(card_item);
+            _updateHandCards();
+        }
         adjustCards();
     } else {
         CardItem *card_item;
@@ -1556,7 +1604,6 @@ void Dashboard::updateMarkCard()
     mark_names << "@companion" << "@halfmaxhp" << "@firstshow" << "@careerist";
     mark_cards << "CompanionCard" << "HalfMaxHpCard" << "FirstShowCard" << "CareermanCard";
 
-
     for (int i = 0; i < 4; i++) {
         QString mark_name = mark_names[i], mark_card = mark_cards[i];
 
@@ -1578,8 +1625,9 @@ void Dashboard::updateMarkCard()
             card_item->setPos(mapFromScene(card_item->scenePos()));
             card_item->setParentItem(this);
 
-            m_markCards << card_item;
-            _addHandCard(card_item, 1);
+            _addHandCard(card_item, false);
+            m_markCards.append(card_item);
+            _updateHandCards();
 
             adjustCards();
             QList<CardItem *> card_items;
@@ -1611,12 +1659,229 @@ void Dashboard::updateMarkCard()
     }
 }
 
+void Dashboard::expandGuhuoCards(const QStringList &card_names)
+{
+    if (!_m_guhuo_expanded.isEmpty() || !viewAsSkill) return;
+
+    Self->tag.remove(viewAsSkill->objectName());
+
+    foreach(CardItem *card_item, m_handCards)
+        card_item->setFrozen(true, false);
+
+    QSanRoomSkin::DashboardLayout *layout = (QSanRoomSkin::DashboardLayout *)_m_layout;
+    int leftWidth = layout->m_leftWidth;
+    int cardHeight = G_COMMON_LAYOUT.m_cardNormalHeight;
+    int middleWidth = width - layout->m_leftWidth - layout->m_rightWidth - this->getButtonWidgetWidth();
+    QRect rowRect = QRect(leftWidth, layout->m_normalHeight - cardHeight - 3, middleWidth, cardHeight);
+
+    QPointF m_pos(rowRect.right() - G_COMMON_LAYOUT.m_cardNormalWidth/2.0, rowRect.center().y());
+
+    QList<CardItem *> card_items;
+    foreach (QString card_name, card_names) {
+        Card *card = Sanguosha->cloneCard(card_name, Card::NoSuit, 0);
+        if (card) {
+            card->setSkillName("guhuo");
+            CardItem *item = new CardItem(card);
+            item->setOpacity(0.0);
+            item->setEnabled(true);
+            card_items.append(item);
+        }
+    }
+
+    foreach (CardItem *card_item, card_items) {
+        card_item->setPos(m_pos);
+        card_item->setParentItem(this);
+
+        QList<const Card *> cards;
+        foreach(CardItem *item, pendings)
+            cards.append(item->getCard());
+
+        card_item->setFrozen(!viewAsSkill->isEnabledtoViewAsCard(card_item->objectName(), cards), false);
+
+        card_item->setFootnote(Sanguosha->translate(viewAsSkill->objectName()));
+        card_item->showFootnote();
+
+        card_item->setHomeOpacity(1.0);
+        card_item->setRotation(0.0);
+        card_item->setFlag(ItemIsFocusable);
+        card_item->setZValue(0.1);
+
+        connect(card_item, &CardItem::clicked, this, &Dashboard::onGuhuoCardClicked);
+        connect(card_item, &CardItem::enter_hover, this, &Dashboard::bringSenderToTop);
+        connect(card_item, &CardItem::leave_hover, this, &Dashboard::resetSenderZValue);
+
+        card_item->setOuterGlowEffectEnabled(true);
+    }
+
+    _m_guhuo_expanded = card_items;
+
+    _updateHandCards();
+
+    adjustCards();
+    update();
+}
+
+void Dashboard::retractGuhuoCards()
+{
+    if (_m_guhuo_expanded.isEmpty()) return;
+
+    foreach (CardItem *card_item, _m_guhuo_expanded) {
+        Q_ASSERT(card_item);
+        if (card_item) {
+            _m_guhuo_expanded.removeOne(card_item);
+            card_item->disconnect(this);
+            card_item->setOuterGlowEffectEnabled(false);
+            delete card_item;
+        }
+    }
+    _updateHandCards();
+
+    adjustCards();
+    update();
+}
+
+void Dashboard::onGuhuoCardClicked()
+{
+    CardItem *card_item = qobject_cast<CardItem *>(sender());
+    if (!card_item) return;
+
+    if (viewAsSkill) {
+
+        bool stateChange = true;
+        foreach (CardItem *card, _m_guhuo_expanded) {
+            if (card->isSelected()) {
+                card->setSelected(false);
+                if (card == card_item)
+                    stateChange = false;
+            }
+        }
+
+        if (stateChange)
+            card_item->setSelected(true);
+
+        adjustCards();
+        update();
+
+        QString skill_name = viewAsSkill->objectName();
+        if (stateChange) {
+            Self->tag[skill_name] = card_item->objectName();
+        } else {
+            Self->tag.remove(skill_name);
+        }
+
+        QList<const Card *> cards;
+        foreach(CardItem *item, pendings)
+            cards.append(item->getCard());
+
+        const Card *new_pending_card = viewAsSkill->viewAs(cards);
+        if (new_pending_card != pendingCard) {
+            pendingCard = new_pending_card;
+            emit card_selected(pendingCard);
+        }
+    }
+}
+
+void Dashboard::expandGeneralCards(const QString &pile_name)
+{
+    QStringList general_names = Self->getGeneralPile(pile_name);
+
+    if (!_m_general_expanded.isEmpty() || !viewAsSkill || general_names.isEmpty()) return;
+
+    Self->tag.remove("yigui_general");
+
+    foreach(CardItem *card_item, m_handCards)
+        card_item->setFrozen(true, false);
+
+    QSanRoomSkin::DashboardLayout *layout = (QSanRoomSkin::DashboardLayout *)_m_layout;
+    int leftWidth = layout->m_leftWidth;
+    int cardHeight = G_COMMON_LAYOUT.m_cardNormalHeight;
+    int middleWidth = width - layout->m_leftWidth - layout->m_rightWidth - this->getButtonWidgetWidth();
+    QRect rowRect = QRect(leftWidth, layout->m_normalHeight - cardHeight - 3, middleWidth, cardHeight);
+
+    QPointF m_pos(rowRect.right() - G_COMMON_LAYOUT.m_cardNormalWidth/2.0, rowRect.center().y());
+
+    QList<CardItem *> card_items;
+    foreach (QString card_name, general_names) {
+        const General *general = Sanguosha->getGeneral(card_name);
+        if (general) {
+            CardItem *item = new CardItem(card_name);
+            item->setOpacity(0.0);
+            item->setEnabled(true);
+            card_items.append(item);
+        }
+    }
+
+    foreach (CardItem *card_item, card_items) {
+        card_item->setPos(m_pos);
+        card_item->setParentItem(this);
+
+        card_item->setFootnote(Sanguosha->translate(pile_name));
+        card_item->showFootnote();
+
+        card_item->setHomeOpacity(1.0);
+        card_item->setRotation(0.0);
+        card_item->setFlag(ItemIsFocusable);
+        card_item->setZValue(0.1);
+
+        connect(card_item, &CardItem::clicked, this, &Dashboard::onGeneralCardClicked);
+        connect(card_item, &CardItem::enter_hover, this, &Dashboard::bringSenderToTop);
+        connect(card_item, &CardItem::leave_hover, this, &Dashboard::resetSenderZValue);
+
+        card_item->setOuterGlowEffectEnabled(true);
+    }
+
+    _m_general_expanded = card_items;
+
+    _updateHandCards();
+
+    adjustCards();
+    update();
+}
+
+void Dashboard::retractGeneralCards()
+{
+    if (_m_general_expanded.isEmpty()) return;
+
+    foreach (CardItem *card_item, _m_general_expanded) {
+        Q_ASSERT(card_item);
+        if (card_item) {
+            _m_general_expanded.removeOne(card_item);
+            card_item->disconnect(this);
+            card_item->setOuterGlowEffectEnabled(false);
+            delete card_item;
+        }
+    }
+    _updateHandCards();
+
+    adjustCards();
+    update();
+}
+
+void Dashboard::onGeneralCardClicked()
+{
+    CardItem *card_item = qobject_cast<CardItem *>(sender());
+    if (!card_item) return;
+
+    if (viewAsSkill) {
+        Self->tag["yigui_general"] = card_item->objectName();
+
+        retractGeneralCards();
+
+        QStringList card_names = viewAsSkill->getViewAsCardNames(QList<const Card *>());
+        if (!card_names.isEmpty())
+            expandGuhuoCards(card_names);
+    }
+}
+
 void Dashboard::retractAllSkillPileCards()
 {
     foreach (const QString &pileName, _m_pile_expanded.keys()) {
         if (!Self->getHandPileList(false).contains(pileName))
             retractPileCards(pileName);
     }
+
+    retractGeneralCards();
+    retractGuhuoCards();
 }
 
 void Dashboard::onCardItemClicked()
@@ -1635,7 +1900,7 @@ void Dashboard::onCardItemClicked()
                 RoomSceneInstance->doCancelButton();
         } else {
             if (viewAsSkill->inherits("OneCardViewAsSkill"))
-                unselectAll();
+                unselectAll(NULL, false);
             selectCard(card_item, true);
             pendings << card_item;
         }
@@ -1644,9 +1909,9 @@ void Dashboard::onCardItemClicked()
     } else {
         if (card_item->isSelected()) {
             unselectAll();
-            emit card_selected(NULL);
+            //emit card_selected(NULL);
         } else {
-            unselectAll();
+            unselectAll(NULL, false);
             selectCard(card_item, true);
             selected = card_item;
 
@@ -1754,6 +2019,15 @@ void Dashboard::updatePending()
         }
     }
 
+    // stupid ! !
+    if (viewAsSkill->objectName() == "yigui") {
+        expandGeneralCards("soul");
+    } else {
+        QStringList card_names = viewAsSkill->getViewAsCardNames(cards);
+        if (!card_names.isEmpty())
+            expandGuhuoCards(card_names);
+    }
+
     if (pendingCard != new_pending_card) {
         if (pendingCard && !pendingCard->parent() && (pendingCard->isVirtualCard())) {
             if (!pendingCard->isKindOf("CompanionCard") && !pendingCard->isKindOf("HalfMaxHpCard") && !pendingCard->isKindOf("FirstShowCard") && !pendingCard->isKindOf("CareermanCard"))
@@ -1764,6 +2038,7 @@ void Dashboard::updatePending()
 
         emit card_selected(pendingCard);
     }
+
 }
 
 void Dashboard::onCardItemDoubleClicked()
@@ -1795,7 +2070,7 @@ void Dashboard::onMarkChanged()
         if (card_item->isMarked()) {
             if (!pendings.contains(card_item)) {
                 if (viewAsSkill && viewAsSkill->inherits("OneCardViewAsSkill"))
-                    unselectAll(card_item);
+                    unselectAll(card_item, false);
                 pendings.append(card_item);
             }
         } else

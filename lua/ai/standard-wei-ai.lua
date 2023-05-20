@@ -1048,12 +1048,6 @@ function SmartAI:getMoveCardorTarget(who, return_prompt, flag)--原巧变修改�
 	end
 end
 
-sgs.ai_skill_cardchosen.qiaobian = function(self, who, flags, method, disable_list)
-	if flags == "ej" then
-		return self:getMoveCardorTarget(who, "card")
-	end
-end
-
 sgs.ai_skill_discard.qiaobian = function(self, discard_num, min_num, optional, include_equip)
 	local current_phase = self.player:getMark("qiaobianPhase")
 	local to_discard = {}
@@ -1173,57 +1167,49 @@ sgs.ai_skill_discard.qiaobian = function(self, discard_num, min_num, optional, i
 	return {}
 end
 
-sgs.ai_skill_use["@@qiaobian_ask"] = function(self, prompt)
-	self:updatePlayers()
-	local QBCard = "@QiaobianAskCard=.&->"
-	if prompt == "@qiaobian-2" then
-		if #self.qiaobian_draw_targets == 2 then
-			return QBCard .. table.concat(self.qiaobian_draw_targets, "+")
+sgs.ai_skill_playerchosen.qiaobian_draw = function(self, targets, max_num, min_num)
+	local tos = self:findTuxiTarget()
+	if type(tos) == "table" and #tos > 0 then
+		local result = {}
+		for _,name in pairs(tos)do
+			table.insert(result,self.room:findPlayerbyobjectName(name))
 		end
-		return "."
+		return result
 	end
+	return {}
+end
 
-	if prompt == "@qiaobian-3" then
-		-- if self.player:getHandcardNum()-2 > self.player:getHp() then return "." end
-
-		self:sort(self.enemies, "defense")
-		for _, friend in ipairs(self.friends) do
-			if not friend:getCards("j"):isEmpty() and self:getMoveCardorTarget(friend, ".") then
-				return QBCard .. friend:objectName() .. "+" .. self:getMoveCardorTarget(friend, "target"):objectName()
-			end
-		end
-
-		for _, friend in ipairs(self.friends_noself) do
-			if friend:hasEquip() and friend:hasShownSkills(sgs.lose_equip_skill) and self:getMoveCardorTarget(friend, ".") then
-				return QBCard .. friend:objectName() .. "+" .. self:getMoveCardorTarget(friend, "target"):objectName()
-			end
-		end
-
-		local cards = sgs.QList2Table(self.player:getHandcards())
-		local top_value = 0
-		for _, hcard in ipairs(cards) do
-			if not hcard:isKindOf("Jink") then
-				if self:getUseValue(hcard) > top_value then
-					top_value = self:getUseValue(hcard)
-				end
-			end
-		end
-		if top_value >= 3.7 and #(self:getTurnUse()) > 0 then return "." end
-
-		local targets = {}
-		for _, enemy in ipairs(self.enemies) do
-			if self:getMoveCardorTarget(enemy, ".") then
-				table.insert(targets, enemy)
-			end
-		end
-
-		if #targets > 0 then
-			self:sort(targets, "defense")
-			return QBCard .. targets[#targets]:objectName() .. "+" .. self:getMoveCardorTarget(targets[#targets], "target"):objectName()
+sgs.ai_skill_playerchosen.qiaobian_play = function(self, _targets, max_num, min_num)	
+	self:sort(self.enemies, "defense")
+	for _, friend in ipairs(self.friends) do
+		if not friend:getCards("j"):isEmpty() and self:getMoveCardorTarget(friend, ".") then
+			return {friend, self:getMoveCardorTarget(friend, "target")}
 		end
 	end
 
-	return "."
+	for _, friend in ipairs(self.friends_noself) do
+		if friend:hasEquip() and friend:hasShownSkills(sgs.lose_equip_skill) and self:getMoveCardorTarget(friend, ".") then
+			return {friend, self:getMoveCardorTarget(friend, "target")}
+		end
+	end
+
+	local targets = {}
+	for _, enemy in ipairs(self.enemies) do
+		if self:getMoveCardorTarget(enemy, ".") then
+			table.insert(targets, enemy)
+		end
+	end
+
+	if #targets > 0 then
+		self:sort(targets, "defense")
+		return {targets[#targets], self:getMoveCardorTarget(targets[#targets], "target")}
+	end
+		
+	return {}
+end
+
+sgs.ai_skill_transfercardchosen.qiaobian_play = function(self, targets, equipArea, judgingArea)
+	return self:getMoveCardorTarget(targets:first(), "card")
 end
 
 function sgs.ai_cardneed.qiaobian(to, card)

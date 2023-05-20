@@ -629,57 +629,6 @@ void Drowning::onEffect(const CardEffectStruct &effect) const
         room->damage(DamageStruct(this, effect.from->isAlive() ? effect.from : NULL, effect.to, 1, DamageStruct::Thunder));
 }
 
-QStringList Drowning::checkTargetModSkillShow(const CardUseStruct &use) const
-{
-    if (use.card == NULL)
-        return QStringList();
-
-    if (use.to.length() >= 2) {
-        const ServerPlayer *from = use.from;
-        QList<const Skill *> skills = from->getSkillList(false, false);
-        QList<const TargetModSkill *> tarmods;
-
-        foreach (const Skill *skill, skills) {
-            if (from->hasSkill(skill) && skill->inherits("TargetModSkill")) {
-                const TargetModSkill *tarmod = qobject_cast<const TargetModSkill *>(skill);
-                tarmods << tarmod;
-            }
-        }
-
-        if (tarmods.isEmpty())
-            return QStringList();
-
-        int n = use.to.length() - 1;
-        QList<const TargetModSkill *> tarmods_copy = tarmods;
-
-        foreach (const TargetModSkill *tarmod, tarmods_copy) {
-            if (tarmod->getExtraTargetNum(from, use.card) == 0) {
-                tarmods.removeOne(tarmod);
-                continue;
-            }
-
-            const Skill *main_skill = Sanguosha->getMainSkill(tarmod->objectName());
-            if (from->hasShownSkill(main_skill)) {
-                tarmods.removeOne(tarmod);
-                n -= tarmod->getExtraTargetNum(from, use.card);
-            }
-        }
-
-        if (tarmods.isEmpty() || n <= 0)
-            return QStringList();
-
-        tarmods_copy = tarmods;
-
-        QStringList shows;
-        foreach (const TargetModSkill *tarmod, tarmods_copy) {
-            const Skill *main_skill = Sanguosha->getMainSkill(tarmod->objectName());
-            shows << main_skill->objectName();
-        }
-        return shows;
-    }
-    return QStringList();
-}
-
 BurningCamps::BurningCamps(Card::Suit suit, int number, bool is_transferable)
     : AOE(suit, number)
 {
@@ -786,57 +735,6 @@ void LureTiger::onEffect(const CardEffectStruct &effect) const
 
     room->setPlayerProperty(effect.to, "removed", true);
     effect.to->setFlags("LureTigerEffected");
-}
-
-QStringList LureTiger::checkTargetModSkillShow(const CardUseStruct &use) const
-{
-    if (use.card == NULL)
-        return QStringList();
-
-    if (use.to.length() >= 3) {
-        const ServerPlayer *from = use.from;
-        QList<const Skill *> skills = from->getSkillList(false, false);
-        QList<const TargetModSkill *> tarmods;
-
-        foreach (const Skill *skill, skills) {
-            if (from->hasSkill(skill) && skill->inherits("TargetModSkill")) {
-                const TargetModSkill *tarmod = qobject_cast<const TargetModSkill *>(skill);
-                tarmods << tarmod;
-            }
-        }
-
-        if (tarmods.isEmpty())
-            return QStringList();
-
-        int n = use.to.length() - 2;
-        QList<const TargetModSkill *> tarmods_copy = tarmods;
-
-        foreach (const TargetModSkill *tarmod, tarmods_copy) {
-            if (tarmod->getExtraTargetNum(from, use.card) == 0) {
-                tarmods.removeOne(tarmod);
-                continue;
-            }
-
-            const Skill *main_skill = Sanguosha->getMainSkill(tarmod->objectName());
-            if (from->hasShownSkill(main_skill)) {
-                tarmods.removeOne(tarmod);
-                n -= tarmod->getExtraTargetNum(from, use.card);
-            }
-        }
-
-        if (tarmods.isEmpty() || n <= 0)
-            return QStringList();
-
-        tarmods_copy = tarmods;
-
-        QStringList shows;
-        foreach (const TargetModSkill *tarmod, tarmods_copy) {
-            const Skill *main_skill = Sanguosha->getMainSkill(tarmod->objectName());
-            shows << main_skill->objectName();
-        }
-        return shows;
-    }
-    return QStringList();
 }
 
 FightTogether::FightTogether(Card::Suit suit, int number)
@@ -1313,9 +1211,9 @@ void ImperialOrder::onEffect(const CardEffectStruct &effect) const
     if (!to_discard.isEmpty())
         choices << "dis_equip";
 
-    choices << "losehp";
+    choices << "cancel";
 
-    QString all_choices = "show_head+show_deputy+dis_equip+losehp";
+    QString all_choices = "show_head+show_deputy+dis_equip+cancel";
 
     QString choice = room->askForChoice(effect.to, objectName(), choices.join("+"), QVariant(), "@imperial_order-choose", all_choices);
     if (choice.contains("show")) {
@@ -1327,9 +1225,8 @@ void ImperialOrder::onEffect(const CardEffectStruct &effect) const
             CardMoveReason reason(CardMoveReason::S_REASON_THROW, effect.to->objectName());
             room->moveCardTo(card, effect.to, NULL, Player::DiscardPile, reason, true);
         }
-    } else if (choice == "losehp"){
+    } else
         room->loseHp(effect.to);
-    }
 }
 
 StrategicAdvantagePackage::StrategicAdvantagePackage()

@@ -4,10 +4,12 @@
 #include "standard.h"
 #include "clientplayer.h"
 #include "skinbank.h"
+#include "stylehelper.h"
 
 #include <QGraphicsSceneMouseEvent>
 #include <QPropertyAnimation>
 #include <QGraphicsProxyWidget>
+#include <QScrollBar>
 
 static QSize cardButtonSize;
 
@@ -17,7 +19,8 @@ const int GuhuoBox::interval = 5;
 
 const int GuhuoBox::titleWidth = 22;
 
-GuhuoBox::GuhuoBox(const QString &skillname, const QString &flag, bool playonly)
+GuhuoBox::GuhuoBox(const QString &skillname, const QString &flag, bool playonly) :
+    m_vScrollBar(NULL), m_oldScrollValue(0)
 {
     this->skill_name = skillname;
     this->flags = flag;
@@ -47,6 +50,37 @@ bool GuhuoBox::isButtonEnable(const QString &card_name) const
     return skill->buttonEnabled(card_name);
 }
 
+bool GuhuoBox::isButtonVisible(const QString &card_name) const
+{
+    const Skill *skill = Sanguosha->getSkill(skill_name);
+    if (skill == NULL) return false;
+    return skill->buttonVisible(card_name);
+}
+
+static bool sortByKingdom(const QString &gen1, const QString &gen2)
+{
+    static QMap<QString, int> kingdom_priority_map;
+    if (kingdom_priority_map.isEmpty()) {
+        QStringList kingdoms = Sanguosha->getKingdoms();
+        //kingdoms << "god";
+        int i = 0;
+        foreach (const QString &kingdom, kingdoms)
+            kingdom_priority_map[kingdom] = i++;
+    }
+    const General *g1 = Sanguosha->getGeneral(gen1);
+    const General *g2 = Sanguosha->getGeneral(gen2);
+
+    if (g1 != NULL && g2 != NULL) {
+        if (g1->isDoubleKingdoms() && !g2->isDoubleKingdoms())
+            return false;
+        if (!g1->isDoubleKingdoms() && g2->isDoubleKingdoms())
+            return true;
+        return kingdom_priority_map[g1->getKingdom()] < kingdom_priority_map[g2->getKingdom()];
+    } else
+        return false;
+
+}
+
 void GuhuoBox::popup()
 {
     if (RoomSceneInstance->current_guhuo_box != NULL) {
@@ -68,14 +102,23 @@ void GuhuoBox::popup()
 
     maxcardcount = 0;
     maxrow = 0;
-    scale = 7;
+    scale = 10;
     titles.clear();
     QStringList names1, names2, names3, names4;
+
+    if (skill_name == "yigui") {
+        Self->tag.remove("yigui_general");
+        Title *newtitle = new Title(this, translate("huashencard"), IQSanComponentSkin::QSanSimpleTextFont::_m_fontBank.key(G_COMMON_LAYOUT.graphicsBoxTitleFont.m_fontFace), Config.TinyFont.pixelSize());
+        newtitle->setParentItem(this);
+        titles << newtitle;
+        ++maxrow;
+    }
+
 
     QList<Card *> cards = Sanguosha->getCards();
     if (flags.contains("b")) {
         foreach (const Card *card, cards) {
-            if (card->isKindOf("BasicCard") && !names1.contains(card->objectName()) && isButtonEnable(card->objectName())
+            if (card->isKindOf("BasicCard") && !names1.contains(card->objectName()) && isButtonVisible(card->objectName())
                 && !ServerInfo.Extensions.contains("!" + card->getPackage())) {
                 names1 << card->objectName();
             }
@@ -91,7 +134,7 @@ void GuhuoBox::popup()
     if (flags.contains("t")) {
         foreach (const Card *card, cards) {
             if (card->isNDTrick() && !ServerInfo.Extensions.contains("!" + card->getPackage())) {
-                if (names2.contains(card->objectName()) || names3.contains(card->objectName()) || !isButtonEnable(card->objectName()))
+                if (names2.contains(card->objectName()) || names3.contains(card->objectName()) || !isButtonVisible(card->objectName()))
                     continue;
 
                 if (card->inherits("SingleTargetTrick"))
@@ -118,7 +161,7 @@ void GuhuoBox::popup()
     }
     if (flags.contains("d")) {
         foreach (const Card *card, cards) {
-            if (!card->isNDTrick() && card->isKindOf("TrickCard") && !names4.contains(card->objectName()) && isButtonEnable(card->objectName())
+            if (!card->isNDTrick() && card->isKindOf("TrickCard") && !names4.contains(card->objectName()) && isButtonVisible(card->objectName())
                 && !ServerInfo.Extensions.contains("!" + card->getPackage())) {
                 names4 << card->objectName();
             }
@@ -137,15 +180,6 @@ void GuhuoBox::popup()
         return;
     }
 
-    for (int i = 12; i > 7; i--) {
-        if (cardButtonSize.width() * maxcardcount * i / 10 + interval * (maxcardcount + 1) < RoomSceneInstance->sceneRect().width() * 0.8
-            && topBlankWidth + maxrow * cardButtonSize.height() * i / 10 + interval * (maxrow - 1)
-            + titleWidth * maxrow + bottomBlankWidth < RoomSceneInstance->sceneRect().height() * 0.8) {
-            scale = i;
-            break;
-        }
-    }
-
     int buttonWidth = cardButtonSize.width() * scale / 10;
     int defaultButtonHeight = cardButtonSize.height() * scale / 10;
 
@@ -156,6 +190,7 @@ void GuhuoBox::popup()
     int app = 0;
     if (maxcardcount == 1)
         app = (buttonWidth + interval) / 2;
+
     for (int i = 0; i < titles.length(); ++i) {
         QPointF titlepos;
         titlepos.setX(interval + app);
@@ -163,69 +198,144 @@ void GuhuoBox::popup()
         titles.at(i)->setPos(titlepos);
     }
 
-    if (!names1.isEmpty()) {
-        foreach (const QString &cardname, names1) {
-            CardButton *button = new CardButton(this, cardname, scale);
-            connect(button, &CardButton::clicked, this, &GuhuoBox::reply);
+    if (skill_name == "yigui") {
+        QStringList huashens = Self->tag["Huashens"].toStringList();
+
+        qStableSort(huashens.begin(), huashens.end(), sortByKingdom);
+
+        int skinCount = huashens.length();
+
+        int huashens_x = interval + app;
+        int huashens_y = topBlankWidth + titleWidth * y;
+        int huashens_width = (cardButtonSize.width() * maxcardcount);
+
+        if (skinCount > maxcardcount) {
+            m_vScrollBar = new QScrollBar(Qt::Horizontal);
+            m_vScrollBar->setStyleSheet(StyleHelper::styleSheetOfScrollBar());
+            m_vScrollBar->setFocusPolicy(Qt::StrongFocus);
+            connect(m_vScrollBar, &QScrollBar::valueChanged, this, &GuhuoBox::scrollBarValueChanged);
+
+            m_vScrollBar->setMaximum((skinCount - maxcardcount) * buttonWidth);
+            m_vScrollBar->setPageStep(buttonWidth);
+            m_vScrollBar->setSingleStep(buttonWidth);
+
+            QGraphicsProxyWidget *scrollBarWidget = new QGraphicsProxyWidget(this);
+            scrollBarWidget->setWidget(m_vScrollBar);
+
+            scrollBarWidget->setGeometry(QRectF(huashens_x, huashens_y + defaultButtonHeight, huashens_width, 10));
+        }
+
+        QGraphicsRectItem *dummyRectItem = new QGraphicsRectItem(QRectF(huashens_x, huashens_y,
+            huashens_width, cardButtonSize.height()), this);
+        dummyRectItem->setFlag(ItemHasNoContents);
+        dummyRectItem->setFlag(ItemClipsChildrenToShape);
+
+        foreach (QString huashen, huashens) {
+            CardItem *cardItem = new CardItem(huashen);
+            cardItem->setAutoBack(false);
+            cardItem->setFlag(QGraphicsItem::ItemIsFocusable);
+            cardItem->setFlag(QGraphicsItem::ItemIsMovable, false);
+            connect(cardItem, &CardItem::clicked, this, &GuhuoBox::onGeneralItemClicked);
+            cardItem->setParentItem(dummyRectItem);
+            cardItem->resetTransform();
+            cardItem->setOuterGlowEffectEnabled(true);
 
             QPointF apos;
             apos.setX(interval + x * buttonWidth + app);
             apos.setY(topBlankWidth + (defaultButtonHeight + interval) * (y - 1) + titleWidth * y);
             ++x;
 
-            button->setPos(apos);
-            buttons << button;
+            cardItem->setPos(apos);
+            generalItems << cardItem;
+        }
+        ++y;
+        x = 0;
+    }
+
+    if (!names1.isEmpty()) {
+        foreach (const QString &cardname, names1) {
+            QPointF apos;
+            apos.setX(interval + x * buttonWidth + app);
+            apos.setY(topBlankWidth + (defaultButtonHeight + interval) * (y - 1) + titleWidth * y);
+            ++x;
+            createCardItem(cardname, apos);
         }
         ++y;
         x = 0;
     }
     if (!names2.isEmpty()) {
         foreach (const QString &cardname, names2) {
-            CardButton *button = new CardButton(this, cardname, scale);
-            connect(button, &CardButton::clicked, this, &GuhuoBox::reply);
-
             QPointF apos;
             apos.setX(interval + x * buttonWidth + app);
             apos.setY(topBlankWidth + (defaultButtonHeight + interval) * (y - 1) + titleWidth * y);
             ++x;
-
-            button->setPos(apos);
-            buttons << button;
+            createCardItem(cardname, apos);
         }
         ++y;
         x = 0;
     }
     if (!names3.isEmpty()) {
         foreach (const QString &cardname, names3) {
-            CardButton *button = new CardButton(this, cardname, scale);
-            connect(button, &CardButton::clicked, this, &GuhuoBox::reply);
-
             QPointF apos;
             apos.setX(interval + x * buttonWidth + app);
             apos.setY(topBlankWidth + (defaultButtonHeight + interval) * (y - 1) + titleWidth * y);
             ++x;
-
-            button->setPos(apos);
-            buttons << button;
+            createCardItem(cardname, apos);
         }
         ++y;
         x = 0;
     }
     if (!names4.isEmpty()) {
         foreach (const QString &cardname, names4) {
-            CardButton *button = new CardButton(this, cardname, scale);
-            connect(button, &CardButton::clicked, this, &GuhuoBox::reply);
-
             QPointF apos;
             apos.setX(interval + x * buttonWidth + app);
             apos.setY(topBlankWidth + (defaultButtonHeight + interval) * (y - 1) + titleWidth * y);
             ++x;
-
-            button->setPos(apos);
-            buttons << button;
+            createCardItem(cardname, apos);
         }
         ++y;
         x = 0;
+    }
+    updateCardItems();
+}
+
+void GuhuoBox::createCardItem(const QString &cardname, const QPointF &pos)
+{
+    const Card *card = Sanguosha->cloneCard(cardname, Card::NoSuit, 0);
+    CardItem *cardItem = new CardItem(card);
+    cardItem->setAutoBack(false);
+    cardItem->setFlag(QGraphicsItem::ItemIsFocusable);
+    cardItem->setFlag(QGraphicsItem::ItemIsMovable, false);
+
+    connect(cardItem, &CardItem::clicked, this, &GuhuoBox::reply);
+
+    cardItem->setParentItem(this);
+    cardItem->resetTransform();
+    cardItem->setOuterGlowEffectEnabled(true);
+    cardItem->setPos(pos);
+
+    buttons << cardItem;
+}
+
+void GuhuoBox::onGeneralItemClicked()
+{
+    CardItem *sender_item = qobject_cast<CardItem *>(sender());
+    if (sender_item == NULL) return;
+
+    foreach (CardItem *item, generalItems) {
+        item->setChosen(item == sender_item);
+        item->setOpacity((item == sender_item) ? 1 : 0.7);
+    }
+    Self->tag["yigui_general"] = sender_item->objectName();
+    updateCardItems();
+}
+
+void GuhuoBox::updateCardItems()
+{
+    foreach(CardItem *cardItem, buttons) {
+        bool card_enabled = isButtonEnable(cardItem->objectName());
+        cardItem->setEnabled(card_enabled);
+        cardItem->setOpacity(card_enabled ? 1 : 0.7);
     }
 }
 
@@ -253,10 +363,15 @@ void GuhuoBox::clear()
     if (!isVisible())
         return;
 
-    foreach(CardButton *button, buttons)
+    foreach(CardItem *button, buttons)
         button->deleteLater();
 
     buttons.clear();
+
+    foreach(CardItem *button, generalItems)
+        button->deleteLater();
+
+    generalItems.clear();
 
     foreach (Title *title, titles)
         title->deleteLater();
@@ -275,60 +390,21 @@ QString GuhuoBox::translate(const QString &option) const
     return translated;
 }
 
-CardButton::CardButton(QGraphicsObject *parent, const QString &card, int scale)
-    : QGraphicsObject(parent), cardName(card), Scale(scale)
+void GuhuoBox::wheelEvent(QGraphicsSceneWheelEvent *event)
 {
-    setAcceptedMouseButtons(Qt::LeftButton);
-
-    setAcceptHoverEvents(true);
-    setFlag(ItemIsFocusable);
-
-    setOpacity(0.7);
-    setObjectName(card);
-
-    QString original_tooltip = QString(":%1").arg(card);
-    QString tooltip = "[" + Sanguosha->translate(card) + "] " + Sanguosha->translate(original_tooltip);
-    setToolTip(QString("<font color=%1>%2</font>").arg(Config.SkillDescriptionInToolTipColor.name()).arg(tooltip));
+    if (NULL != m_vScrollBar) {
+        int deltaValue = event->delta();
+        int scrollBarValue = m_vScrollBar->value();
+        scrollBarValue += (-deltaValue / 120) * m_vScrollBar->pageStep();
+        m_vScrollBar->setValue(scrollBarValue);
+    }
 }
 
-void CardButton::paint(QPainter *painter, const QStyleOptionGraphicsItem *, QWidget *)
+void GuhuoBox::scrollBarValueChanged(int newValue)
 {
-    painter->setRenderHint(QPainter::HighQualityAntialiasing);
+    int diff = newValue - m_oldScrollValue;
+    foreach (CardItem *button, generalItems)
+        button->moveBy(-diff, 0);
 
-    QPixmap generalImage = G_ROOM_SKIN.getCardMainPixmap(cardName);
-
-    generalImage = generalImage.scaled(cardButtonSize * Scale / 10, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-    painter->setBrush(generalImage);
-    painter->drawRoundedRect(boundingRect(), 5, 5, Qt::RelativeSize);
-}
-
-QRectF CardButton::boundingRect() const
-{
-    return QRectF(QPoint(0, 0), cardButtonSize * Scale / 10);
-}
-
-void CardButton::mousePressEvent(QGraphicsSceneMouseEvent *event)
-{
-    event->accept();
-}
-
-void CardButton::mouseReleaseEvent(QGraphicsSceneMouseEvent *)
-{
-    emit clicked();
-}
-
-void CardButton::hoverEnterEvent(QGraphicsSceneHoverEvent *)
-{
-    QPropertyAnimation *animation = new QPropertyAnimation(this, "opacity");
-    animation->setEndValue(1);
-    animation->setDuration(100);
-    animation->start(QAbstractAnimation::DeleteWhenStopped);
-}
-
-void CardButton::hoverLeaveEvent(QGraphicsSceneHoverEvent *)
-{
-    QPropertyAnimation *animation = new QPropertyAnimation(this, "opacity");
-    animation->setEndValue(0.7);
-    animation->setDuration(100);
-    animation->start(QAbstractAnimation::DeleteWhenStopped);
+    m_oldScrollValue = newValue;
 }

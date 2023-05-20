@@ -591,6 +591,8 @@ function sgs.CreateViewAsSkill(spec)
 	skill.enabled_at_response = spec.enabled_at_response
 	skill.enabled_at_nullification = spec.enabled_at_nullification
 	skill.in_pile = spec.in_pile
+	skill.vs_card_names = spec.vs_card_names
+	skill.enabled_to_vs_card = spec.enabled_to_vs_card
 
 	return skill
 end
@@ -635,6 +637,8 @@ function sgs.CreateOneCardViewAsSkill(spec)
 	skill.enabled_at_response = spec.enabled_at_response
 	skill.enabled_at_nullification = spec.enabled_at_nullification
 	skill.in_pile = spec.in_pile
+	skill.vs_card_names = spec.vs_card_names
+	skill.enabled_to_vs_card = spec.enabled_to_vs_card
 
 	if type(spec.guhuo_type) == "string" and spec.guhuo_type ~= ""then
 		skill:setGuhuoType(spec.guhuo_type)
@@ -669,6 +673,8 @@ function sgs.CreateZeroCardViewAsSkill(spec)
 	skill.enabled_at_response = spec.enabled_at_response
 	skill.enabled_at_nullification = spec.enabled_at_nullification
 	skill.in_pile = spec.in_pile
+	skill.vs_card_names = spec.vs_card_names
+	skill.enabled_to_vs_card = spec.enabled_to_vs_card
 
 	if type(spec.guhuo_type) == "string" and spec.guhuo_type ~= ""then
 		skill:setGuhuoType(spec.guhuo_type)

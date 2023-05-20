@@ -1236,25 +1236,18 @@ sgs.ai_skill_choice.huxun = function(self, choices, data)
     end
 end
 
-sgs.ai_skill_use["@@huxun_move"] = function(self, prompt, method)
-	self:updatePlayers()
-	if prompt ~= "@huxun-move" then
-		return "."
-	end
-	local MDCard = "@HuxunMoveCard=.&->"
+sgs.ai_skill_playerchosen.huxun = function(self, _targets, max_num, min_num)
 
-		self:sort(self.enemies, "defense")
+	self:sort(self.enemies, "defense")
 		for _, friend in ipairs(self.friends) do
-			if not friend:getCards("j"):isEmpty() and self:getMoveCardorTarget(friend, ".") then
-				self.huxuncard = self:getMoveCardorTarget(friend, "card")
-				return MDCard .. friend:objectName() .. "+" .. self:getMoveCardorTarget(friend, "target"):objectName()
+			if not friend:getCards("j"):isEmpty() and self:getMoveCardorTarget(friend, ".", "e") then
+				return {friend, self:getMoveCardorTarget(friend, "target", "e")}
 			end
 		end
 
 		for _, friend in ipairs(self.friends_noself) do
-			if friend:hasEquip() and friend:hasShownSkills(sgs.lose_equip_skill) and self:getMoveCardorTarget(friend, ".") then
-				self.huxuncard = self:getMoveCardorTarget(friend, "card")
-				return MDCard .. friend:objectName() .. "+" .. self:getMoveCardorTarget(friend, "target"):objectName()
+			if friend:hasEquip() and friend:hasShownSkills(sgs.lose_equip_skill) and self:getMoveCardorTarget(friend, ".", "e") then
+				return {friend, self:getMoveCardorTarget(friend, "target", "e")}
 			end
 		end
 
@@ -1267,13 +1260,11 @@ sgs.ai_skill_use["@@huxun_move"] = function(self, prompt, method)
 
 		if #targets > 0 then
 			self:sort(targets, "defense")
-			self.huxuncard = self:getMoveCardorTarget(targets[#targets], "card")
-			return MDCard .. targets[#targets]:objectName() .. "+" .. self:getMoveCardorTarget(targets[#targets], "target"):objectName()
+			return {targets[#targets], self:getMoveCardorTarget(targets[#targets], "target", "e")}
 		end
 
-		if self.player:hasEquip() and self.player:hasShownSkills(sgs.lose_equip_skill) and self:getMoveCardorTarget(self.player, ".") then
-			self.huxuncard = self:getMoveCardorTarget(self.player, "card","e")
-			return MDCard .. self.player:objectName() .. "+" .. self:getMoveCardorTarget(self.player, "target" ,"e"):objectName()
+		if self.player:hasEquip() and self.player:hasShownSkills(sgs.lose_equip_skill) and self:getMoveCardorTarget(self.player, ".", "e") then
+			return {self.player, self:getMoveCardorTarget(self.player, "target" ,"e")}
 		end
 
 		local friends = {}--没有敌人则简单转移队友装备
@@ -1285,15 +1276,14 @@ sgs.ai_skill_use["@@huxun_move"] = function(self, prompt, method)
 
 		if #friends > 0 then
 			self:sort(friends, "hp", true)
-			self.huxuncard = self:getMoveCardorTarget(friends[#friends], "card")
-			return MDCard .. friends[#friends]:objectName() .. "+" .. self:getMoveCardorTarget(friends[#friends], "target"):objectName()
+			return {friends[#friends], self:getMoveCardorTarget(friends[#friends], "target", "e")}
 		end
 
-	return "."
+	return {}
 end
 
-sgs.ai_skill_askforag["huxun"] = function(self, card_ids)
-	return self.huxuncard:getId()
+sgs.ai_skill_transfercardchosen.huxun = function(self, targets, equipArea, judgingArea)
+	return self:getMoveCardorTarget(targets:first(), "card", "e")
 end
 
 sgs.ai_skill_exchange["yuancong_give"] = function(self,pattern,max_num,min_num,expand_pile)
@@ -1483,3 +1473,105 @@ sgs.ai_skill_discard.benyu_damage = function(self, discard_num, min_num, optiona
     --缺来源信息
     return {}
 end
+--夏侯尚
+sgs.ai_skill_playerchosen.tanfeng = function(self, targets)
+	local need_skip_judge = false
+	local need_skip_discard = (self:getOverflow() > 1 and not self.player:hasSkills("shensu|qiaobian") and not self.player:isSkipped(sgs.Player_Discard))
+	local Nullification = false
+	for _, p in ipairs(self.friends) do
+		if getKnownCard(p, self.player, "Nullification") > 0 then
+			Nullification = true
+		end
+	end
+	local supply_shortage = (current:containsTrick("supply_shortage") and (not self:hasWizard(self.friends) or self:hasWizard(self.enemies, true)))
+	local indulgence = (current:containsTrick("indulgence") and self:getFinalRetrial() ~= 1 and self:getOverflow(current) > -1)
+	if (indulgence or supply_shortage) and not Nullification and not self.player:isSkipped(sgs.Player_Judge) then
+		need_skip_judge = true
+	end
+	if need_skip_judge or need_skip_discard then
+		targets = sgs.QList2Table(targets)
+		self:sort(targets, "hp", true)
+		for _, p in ipairs(targets) do--优先触发卖血技能
+			if self:isFriend(p) and (self:needDamagedEffects(p, self.player) or self:needToLoseHp())
+				and self:damageIsEffective(p, sgs.DamageStruct_Fire, self.player)then
+				return p
+			end
+		end
+		for _, p in ipairs(targets) do
+			if self:isFriend(p) and not self:damageIsEffective(p, sgs.DamageStruct_Fire, self.player) then
+				return p
+			end
+		end
+		--不考虑打没有卖血技的盟军1伤
+	end
+	local prevent_skip = ((self.player:hasSkill("jieyue") and self.player:getHandcardNum() > 1 and not self.player:isSkipped(sgs.Player_Draw))
+						or (self.player:hasSkills("wangxi|qice|mingfa|daoshu|zaoyun") and not self.player:isSkipped(sgs.Player_Play)))
+	local dis_targets = {}
+	for _, p in ipairs(targets) do
+		if self:isFriend(p) then
+			table.insert(dis_targets, p)
+		elseif self:isEnemy(p) and not self:cantbeHurt(p) and self:damageIsEffective(p, sgs.DamageStruct_Fire, self.player)
+			and not self:needDamagedEffects(p, self.player) and not self:needToLoseHp(p) and not prevent_skip then
+			table.insert(dis_targets, p)
+		end
+	end
+	if not next(dis_targets) then return nil end
+	return self:findPlayerToDiscard("ej", false, sgs.Card_MethodDiscard, dis_targets, false)
+end
+
+sgs.ai_skill_cardchosen.tanfeng = function(self, who, flags, method, disable_list)
+	--dismantlement
+	local armor = who:getArmor()
+	if self:isFriend(who) then
+		if armor and armor:objectName() == "Vine" then return armor:getEffectiveId() end
+	else
+		--不弃敌人的藤甲怎么算
+		if armor and armor:objectName() == "PeaceSpell" then return armor:getEffectiveId() end
+	end
+	return self:askForCardChosen(who, flags, "tanfeng_dismantlement", method, disable_list)
+end
+
+sgs.ai_skill_choice.tanfeng = function(self, choices)
+	--(judge+draw+play+discard+finish+cancel)
+	local current = self.room:getCurrent()
+	if not current then return "cancel" end
+	
+	if self:isFriend(current) then
+		local need_skip_judge = false
+		local Nullification = false
+		for _, p in ipairs(self.friends) do
+			if getKnownCard(p, self.player, "Nullification") > 0 then
+				Nullification = true
+			end
+		end
+		local supply_shortage = (current:containsTrick("supply_shortage") and (not self:hasWizard(self.friends) or self:hasWizard(self.enemies, true)))
+		local indulgence = (current:containsTrick("indulgence") and self:getFinalRetrial() ~= 1 and self:getOverflow(current) > -1)
+		if (indulgence or supply_shortage) and string.find(choices, "judge") and not Nullification and not self.player:isSkipped(sgs.Player_Judge) then
+			need_skip_judge = true
+		end
+		local is_weak = self:isWeak() and self:damageIsEffective(self.player, sgs.DamageStruct_Fire, current) 
+			and not (self:needDamagedEffects(self.player, current) or self:needToLoseHp())
+		if not is_weak then
+			if need_skip_judge then return "judge" end
+			if self:getOverflow(current) > 0 and not current:isSkipped(sgs.Player_Discard) and string.find(choices, "discard") then return "discard" end
+		end
+		if self:needDamagedEffects(self.player, current) or self:needToLoseHp() then
+			--神速等需要判定阶段,挟天子需要弃牌阶段
+			if self:getOverflow(current) > 1 and not current:isSkipped(sgs.Player_Discard) and string.find(choices, "discard") then return "discard" end
+			if string.find(choices, "finish") then return "finish" end
+			if not self:hasKnownSkill("shensu", current) and string.find(choices, "judge") then return "judge" end
+		end
+	elseif self:isEnemy(current) then
+		local need_skip_draw = (current:getMark("JieyueExtraDraw") > 0 or current:hasSkill("zisui"))and string.find(choices, "draw")and not self.player:isSkipped(sgs.Player_Draw)
+		local need_skip_play = self:hasKnownSkill("wangxi|qice|mingfa|daoshu|zaoyun", current)and string.find(choices, "play")and not self.player:isSkipped(sgs.Player_Play)
+		if self:needDamagedEffects(self.player, current) or self:needToLoseHp() or not self:damageIsEffective(self.player, sgs.DamageStruct_Fire, current) then
+			--一回合一张拆就让他拆算了
+			if need_skip_play then return "play" end
+			if need_skip_draw then return "draw" end
+		end
+	end
+	return "cancel"
+end
+
+--矜武造成伤害
+sgs.ai_skill_playerchosen["command_jinwu"] = sgs.ai_skill_playerchosen.damage

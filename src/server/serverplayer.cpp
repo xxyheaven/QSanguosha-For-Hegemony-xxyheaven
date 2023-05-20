@@ -157,14 +157,17 @@ void ServerPlayer::throwAllMarks(bool visible_only)
 
 void ServerPlayer::clearOnePrivatePile(const QString &pile_name)
 {
-    if (!piles.contains(pile_name))
-        return;
-    QList<int> &pile = piles[pile_name];
-
-    DummyCard dummy(pile);
-    CardMoveReason reason(CardMoveReason::S_REASON_REMOVE_FROM_PILE, this->objectName());
-    room->throwCard(&dummy, reason, NULL);
-    piles.remove(pile_name);
+    if (piles.contains(pile_name)) {
+        QList<int> &pile = piles[pile_name];
+        DummyCard dummy(pile);
+        CardMoveReason reason(CardMoveReason::S_REASON_REMOVE_FROM_PILE, this->objectName());
+        room->throwCard(&dummy, reason, NULL);
+        piles.remove(pile_name);
+    }
+    if (general_piles.contains(pile_name)) {
+        QStringList general_names = general_piles[pile_name];
+        removeGeneralPile(pile_name, general_names);
+    }
 }
 
 void ServerPlayer::clearPrivatePiles()
@@ -172,6 +175,10 @@ void ServerPlayer::clearPrivatePiles()
     foreach(const QString &pile_name, piles.keys())
         clearOnePrivatePile(pile_name);
     piles.clear();
+
+    foreach(const QString &pile_name, general_piles.keys())
+        clearOnePrivatePile(pile_name);
+    general_piles.clear();
 }
 
 void ServerPlayer::bury()
@@ -181,6 +188,14 @@ void ServerPlayer::bury()
     throwAllCards();
     throwAllMarks();
     clearPrivatePiles();
+
+    QString name1 = getActualGeneral1Name(), name2 = getActualGeneral2Name();
+
+    if (!name1.contains("sujiang"))
+        room->handleUsedGeneral("-" +name1);
+
+    if (!name2.contains("sujiang"))
+    room->handleUsedGeneral("-" +name2);
 
     room->clearPlayerCardLimitation(this, false);
 }
@@ -916,11 +931,22 @@ bool ServerPlayer::doCommand(const QString &reason, int index, ServerPlayer *sou
     room->sendLog(log);
 
     if (choice == "yes") {
-        QVariant qnum;
-        qnum = index;
+        QStringList data_list;
+        data_list << reason << command << source->objectName()+"->"+objectName();
+
+        QVariant data = data_list.join(":");
+
         Q_ASSERT(room->getThread() != NULL);
-        room->getThread()->trigger(CommandVerifying, room, this, qnum);
-        index = qnum.toInt();
+
+        room->getThread()->trigger(CommandVerifying, room, this, data);
+
+        QStringList new_list = data.toString().split(":");
+
+        if (new_list.length() == data_list.length()) {
+            QString new_command = new_list[1];
+            if (allcommands.contains(new_command))
+                index = allcommands.indexOf(new_command);
+        }
 
         switch (index+1) {
         case 1: {
@@ -1340,54 +1366,6 @@ void ServerPlayer::introduceTo(ServerPlayer *player)
         room->doBroadcastNotify(S_COMMAND_ADD_PLAYER, introduce_str, this);
         room->broadcastProperty(this, "state");
     }
-
-    if (hasShownGeneral1()) {
-        foreach (const QString skill_name, head_skills.keys()) {
-            if (Sanguosha->getSkill(skill_name)->isVisible()) {
-                JsonArray args1;
-                args1 << (int)S_GAME_EVENT_ADD_SKILL;
-                args1 << objectName();
-                args1 << skill_name;
-                args1 << true;
-                room->doNotify(player, S_COMMAND_LOG_EVENT, args1);
-            }
-
-            foreach (const Skill *related_skill, Sanguosha->getRelatedSkills(skill_name)) {
-                if (!related_skill->isVisible()) {
-                    JsonArray args2;
-                    args2 << (int)S_GAME_EVENT_ADD_SKILL;
-                    args2 << objectName();
-                    args2 << related_skill->objectName();
-                    args2 << true;
-                    room->doNotify(player, S_COMMAND_LOG_EVENT, args2);
-                }
-            }
-        }
-    }
-
-    if (hasShownGeneral2()) {
-        foreach (const QString skill_name, deputy_skills.keys()) {
-            if (Sanguosha->getSkill(skill_name)->isVisible()) {
-                JsonArray args1;
-                args1 << S_GAME_EVENT_ADD_SKILL;
-                args1 << objectName();
-                args1 << skill_name;
-                args1 << false;
-                room->doNotify(player, S_COMMAND_LOG_EVENT, args1);
-            }
-
-            foreach (const Skill *related_skill, Sanguosha->getRelatedSkills(skill_name)) {
-                if (!related_skill->isVisible()) {
-                    JsonArray args2;
-                    args2 << (int)S_GAME_EVENT_ADD_SKILL;
-                    args2 << objectName();
-                    args2 << related_skill->objectName();
-                    args2 << false;
-                    room->doNotify(player, S_COMMAND_LOG_EVENT, args2);
-                }
-            }
-        }
-    }
 }
 
 void ServerPlayer::marshal(ServerPlayer *player) const
@@ -1417,8 +1395,6 @@ void ServerPlayer::marshal(ServerPlayer *player) const
 
     if (isChained())
         room->notifyProperty(player, this, "chained");
-
-    room->notifyProperty(player, this, "gender");
 
     QList<ServerPlayer*> players;
     players << player;
@@ -1626,6 +1602,52 @@ void ServerPlayer::addToPile(const QString &pile_name, QList<int> card_ids,
     room->moveCardsAtomic(move, open);
 }
 
+void ServerPlayer::addToGeneralPile(const QString &pile_name, const QString &general_name, bool open)
+{
+    QStringList general_names;
+    general_names << general_name;
+    return addToGeneralPile(pile_name, general_names, open);
+}
+
+void ServerPlayer::addToGeneralPile(const QString &pile_name, const QStringList &general_names, bool open)
+{
+    foreach (QString general_name, general_names) {
+        room->handleUsedGeneral(general_name);
+    }
+    general_piles[pile_name].append(general_names);
+
+    JsonArray show_arg;
+    show_arg << objectName();
+    show_arg << pile_name;
+    show_arg << JsonUtils::toJsonArray(general_piles[pile_name]);
+    show_arg << open;
+
+    room->doBroadcastNotify(QSanProtocol::S_COMMAND_UPDATE_GENERAL_PILE, show_arg);
+}
+
+void ServerPlayer::removeGeneralPile(const QString &pile_name, const QString &general_name, bool open)
+{
+    QStringList general_names;
+    general_names << general_name;
+    return removeGeneralPile(pile_name, general_names, open);
+}
+
+void ServerPlayer::removeGeneralPile(const QString &pile_name, const QStringList &general_names, bool open)
+{
+    foreach (QString general_name, general_names) {
+        general_piles[pile_name].removeOne(general_name);
+        room->handleUsedGeneral("-" +general_name);
+    }
+
+    JsonArray show_arg;
+    show_arg << objectName();
+    show_arg << pile_name;
+    show_arg << JsonUtils::toJsonArray(general_piles[pile_name]);
+    show_arg << open;
+
+    room->doBroadcastNotify(QSanProtocol::S_COMMAND_UPDATE_GENERAL_PILE, show_arg);
+}
+
 void ServerPlayer::pileAdd(const QString &pile_name, QList<int> card_ids)
 {
     piles[pile_name].append(card_ids);
@@ -1735,6 +1757,7 @@ void ServerPlayer::showGeneral(bool head_general, bool trigger_event, bool sendL
 
     room->tryPause();
 
+    bool first_time_show = !hasShownOneGeneral();
     if (head_general) {
         if (!ignore_rule && !canShowGeneral("h")) return;
         if (getGeneralName() != "anjiang") return;
@@ -1770,14 +1793,14 @@ void ServerPlayer::showGeneral(bool head_general, bool trigger_event, bool sendL
         foreach(ServerPlayer *p, room->getOtherPlayers(this, true))
             room->notifyProperty(p, this, "head_skin_id");
 
-        if (getGeneral()->getKingdom() == "careerist" || getRole() == "careerist") {
-            if (getGeneral()->getKingdom() == "careerist" && property("CareeristFriend").toString().isEmpty()) {
+        if (getGeneral()->getKingdom() == "careerist") {
+            if (getGeneral()->getKingdom() == "careerist") {
                 //setKingdom("careerist");
                 room->setPlayerProperty(this, "kingdom", "careerist");
             }
-            room->setPlayerProperty(this, "role", "careerist");
-        }
-        else if (!hasShownGeneral2()) {
+            if (!getRole().startsWith("careerist"))
+                room->setPlayerProperty(this, "role", "careerist");
+        } else if (first_time_show) {
             QString kingdom = getKingdom() != getGeneral()->getKingdom() ? getKingdom() : getGeneral()->getKingdom();
             room->setPlayerProperty(this, "kingdom", kingdom);
 
@@ -1788,7 +1811,7 @@ void ServerPlayer::showGeneral(bool head_general, bool trigger_event, bool sendL
                 bool has_lord = isAlive() && getGeneral()->isLord();
                 if (!has_lord) {
                     foreach (ServerPlayer *p, room->getOtherPlayers(this, true)) {
-                        if (p->getKingdom() == kingdom) {
+                        if (p->getSeemingKingdom() == kingdom) {
                             if (p->getGeneral()->isLord()) {
                                 has_lord = true;
                                 break;
@@ -1809,7 +1832,7 @@ void ServerPlayer::showGeneral(bool head_general, bool trigger_event, bool sendL
         if (isLord()) {
             QString kingdom = getKingdom();
             foreach (ServerPlayer *p, room->getPlayers()) {
-                if (p->getKingdom() == kingdom && p->getRole() == "careerist" && p->property("CareeristFriend").toString().isEmpty()) {
+                if (p->getKingdom() == kingdom && p->getRole() == "careerist") {
                     room->setPlayerProperty(p, "role", HegemonyMode::GetMappedRole(kingdom));
                     room->broadcastProperty(p, "kingdom");
                 }
@@ -1849,9 +1872,7 @@ void ServerPlayer::showGeneral(bool head_general, bool trigger_event, bool sendL
         foreach(ServerPlayer *p, room->getOtherPlayers(this, true))
             room->notifyProperty(p, this, "deputy_skin_id");
 
-        if (getRole() == "careerist") {
-            room->setPlayerProperty(this, "role", "careerist");
-        } else if (!hasShownGeneral1()) {
+        if (first_time_show) {
             QString kingdom = getKingdom();
             if (kingdom.isEmpty()) {
                 if (getGeneral2()->isDoubleKingdoms())
@@ -1869,7 +1890,7 @@ void ServerPlayer::showGeneral(bool head_general, bool trigger_event, bool sendL
                 bool has_lord = isAlive() && getGeneral()->isLord();
                 if (!has_lord) {
                     foreach (ServerPlayer *p, room->getOtherPlayers(this, true)) {
-                        if (p->getKingdom() == kingdom) {
+                        if (p->getSeemingKingdom() == kingdom) {
                             if (p->getGeneral()->isLord()) {
                                 has_lord = true;
                                 break;
@@ -1887,6 +1908,8 @@ void ServerPlayer::showGeneral(bool head_general, bool trigger_event, bool sendL
             room->setPlayerProperty(this, "role", role);
         }
     }
+
+    room->setPlayerProperty(this, "scenario_role_shown", true);
 
     if (sendLog) {
         LogMessage log;
@@ -2017,6 +2040,8 @@ void ServerPlayer::removeGeneral(bool head_general)
     room->setPlayerMark(this, "CompanionEffect", 0);
     room->setPlayerMark(this, "HalfMaxHpLeft", 0);
 
+    QStringList removed_skills;
+
     if (head_general) {
         if (!hasShownGeneral1())
             showGeneral(true, false);   //zoushi?
@@ -2042,8 +2067,11 @@ void ServerPlayer::removeGeneral(bool head_general)
         disconnectSkillsFromOthers();
 
         foreach (const Skill *skill, getHeadSkillList()) {
-            if (skill)
+            if (skill) {
+                if (hasSkill(skill))
+                    removed_skills << skill->objectName();
                 room->detachSkillFromPlayer(this, skill->objectName(), false, false, true);
+            }
         }
     } else {
         if (!hasShownGeneral2())
@@ -2070,8 +2098,11 @@ void ServerPlayer::removeGeneral(bool head_general)
         disconnectSkillsFromOthers(false);
 
         foreach (const Skill *skill, getDeputySkillList()) {
-            if (skill)
+            if (skill) {
+                if (hasSkill(skill))
+                    removed_skills << skill->objectName();
                 room->detachSkillFromPlayer(this, skill->objectName(), false, false, false);
+            }
         }
     }
 
@@ -2083,7 +2114,7 @@ void ServerPlayer::removeGeneral(bool head_general)
     room->sendLog(log);
 
     Q_ASSERT(room->getThread() != NULL);
-    QVariant _from = from_general;
+    QVariant _from = from_general + ":" + removed_skills.join("+");
     room->getThread()->trigger(GeneralRemoved, room, this, _from);
 
     room->filterCards(this, getCards("he"), true);
@@ -2167,8 +2198,7 @@ bool ServerPlayer::askForGeneralShow(const QString &reason, bool head, bool depu
 
     if ((choice == "show_head_general" || choice == "show_both_generals") && !hasShownGeneral1()) {
 
-        if (change_to_lord && property("CareeristFriend").toString().isEmpty()
-                && room->askForChoice(this, "changetolord", "yes+no", QVariant(), "@changetolord") == "yes")
+        if (change_to_lord && room->askForChoice(this, "changetolord", "yes+no", QVariant(), "@changetolord") == "yes")
             changeToLord();
 
         showGeneral(true, true, false);

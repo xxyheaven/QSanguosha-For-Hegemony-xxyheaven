@@ -1124,7 +1124,7 @@ showhead_skill.getTurnUseCard = function(self, inclusive)
 end
 
 sgs.ai_skill_use_func.ShowHeadCard= function(card, use, self)
-	--Global_room:writeToConsole("明置主将的武将牌")
+	Global_room:writeToConsole("明置主将的武将牌")
 	sgs.ai_use_priority.ShowHeadCard = 2--优先度多少合适？
 	if self.player:getActualGeneral1():getKingdom() == "careerist" and self.player:hasSkill("xuanhuoattach") and not self.player:hasUsed("XuanhuoAttachCard") then
 		return
@@ -1161,7 +1161,7 @@ showdeputy_skill.getTurnUseCard = function(self, inclusive)
 end
 
 sgs.ai_skill_use_func.ShowDeputyCard= function(card, use, self)
-	--Global_room:writeToConsole("明置副将的武将牌")
+	Global_room:writeToConsole("明置副将的武将牌")
 	if (self.player:inDeputySkills("paoxiao") or self.player:inDeputySkills("baolie"))
 	and self:getCardsNum("Slash") == 0 then
 		return

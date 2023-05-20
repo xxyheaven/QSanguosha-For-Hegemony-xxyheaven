@@ -810,8 +810,8 @@ yigui_skill.name = "yigui"
 table.insert(sgs.ai_skills, yigui_skill)
 yigui_skill.getTurnUseCard = function(self)
 	if not self.player:hasShownSkill("yigui") then return end
-	if self.player:property("Huashens"):toString() == "" then return end
-	local huashens = self.player:property("Huashens"):toString():split("+");
+	local huashens = self.player:getGeneralPile("soul")
+	if #huashens == 0 then return end
 --[[
 	if (Self->hasFlag("Yigui_" + classname)) return false;
 	QString card_name = Self->tag["yigui"].toString();
@@ -1118,8 +1118,8 @@ sgs.ai_use_priority.YiguiCard = 2.8
 
 function sgs.ai_cardsview.yigui(self, class_name, player)
 	if not player:hasShownSkill("yigui") then return end
-	if player:property("Huashens"):toString() == "" then return end
-	local huashens = player:property("Huashens"):toString():split("+");
+	local huashens = player:getGeneralPile("soul")
+	if  #huashens == 0 then return end
 	if class_name == "Peach" or class_name == "Analeptic" then
 		local soul_name
 		local class_string

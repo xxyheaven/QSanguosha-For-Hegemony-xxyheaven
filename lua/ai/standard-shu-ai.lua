@@ -143,42 +143,56 @@ end
 
 sgs.dynamic_value.benefit.RendeCard = true
 
-sgs.ai_skill_choice["rende_basic"] = function(self, choices)--暂时简单处理
-	Global_room:writeToConsole("仁德选择:"..self.player:objectName().." :"..choices)
-	choices = choices:split("+")
-	if table.contains(choices, "peach") and self.player:getHp() < 3 then
-		return "peach"
+sgs.ai_skill_use["@@rende_basic"] = function(self, prompt, method)
+
+	Global_room:writeToConsole("仁德使用基本牌")
+	
+	local peach = sgs.cloneCard("peach", sgs.Card_NoSuit, 0)
+	peach:setSkillName("_rende")
+
+	if self.player:getHp() < 3 and peach:isAvailable(self.player) then
+		return peach:toString()
 	end
-	if table.contains(choices, "fire_slash") or table.contains(choices, "thunder_slash") or table.contains(choices, "slash") then
-		self.rende_slashtarget = nil
-		local clone_slashes = {}
-		if table.contains(choices, "fire_slash") then
-			local fslash = sgs.cloneCard("fire_slash")
-			table.insert(clone_slashes,fslash)
-		end
-		if table.contains(choices, "thunder_slash") then
-			local tslash = sgs.cloneCard("thunder_slash")
-			table.insert(clone_slashes,tslash)
-		end
-		if table.contains(choices, "slash") then
-			local nslash = sgs.cloneCard("slash")
-			table.insert(clone_slashes,nslash)
-		end
-		if self.enemies then
-			self:sort(self.enemies, "defenseSlash")
-			for _, slash in ipairs(clone_slashes) do
-				for _, enemy in ipairs(self.enemies) do
-					if self:isWeak(enemy) and self.player:canSlash(enemy, slash, true) and not self:slashProhibit(slash, enemy)
+	
+	local clone_slashes = {}
+
+	local fslash = sgs.cloneCard("fire_slash", sgs.Card_NoSuit, 0)
+	fslash:setSkillName("_rende")
+	if fslash:isAvailable(self.player) then
+		table.insert(clone_slashes, fslash)
+	end
+
+
+	local tslash = sgs.cloneCard("thunder_slash", sgs.Card_NoSuit, 0)
+	tslash:setSkillName("_rende")
+	if tslash:isAvailable(self.player) then
+		table.insert(clone_slashes, tslash)
+	end
+	
+	
+	local nslash = sgs.cloneCard("slash", sgs.Card_NoSuit, 0)
+	nslash:setSkillName("_rende")
+	if nslash:isAvailable(self.player) then
+		table.insert(clone_slashes, nslash)
+	end
+	
+	if self.enemies then
+		self:sort(self.enemies, "defenseSlash")
+		for _, slash in ipairs(clone_slashes) do
+			for _, enemy in ipairs(self.enemies) do
+				if self:isWeak(enemy) and self.player:canSlash(enemy, slash, true) and not self:slashProhibit(slash, enemy)
 						and self:slashIsEffective(slash, enemy) and sgs.isGoodTarget(enemy, self.enemies, self)
 						and not (self.player:hasFlag("slashTargetFix") and not enemy:hasFlag("SlashAssignee")) then
-							self.rende_slashtarget = enemy
-							return slash:objectName()
-					end
+					return slash:toString() .. "->" .. enemy:objectName()
 				end
 			end
 		end
 	end
-	if table.contains(choices, "analeptic") and self:getCardsNum("Slash") > 0 then
+	
+	local analeptic = sgs.cloneCard("analeptic", sgs.Card_NoSuit, 0)
+	analeptic:setSkillName("_rende")
+	
+	if analeptic:isAvailable(self.player) and self:getCardsNum("Slash") > 0 then
 		local slashes = self:getCards("Slash")
 		self:sortByUseValue(slashes)
 		if self.enemies then
@@ -186,35 +200,25 @@ sgs.ai_skill_choice["rende_basic"] = function(self, choices)--暂时简单处理
 			for _, slash in ipairs(slashes) do
 				for _, enemy in ipairs(self.enemies) do
 					if self:isWeak(enemy) and not self.player:canSlash(enemy, slash, true) and not self:slashProhibit(slash, enemy)
-						and self:slashIsEffective(slash, enemy) and sgs.isGoodTarget(enemy, self.enemies, self)
-						and not (self.player:hasFlag("slashTargetFix") and not enemy:hasFlag("SlashAssignee")) then
-							local use = { to = sgs.SPlayerList() }
-							use.card = slash
-							use.to:append(enemy)
-							if self:shouldUseAnaleptic(enemy, use) then
-								return "analeptic"
-							end
+							and self:slashIsEffective(slash, enemy) and sgs.isGoodTarget(enemy, self.enemies, self)
+							and not (self.player:hasFlag("slashTargetFix") and not enemy:hasFlag("SlashAssignee")) then
+						
+						local use = { to = sgs.SPlayerList() }
+						use.card = slash
+						use.to:append(enemy)
+						if self:shouldUseAnaleptic(enemy, use) then
+							return analeptic:toString()
+						end
 					end
 				end
 			end
 		end
 	end
-	if table.contains(choices, "peach") then--找不到杀目标
-		return "peach"
+	
+	
+	if peach:isAvailable(self.player) then
+		return peach:toString()
 	end
-	return choices[1]
-end
-
-sgs.ai_skill_use["@@rende_slash"] = function(self, prompt, method)
-	local card_name = prompt:split(":")[4]
-	Global_room:writeToConsole("仁德杀:"..prompt.." 杀:"..card_name)
-	if not card_name or not self.rende_slashtarget then return "." end
-	local card = sgs.cloneCard(card_name)
-	card:setSkillName("_rende")
-	local str = card:toString()
-	str = str .. "->" .. self.rende_slashtarget:objectName()
-	self.rende_slashtarget = nil
-	return str
 end
 
 --复制身份未修改

@@ -63,7 +63,7 @@ public:
         AskForCardChosen = 0x010011,
         AskForSuit = 0x010012,
         AskForMoveCards = 0x000013,
-        GlobalCardChosen = 0x000014,
+        AskForTransferFieldCard = 0x000014,
 
         RespondingUse = 0x000101,
         RespondingForDiscard = 0x000201,
@@ -106,6 +106,7 @@ public:
     void onPlayerReplyYiji(const Card *card, const Player *to);
     void onPlayerReplyGuanxing(const QList<int> &up_cards, const QList<int> &down_cards);
     void onPlayerReplyMoveCards(const QList<int> &up_cards, const QList<int> &down_cards);
+    void onPlayerReplyFieldCardTransfer(const QList<int> &cards);
     void onPlayerDoGuanxingStep(int from, int to);
     void onPlayerDoMoveCardsStep(int from, int to, bool enable);
     QList<const ClientPlayer *> getPlayers() const;
@@ -172,6 +173,7 @@ public:
     void mirrorGuanxingStep(const QVariant &args);
     void mirrorMoveCardsStep(const QVariant &args);
     void setActualGeneral(const QVariant &args);
+    void updateGeneralPile(const QVariant &args);
 
     void fillAG(const QVariant &cards_str);
     void takeAG(const QVariant &take_var);
@@ -193,12 +195,12 @@ public:
     void askForNullification(const QVariant &);
     void askForPindian(const QVariant &);
     void askForCardChosen(const QVariant &ask_str);
-    void globalCardChosen(const QVariant &ask_str);
     void askForPlayerChosen(const QVariant &players);
     void askForGeneral(const QVariant &);
     void askForYiji(const QVariant &);
     void askForGuanxing(const QVariant &);
     void askForMoveCards(const QVariant &);
+    void askForTransferFieldCard(const QVariant &);
     void showAllCards(const QVariant &);
     void askForGongxin(const QVariant &);
     void askForSurrender(const QVariant &);
@@ -285,8 +287,7 @@ public slots:
     void signup();
     void onPlayerChooseGeneral(const QString &_name);
     void onPlayerMakeChoice(const QString &choice);
-    void onPlayerChooseCard(int index, int card_id = -2);
-    void onPlayerChooseCards(const QList<int> &ids = QList<int>());
+    void onPlayerChooseCard(const QList<int> &card_ids);
     void onPlayerChooseAG(int card_id);
     void onPlayerChoosePlayer(const QList<const Player *> &players);
     void onPlayerChooseTriggerOrder(const QString &choice);
@@ -356,7 +357,7 @@ signals:
     void suits_got(const QStringList &suits);
     void options_got(const QString &skillName, const QStringList &options, const QStringList &all_options);
     void cards_got(const ClientPlayer *player, const QString &flags, const QString &reason, bool handcard_visible,
-        Card::HandlingMethod method, QList<int> disabled_ids, QList<int> handcards);
+        Card::HandlingMethod method, QList<int> disabled_ids, QList<int> handcards, int min_num, int max_num);
     void roles_got(const QString &scheme, const QStringList &roles);
     void directions_got();
     void orders_got(QSanProtocol::Game3v3ChooseOrderCommand reason);
@@ -442,6 +443,9 @@ signals:
     void startPindian(const QString &requestor, const QString &reason, const QStringList &targets);
     void onPindianReply(const QString &who, int card_id);
     void pindianSuccess(int type, int index);
+
+    void fieldcardtransfer(const ClientPlayer *playerA, const ClientPlayer *playerB, const QString &reason, bool equipArea, bool judgingArea);
+
 };
 
 extern Client *ClientInstance;

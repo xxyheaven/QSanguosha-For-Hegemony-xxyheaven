@@ -48,15 +48,6 @@ public:
     virtual void use(Room *room, ServerPlayer *source, QList<ServerPlayer *> &targets) const;
 };
 
-class LirangGiveCard : public SkillCard
-{
-    Q_OBJECT
-
-public:
-    Q_INVOKABLE LirangGiveCard();
-    virtual void onUse(Room *room, const CardUseStruct &card_use) const;
-};
-
 class LuanwuCard : public SkillCard
 {
     Q_OBJECT

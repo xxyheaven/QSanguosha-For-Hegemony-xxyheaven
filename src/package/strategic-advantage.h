@@ -109,8 +109,6 @@ public:
     virtual bool targetRated(const Player *to_select, const Player *Self) const;
     virtual bool targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const;
     virtual void onEffect(const CardEffectStruct &effect) const;
-
-    virtual QStringList checkTargetModSkillShow(const CardUseStruct &use) const;
 };
 
 class BurningCamps : public AOE
@@ -139,8 +137,6 @@ public:
     virtual bool targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const;
     //virtual void use(Room *room, ServerPlayer *source, QList<ServerPlayer *> &targets) const;
     virtual void onEffect(const CardEffectStruct &effect) const;
-
-    virtual QStringList checkTargetModSkillShow(const CardUseStruct &use) const;
 };
 
 class FightTogether : public GlobalEffect

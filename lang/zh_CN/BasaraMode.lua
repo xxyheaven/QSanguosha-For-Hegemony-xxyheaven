@@ -131,15 +131,11 @@ return
 	["GameRule:CareeristShow:yes"] = "明置主将",
 	["GameRule:CareeristShow:no"] = "取消",
 	
-	["#GameRule_CareeristShow"] = "%from 暴露野心，明置主将",
-	
-	["@careerist-summon"] = "是否发动 拉拢人心",
-	["GameRule:CareeristSummon:yes"] = "发动拉拢人心",
-	["GameRule:CareeristSummon:no"] = "取消",
-
-	["#GameRule_CareeristSummon"] = "%from 发动了“拉拢人心”",
+	["#GameRule_CareeristShow"] = "%from 暴露野心",
 
 	["@careerist-add"] = "是否加入 %src 的阵营",
+	["GameRule:CareeristAdd:yes"] = "加入",
+	["GameRule:CareeristAdd:no"] = "不加入",
 
 	["#GameRule_CareeristAdd"] = "%from 响应，加入 %to 的阵营",
 }

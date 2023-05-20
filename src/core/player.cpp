@@ -441,7 +441,7 @@ void Player::setRole(const QString &role)
     if (role.isEmpty()) return;
     if (this->role != role) {
         this->role = role;
-        emit role_changed(role);
+        //emit role_changed(role);
         if (role == "careerist")
             emit kingdom_changed("careerist");
         else
@@ -920,6 +920,7 @@ QString Player::getSeemingKingdom() const
 {
     if (!hasShownOneGeneral()) return QString();
     if (getRole() == "careerist") return "careerist";
+    if (getRole().startsWith("careerist_")) return getRole();
     return getKingdom();
 }
 
@@ -1027,6 +1028,8 @@ bool Player::canDiscard(const Player *to, int card_id) const
             return false;
         else if (to->getTreasure() && to->getTreasure()->getEffectiveId() == card_id && Sanguosha->isCardFixed(this, to, "t", Card::MethodDiscard))
             return false;
+        else if (to->getSpecialHorse() && to->getSpecialHorse()->getEffectiveId() == card_id && Sanguosha->isCardFixed(this, to, "s", Card::MethodDiscard))
+            return false;
     }
     return true;
 }
@@ -1102,6 +1105,8 @@ bool Player::canGetCard(const Player *to, int card_id) const
         else if (to->getDefensiveHorse() && to->getDefensiveHorse()->getEffectiveId() == card_id && Sanguosha->isCardFixed(this, to, "d", Card::MethodGet))
             return false;
         else if (to->getTreasure() && to->getTreasure()->getEffectiveId() == card_id && Sanguosha->isCardFixed(this, to, "t", Card::MethodGet))
+            return false;
+        else if (to->getSpecialHorse() && to->getSpecialHorse()->getEffectiveId() == card_id && Sanguosha->isCardFixed(this, to, "s", Card::MethodGet))
             return false;
     }
     return true;
@@ -1219,6 +1224,11 @@ int Player::getMark(const QString &mark) const
     return marks.value(mark, 0);
 }
 
+QStringList Player::getMarkNames() const
+{
+    return marks.keys();
+}
+
 bool Player::canSlash(const Player *other, const Card *slash, bool distance_limit,
     int rangefix, const QList<const Player *> &others) const
 {
@@ -1263,6 +1273,11 @@ int Player::getCardCount(bool include_equip) const
 QList<int> Player::getPile(const QString &pile_name) const
 {
     return piles[pile_name];
+}
+
+QStringList Player::getGeneralPile(const QString &pile_name) const
+{
+    return general_piles[pile_name];
 }
 
 QStringList Player::getPileNames() const
@@ -1551,7 +1566,7 @@ QString Player::getHeadSkillDescription() const
     const QList<QString> skills = head_skills.keys() + head_acquired_skills.toList();
     foreach (const QString &skillname, skills) {
         const Skill *skill = Sanguosha->getSkill(skillname);
-        if (!skill->isVisible()) continue;
+        if (!skill->isVisible() || skill->isEquipskill() || skill->isAttachedLordSkill()) continue;
         QString skill_name = Sanguosha->translate(skillname);
         QString desc = skill->getDescription();
         desc.replace("\n", "<br/>");
@@ -1566,7 +1581,7 @@ QString Player::getDeputySkillDescription() const
     const QList<QString> skills = deputy_skills.keys() + deputy_acquired_skills.toList();
     foreach (const QString &skillname, skills) {
         const Skill *skill = Sanguosha->getSkill(skillname);
-        if (!skill->isVisible()) continue;
+        if (!skill->isVisible() || skill->isEquipskill() || skill->isAttachedLordSkill()) continue;
         QString skill_name = Sanguosha->translate(skillname);
         QString desc = skill->getDescription();
         desc.replace("\n", "<br/>");
@@ -1705,6 +1720,7 @@ void Player::copyFrom(Player *p)
 
     b->marks = QMap<QString, int>(a->marks);
     b->piles = QMap<QString, QList<int> >(a->piles);
+    b->general_piles = QMap<QString, QStringList>(a->general_piles);
     b->head_acquired_skills = QSet<QString>(a->head_acquired_skills);
     b->deputy_acquired_skills = QSet<QString>(a->deputy_acquired_skills);
     b->flags = QSet<QString>(a->flags);
@@ -1767,7 +1783,7 @@ bool Player::hasShownSkill(const Skill *skill) const
     if (head_acquired_skills.contains(skill->objectName()) || deputy_acquired_skills.contains(skill->objectName()))
         return true;
 
-    if (skill->inherits("ArmorSkill") || skill->inherits("WeaponSkill") || skill->inherits("TreasureSkill"))
+    if (skill->isEquipskill())
         return true;
 
     if (skill->inherits("TriggerSkill")) {
@@ -1903,9 +1919,12 @@ bool Player::cheakSkillLocation(const QString &skill_name, bool is_head) const
     return inDeputySkills(skill->objectName());
 }
 
-bool Player::cheakSkillLocation(const QString &skill_name, const QStringList &show_list) const
+bool Player::cheakSkillLocation(const QString &skill_name, const QVariant &data) const
 {
     if (!hasShownSkill(skill_name)) return false;
+
+    QStringList show_list = data.toStringList();
+
     if (show_list.contains("head") && general1_showed && general->ownSkill(skill_name))
         return true;
 
@@ -2058,6 +2077,26 @@ bool Player::ownSkill(const Skill *skill) const
     return ownSkill(skill->objectName());
 }
 
+bool Player::ownHeadSkill(const QString &skill_name) const
+{
+    return head_skills.contains(skill_name);
+}
+
+bool Player::ownHeadSkill(const Skill *skill) const
+{
+    return ownHeadSkill(skill->objectName());
+}
+
+bool Player::ownDeputySkill(const QString &skill_name) const
+{
+    return deputy_skills.contains(skill_name);
+}
+
+bool Player::ownDeputySkill(const Skill *skill) const
+{
+    return ownDeputySkill(skill->objectName());
+}
+
 bool Player::isFriendWith(const Player *player) const
 {
     Q_ASSERT(player);
@@ -2065,11 +2104,12 @@ bool Player::isFriendWith(const Player *player) const
 
     if (this == player) return true;
 
-    if (property("CareeristFriend").toString() == player->objectName()) return true;
-
     if (!hasShownOneGeneral() || !player->hasShownOneGeneral()) return false;
 
     if (role == "careerist" || player->role == "careerist") return false;
+
+    if (role.startsWith("careerist"))
+        return role == player->role;
 
     return kingdom == player->kingdom;
 }
@@ -2091,7 +2131,7 @@ bool Player::willBeFriendWith(const Player *player) const
 
         if (!has_lord) {
             foreach (const Player *p, getSiblings()) {
-                if (p->getKingdom() == kingdom) {
+                if (p->getSeemingKingdom() == kingdom) {
                     if (p->isAlive() && p->isLord()) {
                         has_lord = true;
                         break;
@@ -2104,7 +2144,7 @@ bool Player::willBeFriendWith(const Player *player) const
 
         if (!has_lord && i > (parent()->findChildren<const Player *>().length() / 2))
             return false;
-        else if (kingdom == player->getKingdom())
+        else if (kingdom == player->getSeemingKingdom())
             return true;
     }
     return false;

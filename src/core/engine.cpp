@@ -441,6 +441,17 @@ const Skill *Engine::getMainSkill(const QString &skill_name) const
     return skill;
 }
 
+QString Engine::getSkillTranslate(const QString &skill_name) const
+{
+    QString translate_name = Sanguosha->translate(skill_name);
+    if (translate(skill_name) == skill_name) {
+        const Skill *main_skill = getMainSkill(skill_name);
+        if (main_skill != NULL && Sanguosha->translate(main_skill->objectName()) != main_skill->objectName())
+            translate_name = Sanguosha->translate(main_skill->objectName());
+    }
+    return translate_name;
+}
+
 const General *Engine::getGeneral(const QString &name) const
 {
     if (generalHash.contains(name))
@@ -668,7 +679,7 @@ SkillCard *Engine::cloneSkillCard(const QString &name) const
 #ifndef USE_BUILDBOT
 QSanVersionNumber Engine::getVersionNumber() const
 {
-    return QSanVersionNumber(2, 3, 35);
+    return QSanVersionNumber(2, 3, 41);
 }
 #endif
 
@@ -1055,9 +1066,6 @@ const ViewAsSkill *Engine::getViewAsSkill(const QString &skill_name) const
     else if (skill->inherits("TriggerSkill")) {
         const TriggerSkill *trigger_skill = qobject_cast<const TriggerSkill *>(skill);
         return trigger_skill->getViewAsSkill();
-    } else if (skill->inherits("DistanceSkill")) {
-        const DistanceSkill *distance_skill = qobject_cast<const DistanceSkill *>(skill);
-        return distance_skill->getViewAsSkill();
     } else
         return NULL;
 }

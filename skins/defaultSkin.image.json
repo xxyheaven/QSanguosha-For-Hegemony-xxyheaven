@@ -79,7 +79,7 @@
 // general default directories
 "playerGeneralIcon-default-0-0": ["image/generals/avatar/%1.png", [71, 28, 134, 134], [40, 40]],
 "playerGeneralIcon-default-0-1": ["image/fullskin/generals/full/%1.png", [0, 0, 250, 289], [155, 179]],
-"playerGeneralIcon-default-0-2": ["image/fullskin/generals/full/%1.png", [3, 0, 244, 292]],
+"playerGeneralIcon-default-0-2": ["image/fullskin/generals/full/%1.png", [15, 0, 244, 292]],
 "playerGeneralIcon-default-0-4": ["image/fullskin/generals/full/%1.png", [60, 0, 125, 292], [77, 179]], //small avatar for photo
 "playerGeneralIcon-default-0-5": ["image/generals/avatar/%1.png", [71, 28, 134, 134], [70, 70]],  //small avatar for dashboard
 "playerGeneralIcon-default-0-6": ["image/fullskin/generals/full/%1.png", [65, 0, 250, 289], [155, 179]],  //primary avatar for photo
@@ -242,6 +242,24 @@
 "playerGeneralIcon-mifangfushiren-default-8": "hero-skin/mifangfushiren/%1/kof.png",
 "playerGeneralIcon-mifangfushiren-default-9": "hero-skin/mifangfushiren/%1/full.png",
 
+"playerGeneralIcon-maxiumatie-0-0": ["image/generals/big/maxiumatie.png", [0, 0, 213, 213], [40, 40]],
+"playerGeneralIcon-maxiumatie-0-2": ["image/generals/big/maxiumatie.png", [0, 0, 213, 255]],
+"playerGeneralIcon-maxiumatie-0-4": ["image/fullskin/generals/fulldual/maxiumatie.png", [0, 0, 124, 289], [77, 179]],
+"playerGeneralIcon-maxiumatie-0-5": ["image/generals/big/maxiumatie.png", [0, 0, 134, 134], [70, 70]],
+"playerGeneralIcon-maxiumatie-0-6": ["image/fullskin/generals/fulldual/maxiumatie.png", [0, 0, 250, 289], [155, 179]],
+"playerGeneralIcon-maxiumatie-0-7": "image/generals/big/maxiumatie.png",
+"playerGeneralIcon-maxiumatie-0-8": "image/generals/kof/maxiumatie.png",
+"playerGeneralIcon-maxiumatie-0-9": "image/fullskin/generals/fulldual/maxiumatie.png",
+
+"playerGeneralIcon-maxiumatie-default-0": ["hero-skin/maxiumatie/%1/avatar.png", [0, 0, 213, 213], [40, 40]],
+"playerGeneralIcon-maxiumatie-default-2": ["hero-skin/maxiumatie/%1/avatar.png", [0, 0, 213, 255]],
+"playerGeneralIcon-maxiumatie-default-4": ["hero-skin/maxiumatie/%1/full.png", [0, 0, 124, 289], [77, 179]],
+"playerGeneralIcon-maxiumatie-default-5": ["hero-skin/maxiumatie/%1/avatar.png", [0, 0, 134, 134], [70, 70]],
+"playerGeneralIcon-maxiumatie-default-6": ["hero-skin/maxiumatie/%1/full.png", [0, 0, 250, 289], [155, 179]],
+"playerGeneralIcon-maxiumatie-default-7": "hero-skin/maxiumatie/%1/avatar.png",
+"playerGeneralIcon-maxiumatie-default-8": "hero-skin/maxiumatie/%1/kof.png",
+"playerGeneralIcon-maxiumatie-default-9": "hero-skin/maxiumatie/%1/full.png",
+
 // buttons
 "dashboardButtonSetBg": "image/system/button/platter/bg.png",
 "button-platter": "image/system/button/platter/%1/%2.png",
@@ -331,6 +349,10 @@
 "generalCard-default-0": "image/generals/card/%1.jpg",
 "generalCard-default-default": "hero-skin/%1/%2/card.jpg",
 
+"generalCardBg": "image/system/generalcard/bg.png",
+"generalCardKingdom-default": "image/system/generalcard/kingdom/%1.png",
+"generalCardMagatamas-default-default": "image/system/generalcard/magatamas/%1-magatama-%2.png",
+
 //role combo box
 "expandingRoleBox": "image/system/roles/expanding.png",
 "roleBoxKingdomMask-default": "image/system/kingdom-mask/%1.png",
@@ -350,6 +372,9 @@
 "deputyIcon": "image/system/deputy.png",
 
 //TablePile
-"tableBgBattle": "image/system/battle.png"
+"tableBgBattle": "image/system/battle.png",
+
+"cardItemSmallCards-default": "image/system/cardchartlet/small-cards/%1.png",
+"cardItemCheck": "image/system/cardchartlet/chosen.png"
 }
 

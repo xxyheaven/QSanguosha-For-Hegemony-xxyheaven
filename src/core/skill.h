@@ -74,7 +74,8 @@ public:
 
     virtual bool isEquipskill() const;
 
-    virtual bool buttonEnabled(const QString &button_name = QString(), const QList<const Card *> &selected = QList<const Card *>(), const QList<const Player *> &targets = QList<const Player *>()) const;
+    virtual bool buttonVisible(const QString &button_name = QString()) const;
+    virtual bool buttonEnabled(const QString &button_name = QString()) const;
 
     //for LUA
     inline void setRelateToPlace(const char *rtp)
@@ -116,6 +117,9 @@ public:
         return response_or_use;
     }
     virtual QString getExpandPile() const;
+
+    virtual QStringList getViewAsCardNames(const QList<const Card *> &selected = QList<const Card *>()) const;
+    virtual bool isEnabledtoViewAsCard(const QString &button_name = QString(), const QList<const Card *> &selected = QList<const Card *>()) const;
 
 protected:
     QString response_pattern;
@@ -325,22 +329,6 @@ public:
     DistanceSkill(const QString &name);
 
     virtual int getCorrect(const Player *from, const Player *to) const = 0;
-    const ViewAsSkill *getViewAsSkill() const;
-
-protected:
-    const ViewAsSkill *view_as_skill;
-};
-
-class ShowDistanceSkill : public ZeroCardViewAsSkill
-{
-    Q_OBJECT
-
-public:
-
-    ShowDistanceSkill(const QString &name);
-
-    const Card *viewAs() const;
-    virtual bool isEnabledAtPlay(const Player *player) const;
 };
 
 class MaxCardsSkill : public Skill

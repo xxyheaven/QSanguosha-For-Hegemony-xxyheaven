@@ -75,155 +75,109 @@ sgs.ai_skill_movecards.xunxun_tangzi = function(self, upcards, downcards, min_nu
 	table.removeOne(upcards_copy,id2)
 	return upcards_copy,down
 end
-
 --张鲁
 sgs.ai_skill_invoke.bushi = function(self, data)
-	if not self:willShowForMasochism() then
-    return false
-  end
-  local damage = data:toDamage()
-	return damage.to:objectName() == self.player:objectName()
+	if self.player:getPhase() == sgs.Player_Start then return false end
+	if not self:willShowForAttack() and not self:willShowForDefence() then
+		return false
+	end
+	return true
 end
-
-sgs.ai_skill_playerchosen.bushi = function(self, targets)
-  targets = sgs.QList2Table(targets)
-  self:sort(targets, "handcard")
-	return targets[1]
+sgs.ai_skill_exchange.bushi = function(self,pattern,max_num,min_num,expand_pile)
+	local cards = self.player:getCards("he")
+	cards = sgs.QList2Table(cards)
+	local current = self.room:getCurrent()
+	if self:isFriend(current) then
+		self:sortByUseValue(cards, true)
+		local card, friend = self:getCardNeedPlayer(cards, {current})
+		if card and friend then return card:getEffectiveId() end
+		return cards[1]:getEffectiveId()
+	elseif not self:isEnemy(current) then
+		self:sortByKeepValue(cards)
+		return cards[1]:getEffectiveId()
+	end
+	return {}
 end
 
 sgs.ai_skill_invoke.midao = function(self, data)
-	if self:willShowForAttack() then
-    return true
-  end
-	return false
+	if not self:willShowForAttack() and not self:willShowForDefence() then
+		return false
+	end
+	if not self.player:hasShownOneGeneral() and self.player:isNude() then return false end
+	return true
 end
 
-sgs.ai_skill_suit.midao= function(self)
-  local use = self.player:getTag("MidaoUseData"):toCardUse()
-  local card = use.card
-  local targets = sgs.QList2Table(use.to)
-  local suit = math.random(0, 3)
-  if card:isKindOf("Slash") then--杀激昂和仁王盾
-    for _,p in ipairs(targets) do
-      if p:hasShownSkills("jiang") then
-        suit = math.random(0, 1)
-      end
-    end
-    for _,p in ipairs(targets) do
-      if p:hasArmorEffect("RenwangShield") then
-        suit = math.random(2, 3)
-      end
-    end
-  end
-  if card:isKindOf("TrickCard") then--锦囊帷幕
-    for _,p in ipairs(targets) do
-      if p:hasShownSkills("weimu") and self:isFriend(p) then
-        suit = math.random(0, 1)
-      end
-      if p:hasShownSkills("weimu") and not self:isFriend(p) then
-        suit = math.random(2, 3)
-      end
-    end
-  end
-  if (card:isKindOf("Slash") or card:isNDTrick()) then--息兵
-    for _,p in ipairs(targets) do
-      if p:hasShownSkills("xibing") and (self:isFriend(p) or use.to:length() > 1) then
-        suit = math.random(0, 1)
-      end
-      if p:hasShownSkills("xibing") and not self:isFriend(p) and use.to:length() == 1 then
-        suit = math.random(2, 3)
-      end
-    end
-  end
-  if card:isKindOf("BasicCard") or card:isNDTrick() then--贞特
-    for _,p in ipairs(targets) do
-      if p:hasShownSkills("zhente") and not p:setFlags("ZhenteUsed") and self:isFriend(p) then
-        suit = math.random(0, 1)
-      end
-      if p:hasShownSkills("zhente") and not p:setFlags("ZhenteUsed") and not self:isFriend(p) then
-        suit = math.random(2, 3)
-      end
-    end
-  end
-  for _,p in ipairs(targets) do--玉碎
-    if p:hasShownSkills("yusui") and not self:isFriend(p) then
-      suit = math.random(2, 3)
-    end
-  end
-
-	return suit
+sgs.ai_skill_exchange._midao = function(self,pattern,max_num,min_num,expand_pile)
+	local discards = {}
+	local cards = self.player:getCards("he")
+	cards = sgs.QList2Table(cards)
+	self:sortByKeepValue(cards)
+	local need_spade,need_club,need_heart = false,false,false
+	for _, player in sgs.qlist(self.room:getAllPlayers()) do
+		if self:getFinalRetrial(to) == 1 then
+			if player:containsTrick("lightning") then
+				need_spade = true
+			end
+			if self:isFriend(player) and self:willSkipDrawPhase(player) then
+				need_club = true
+			end
+			if self:isFriend(player) and self:willSkipPlayPhase(player) then
+				need_heart = true
+			end
+		end
+	end
+	for _, card in ipairs(cards) do
+		if need_spade and (card:getSuit() == sgs.Card_Spade and card:getNumber() >= 2 and card:getNumber() <= 9) then
+			if #discards < 2 then
+				table.insert(discards, card:getEffectiveId())
+			end
+			need_spade = false
+		elseif need_club and card:getSuit() == sgs.Card_Club then
+			if #discards < 2 then
+				table.insert(discards, card:getEffectiveId())
+			end
+			need_club = false
+		elseif need_heart and card:getSuit() == sgs.Card_Heart then
+			if #discards < 2 then
+				table.insert(discards, card:getEffectiveId())
+			end
+			need_heart = false
+		end
+	end
+	if #discards < 2 then
+		local card_ids = self:askForDiscard("dummy_reason", 2-#discards, 2-#discards, false, true)
+		for _, card_id in ipairs(card_ids) do
+			table.insert(discards, card_id)
+		end
+	end
+	return discards
 end
 
-sgs.ai_skill_choice.midao = function(self, choices, data)
-  local use = self.player:getTag("MidaoUseData"):toCardUse()
-  local card = use.card
-  local from = use.from
-  local targets = sgs.QList2Table(use.to)
-  local fire_value, thunder_value, normal_value = 0,0,0
-  for _,p in ipairs(targets) do
-    if self:damageIsEffective(p, sgs.DamageStruct_Normal, from) then
-      normal_value = normal_value + (self:isFriend(p) and -1 or 1)-- exp and x or y 和 exp ? x : y 等价
-    end
-    if self:damageIsEffective(p, sgs.DamageStruct_Fire, from) then
-      fire_value = fire_value + (self:isFriend(p) and -1 or 1)
-    end
-    if self:damageIsEffective(p, sgs.DamageStruct_Thunder, from) then
-      thunder_value = thunder_value + (self:isFriend(p) and -1 or 1)
-    end
-    if p:hasArmorEffect("Vine") then
-      fire_value = fire_value + (self:isFriend(p) and -2 or 2)
-    end
-    if p:hasArmorEffect("IronArmor") and card:isKindOf("Slash") then
-      fire_value = fire_value + (self:isFriend(p) and 2 or -2)
-    end
-    if p:isChained() then
-      fire_value = fire_value + (self:isFriend(p) and -0.5 or 0.5)--考虑全场的连环角色！
-      thunder_value = thunder_value + (self:isFriend(p) and -0.5 or 0.5)
-    end
-  end
-  Global_room:writeToConsole("米道火:"..fire_value.." 雷:"..thunder_value.." 普通:"..normal_value)
-  if thunder_value >= fire_value and thunder_value >= normal_value then--优先雷防明光铠，是否应该把普放第一？
-    return "thunder"
-  end
-  if normal_value >= fire_value and normal_value >= thunder_value then
-    return "normal"
-  end
-  if fire_value >= normal_value and fire_value >= thunder_value then
-    return "fire"
-  end
-  return "normal"
-end
-
-sgs.ai_skill_exchange["midao"] = function(self,pattern,max_num,min_num,expand_pile)
-  if self:getOverflow() < 2 or self.player:isKongcheng() then
-    return {}
-  end
-  local use = self.player:getTag("MidaoUseData"):toCardUse()
-  local card = use.card
-  local targets = sgs.QList2Table(use.to)--可以细化对目标效果不好时改属性？
-  if card:isKindOf("Analeptic") and self:getCardsNum("Slash") > 0 and self:slashIsAvailable() then--酒有杀不给
-    return {}
-  end
-  --[[桃使用优先级较低？一般不会再使用其他牌？
-  if card:isKindOf("Peach") then
-  end
-  ]]
-  local zhanglu = sgs.findPlayerByShownSkillName("midao")
-  if self:isFriend(zhanglu) and self:isWeak(zhanglu) then
-    if self.player:getHp() > 1 and self:getCardsNum("Analeptic") > 0 then
-      return self:getCard("Analeptic"):getEffectiveId()
-    end
-    if not self:isWeak() and self:getCardsNum("Peach") > 1 then
-      return self:getCard("Peach"):getEffectiveId()
-    end
-    if self:getCardsNum("Jink") > 1 then
-      return self:getCard("Jink"):getEffectiveId()
-    end
-  end
-  local cards = self.player:getCards("h")-- 获得所有手牌
-  cards=sgs.QList2Table(cards) -- 将列表转换为表
-  self:sortByUseValue(cards,true)
-  return cards[1]:getEffectiveId()
+sgs.ai_skill_cardask["@midao-card"] = function(self, data)
+	--@midao-card:sgs7:midao:indulgence:99
+	local judge = data:toJudge()
+	local who = judge.who
+	
+	local rices = self.player:getPile("rice")
+	if rices:isEmpty() then return "." end
+	
+	local cards = {}
+	for _,id in sgs.qlist(rices)do
+		local card = sgs.Sanguosha:getCard(id)
+		table.insert(cards, card)
+	end
+	local card_id = self:getRetrialCardId(cards, judge)
+	if card_id == -1 then
+		if self:needRetrial(judge) and judge.reason ~= "beige" then
+			if self:getUseValue(judge.card) >= 6 or self:getKeepValue(judge.card) >= 4.1 then
+				return "$" .. cards[1]:getId()
+			end
+		end
+	elseif self:needRetrial(judge) or self:getUseValue(judge.card) >= 6 or self:getKeepValue(judge.card) >= 4.1 then
+		local card = sgs.Sanguosha:getCard(card_id)
+		return "$" .. card_id
+	end
+	return "."
 end
 
 --糜芳＆傅士仁
@@ -722,6 +676,7 @@ sgs.ai_skill_use_func.ZaoyunCard= function(card, use, self)
 end
 
 --徐庶
+--[[
 sgs.ai_skill_invoke.pozhen = function(self, data)
   local target = data:toPlayer()
   local has_attack_skill = target:hasSkills("luanji|shuangxiong")
@@ -773,6 +728,36 @@ sgs.ai_skill_invoke.jiancai = function(self, data)
     end
   end
 	return false
+end
+]]
+
+
+--徐庶
+
+--player->askForSkillInvoke(this, data)
+sgs.ai_skill_invoke.qiance = function(self, data)
+	if not self:willShowForAttack() then return false end
+	
+	
+	
+	
+	return true
+end
+
+--room->askForChoice(player, "qiance", "yes+no", data, "@qiance:" + ask_who->objectName()) == "yes"
+sgs.ai_skill_choice["qiance"] = function(self, choices, data)
+	
+	
+	return "yes"
+end
+
+--player->tag["jujianDyingdata"] = data;
+--bool invoke = player->askForSkillInvoke(this, QVariant::fromValue(dying.who));
+sgs.ai_skill_invoke.jujian = function(self, data)
+	local dying = self.player:getTag("jujianDyingdata"):toDying()
+	
+	
+	return dying.who and self.player:isFriendWith(dying.who)
 end
 
 --吴景
@@ -1180,7 +1165,7 @@ sgs.ai_skill_cardask["@shilu"] = function(self, data, pattern, target, target2, 
 
   local xiongnve_nolimit = false
   self.xiongnve_choice = nil
-  local name = sgs.ai_skill_choice.xiongnve_attack(self, self.player:property("massacre_pile"):toString())
+  local name = sgs.ai_skill_choice.xiongnve_attack(self, table.concat(self.player:getGeneralPile("massacre"), "+"))
   if name and self.xiongnve_choice == "nolimit" then
     self.xiongnve_choice = nil
     xiongnve_nolimit = true
@@ -1310,7 +1295,7 @@ end
 sgs.ai_skill_invoke.xiongnve = function(self, data)
   if data:toString() == "attack" then
     self.xiongnve_choice = nil
-    local name = sgs.ai_skill_choice.xiongnve_attack(self, self.player:property("massacre_pile"):toString())
+    local name = sgs.ai_skill_choice.xiongnve_attack(self, table.concat(self.player:getGeneralPile("massacre"), "+"))
     if name and self.xiongnve_choice then
       Global_room:writeToConsole("凶虐进攻选择:"..name.."|"..self.xiongnve_choice)
       return true
@@ -1330,7 +1315,7 @@ sgs.ai_skill_invoke.xiongnve = function(self, data)
       return true
     end
     local useless_num = 0
-    local generals = self.player:property("massacre_pile"):toString():split("+")
+    local generals = self.player:getGeneralPile("massacre")
     local xiongnve_kingdom = {["wei"] = {}, ["shu"] = {}, ["wu"] = {}, ["qun"] = {}, ["careerist"] = {}, ["double"] = {}}
     for _, name in ipairs(generals) do
       local general = sgs.Sanguosha:getGeneral(name)
@@ -1922,6 +1907,7 @@ sgs.ai_skill_exchange["_jinfa"] = function(self,pattern,max_num,min_num,expand_p
 end
 
 --彭羕
+--[[
 sgs.ai_skill_cardask["@daming"] = function(self, data, pattern, target, target2)
   local friend = self.room:getCurrent()
 	local cards = self.player:getCards("h")
@@ -2054,6 +2040,16 @@ sgs.daming_keep_value = {
   Indulgence = 5.6,
   SupplyShortage = 5.3,
 }
+]]
+
+
+
+
+
+
+
+
+
 
 --苏飞
 sgs.ai_skill_playerchosen.lianpian = function(self, targets)
@@ -2412,7 +2408,7 @@ sgs.ai_skill_use_func.ImperialEdictTrickCard = function(card, use, self)
   use.card = card
 end
 
-sgs.ai_use_priority.ImperialEdictTrickCard = 2
+sgs.ai_use_priority.ImperialEdictTrickCard = 10
 
 local imperialedictattach_skill = {}
 imperialedictattach_skill.name = "imperialedictattach"

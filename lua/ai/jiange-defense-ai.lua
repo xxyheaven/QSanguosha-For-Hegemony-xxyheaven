@@ -405,3 +405,104 @@ sgs.ai_trick_prohibit.jgjiguan = function(self, card, to, from)
 	end
 end
 ]]
+
+
+
+--room->setPlayerProperty(player, "jgkeding_available_targets", available_targets.join("+"));
+--player->tag["jgkeding-use"] = data;
+--const Card *card = room->askForUseCard(player, "@@jgkeding", "@jgkeding:::" + use.card->objectName(), -1, Card::MethodDiscard);
+
+sgs.ai_skill_use["@@jgkeding"] = function(self, prompt, method)
+	--local use = self.player:getTag("jgkeding-use"):toCardUse()
+	--local list = self.player:property("jgkeding_available_targets"):toString():split("+")
+	
+	
+	
+	
+	
+end
+
+sgs.ai_skill_invoke.jglongwei = function(self, data)
+	local target = data:toPlayer()
+	if target:getHp() < 0 then return true end
+	local x = self:getCardsNum("Peach")
+	if target == self.player then
+		x = x + self:getCardsNum("Analeptic")
+	end
+	return (x == 0)
+end
+
+sgs.ai_skill_invoke.jgbashi = function(self, data)
+	local use = data:toCardUse()
+	local card = use.card
+	if card:isKindOf("Slash") then
+		if self:slashProhibit(card, self.player, use.from) or not self:isWeak() then return false end
+		local nature = sgs.Slash_Natures[card:getClassName()]
+		if not self:damageIsEffective(self.player, nature, use.from) then return false
+		elseif self:needToLoseHp(self.player, use.from, true) then return false
+		elseif self:needDamagedEffects(self.player, use.from, true) then return false end
+		
+		for _, jink in ipairs(self:getCards("Jink")) do
+			if self.room:isJinkEffected(self.player, jink) then
+				return false
+			end
+		end
+		return true
+	end
+	if card:isNDTrick() and self:trickIsEffective(card, self.player, use.from) then
+		if card:isKindOf("AOE") then
+			if not self:aoeIsEffective(card, self.player, use.from) then return false end
+			if card:isKindOf("ArcheryAttack") and self:getCardsNum("Jink") >= 1 then
+				return false
+			end
+			if card:isKindOf("SavageAssault") and self:getCardsNum("Slash") >= 1 then
+				return false
+			end
+			return self:isWeak()
+		end
+		if card:isKindOf("Duel") then
+			return self:isWeak()
+		end
+		if (card:isKindOf("IronChain") or card:isKindOf("FightTogether")) and not self.player:isChained() then
+			return self:isWeak()
+		end
+		if card:isKindOf("FireAttack") or card:isKindOf("Drowning") then
+			--return self:isWeak()
+		end
+		if card:isKindOf("Snatch") or card:isKindOf("Dismantlement") then
+			return self:getValuableCard(self.player)
+		end
+	end
+	return false
+end
+
+sgs.ai_skill_invoke.jgdanjing = function(self, data)
+
+	return true
+end
+
+local jiaoxie_skill = {}
+jiaoxie_skill.name = "jgjiaoxie"
+table.insert(sgs.ai_skills, jiaoxie_skill)
+jiaoxie_skill.getTurnUseCard = function(self)
+	if self.player:hasUsed("JGJiaoxieCard") then return end
+	return sgs.Card_Parse("@JGJiaoxieCard=.&jgjiaoxie")
+end
+
+sgs.ai_skill_use_func.JGJiaoxieCard = function(card, use, self)
+	local targets = {}
+    for _, p in sgs.qlist(self.room:getAlivePlayers()) do
+		if not self.player:isFriendWith(p) and string.find(p:getGeneral():objectName(), "machine") and not p:isNude() then
+			table.insert(targets, p)
+		end
+	end
+	self:sort(targets, "handcard")
+	use.card = card
+	if use.to then
+		for _, p in ipairs(targets) do
+			use.to:append(p)
+		end
+	end
+end
+
+sgs.ai_use_priority.JGJiaoxieCard = 9.31

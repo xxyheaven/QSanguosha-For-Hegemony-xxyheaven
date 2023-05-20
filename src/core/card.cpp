@@ -837,7 +837,7 @@ void Card::onUse(Room *room, const CardUseStruct &use) const
                     int num = 0;
                     QList<ServerPlayer *> all_players = room->getAllPlayers(true);
                     foreach (ServerPlayer *p, all_players) {
-                        if (p->hasShownOneGeneral() && p->getRole() != "careerist" && p->getKingdom() == kingdom)
+                        if (p->hasShownOneGeneral() && p->getRole() != "careerist" && p->getSeemingKingdom() == kingdom)
                             num++;
                     }
                     if (num < room->getPlayers().length() / 2)
@@ -894,7 +894,10 @@ void Card::onUse(Room *room, const CardUseStruct &use) const
 void Card::use(Room *room, ServerPlayer *source, QList<ServerPlayer *> &targets) const
 {
     QStringList nullified_list = room->getTag("CardUseNullifiedList").toStringList();
+    QStringList disresponsive_list = tag["CardUseDisresponsiveList"].toStringList();
+
     bool all_nullified = nullified_list.contains("_ALL_TARGETS");
+    bool all_disresponsive = disresponsive_list.contains("_ALL_PLAYERS");
 
     foreach (ServerPlayer *target, targets) {
         CardEffectStruct effect;
@@ -903,6 +906,7 @@ void Card::use(Room *room, ServerPlayer *source, QList<ServerPlayer *> &targets)
         effect.to = target;
         effect.multiple = (targets.length() > 1);
         effect.nullified = (all_nullified || nullified_list.contains(target->objectName()));
+        effect.disresponsive = (all_disresponsive || disresponsive_list.contains(target->objectName()));
 
         QVariantList players;
         for (int i = targets.indexOf(target); i < targets.length(); i++) {
@@ -1180,24 +1184,6 @@ const Card *ArraySummonCard::validate(CardUseStruct &card_use) const
         card_use.from->getRoom()->addPlayerHistory(card_use.from, name);
 
         skill->summonFriends(card_use.from);
-    }
-    return NULL;
-}
-
-ShowDistanceCard::ShowDistanceCard()
-    : SkillCard()
-{
-    mute = true;
-    target_fixed = true;
-    handling_method = Card::MethodNone;
-}
-
-const Card *ShowDistanceCard::validate(CardUseStruct &card_use) const
-{
-    QString skill_name = showSkill();   //damn it again!
-    const Skill *skill = Sanguosha->getSkill(skill_name);
-    if (skill) {
-        card_use.from->showGeneral(card_use.from->inHeadSkills(skill));
     }
     return NULL;
 }

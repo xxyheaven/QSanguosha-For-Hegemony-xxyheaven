@@ -72,7 +72,7 @@ struct CardEffectStruct
 
     bool multiple; // helper to judge whether the card has multiple targets
     // does not make sense if the card inherits SkillCard
-    bool nullified;
+    bool nullified, disresponsive;
 };
 
 struct SlashEffectStruct
@@ -117,7 +117,9 @@ struct CardUseStruct
     bool m_isOwnerUse;
     bool m_addHistory;
     bool m_isHandcard;
-    QStringList nullified_list;
+    QStringList nullified_list, disresponsive_list;
+
+    int index;
 };
 
 class CardMoveReason
@@ -605,6 +607,7 @@ enum TriggerEvent
     CardUsed,
     TargetChoosing, //distinguish "choose target" and "confirm target"
     TargetConfirming,
+    TargetRecord,
     TargetChosen,
     TargetConfirmed,
     CardEffect,
@@ -625,7 +628,9 @@ enum TriggerEvent
     GeneralShowed, // For Official Hegemony mode
     GeneralHidden, // For Official Hegemony mode
     GeneralRemoved, // For Official Hegemony mode
+
     GeneralTransforming, // For Official Hegemony mode
+    GeneralTransformed,
 
     CommandVerifying,
 
