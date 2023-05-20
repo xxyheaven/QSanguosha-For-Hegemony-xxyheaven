@@ -111,6 +111,8 @@ public:
     virtual bool isAvailable(const Player *player) const;
     virtual void onUse(Room *room, const CardUseStruct &card_use) const;
     virtual void onEffect(const CardEffectStruct &effect) const;
+
+    virtual QStringList checkTargetModSkillShow(const CardUseStruct &use) const;
 };
 
 #endif

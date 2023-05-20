@@ -173,9 +173,6 @@ public:
 
     bool isResponseOrUse() const;
     QString getExpandPile() const;
-	
-    virtual QStringList getViewAsCardNames(const QList<const Card *> &selected = QList<const Card *>()) const;
-    virtual bool isEnabledtoViewAsCard(const QString &button_name = QString(), const QList<const Card *> &selected = QList<const Card *>()) const;
 };
 
 class LuaViewAsSkill: public ViewAsSkill {
@@ -193,8 +190,6 @@ public:
     LuaFunction enabled_at_play;
     LuaFunction enabled_at_response;
     LuaFunction enabled_at_nullification;
-    LuaFunction vs_card_names;
-    LuaFunction enabled_to_vs_card;
     LuaFunction in_pile;
 };
 
@@ -1467,75 +1462,11 @@ QString LuaViewAsSkill::getExpandPile() const
     int error = lua_pcall(L, 1, 1, 0);
     if (error) {
         Error(L);
-        return QString();
+        return false;
     } else {
         const char *result = lua_tostring(L, -1);
         lua_pop(L, 1);
         return QString(QLatin1String(result));
-    }
-}
-
-QStringList LuaViewAsSkill::getViewAsCardNames(const QList<const Card *> &cards) const
-{
-    if (vs_card_names == 0)
-        return ViewAsSkill::getViewAsCardNames(cards);
-
-    lua_State *L = Sanguosha->getLuaState();
-
-    lua_rawgeti(L, LUA_REGISTRYINDEX, vs_card_names);
-
-    pushSelf(L);
-
-    lua_createtable(L, cards.length(), 0);
-    for (int i = 0; i < cards.length(); ++i) {
-        const Card *card = cards[i];
-        SWIG_NewPointerObj(L, card, SWIGTYPE_p_Card, 0);
-        lua_rawseti(L, -2, i + 1);
-    }
-
-    int error = lua_pcall(L, 2, 1, 0);
-    if (error) {
-        Error(L);
-        return ViewAsSkill::getViewAsCardNames(cards);
-    } else {
-        QString card_list_str = lua_tostring(L, -1);
-        lua_pop(L, 1);
-		if (card_list_str.isEmpty())
-			return QStringList();
-
-        QStringList card_list = card_list_str.split("+");
-        return card_list;
-    }
-}
-
-bool LuaViewAsSkill::isEnabledtoViewAsCard(const QString &button_name, const QList<const Card *> &selected) const
-{
-    if (enabled_to_vs_card == 0)
-        return ViewAsSkill::isEnabledtoViewAsCard(button_name, selected);
-
-    lua_State *L = Sanguosha->getLuaState();
-
-    lua_rawgeti(L, LUA_REGISTRYINDEX, enabled_to_vs_card);
-
-    pushSelf(L);
-
-    lua_pushstring(L, button_name.toLatin1());
-
-    lua_createtable(L, selected.length(), 0);
-    for (int i = 0; i < selected.length(); ++i) {
-        const Card *card = selected[i];
-        SWIG_NewPointerObj(L, card, SWIGTYPE_p_Card, 0);
-        lua_rawseti(L, -2, i + 1);
-    }
-
-    int error = lua_pcall(L, 3, 1, 0);
-    if (error) {
-        Error(L);
-        return false;
-    } else {
-        bool result = lua_toboolean(L, -1);
-        lua_pop(L, 1);
-        return result;
     }
 }
 

@@ -233,11 +233,6 @@ QMap<QString, QList<int> > TrustAI::askForMoveCards(const QList<int> &, const QL
     return returns;
 }
 
-int TrustAI::askForTransferFieldCards(const QList<ServerPlayer *> , const QString &, bool , bool )
-{
-    return -1;
-}
-
 const Card *TrustAI::askForNullification(const Card *, ServerPlayer *, ServerPlayer *, bool)
 {
     return NULL;
@@ -248,7 +243,7 @@ int TrustAI::askForCardChosen(ServerPlayer *, const QString &, const QString &, 
     return -1;
 }
 
-QList<int> TrustAI::askForCardsChosen(ServerPlayer *, const QString &, const QString &, int , int , Card::HandlingMethod , const QList<int> &)
+QList<int> TrustAI::askForCardsChosen(const QList<ServerPlayer *> &, const QString &, const QString &, int, int, const QList<int> &)
 {
     return QList<int>();
 }

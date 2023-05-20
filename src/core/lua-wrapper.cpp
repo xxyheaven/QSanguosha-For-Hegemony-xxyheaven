@@ -71,7 +71,7 @@ LuaFixCardSkill::LuaFixCardSkill(const char *name)
 
 LuaViewAsSkill::LuaViewAsSkill(const char *name, const char *response_pattern, bool response_or_use, const char *expand_pile, const char *limit_mark)
     : ViewAsSkill(name), view_filter(0), view_as(0),
-    enabled_at_play(0), enabled_at_response(0), enabled_at_nullification(0), vs_card_names(0), enabled_to_vs_card(0), in_pile(0)
+    enabled_at_play(0), enabled_at_response(0), enabled_at_nullification(0), in_pile(0)
 {
     this->response_pattern = response_pattern;
     this->response_or_use = response_or_use;

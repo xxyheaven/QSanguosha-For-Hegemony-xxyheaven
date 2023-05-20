@@ -269,6 +269,15 @@ DelayedTrick::DelayedTrick(Suit suit, int number, bool movable)
     judge.negative = true;
 }
 
+void DelayedTrick::onUse(Room *room, const CardUseStruct &card_use) const
+{
+    CardUseStruct use = card_use;
+    WrappedCard *wrapped = Sanguosha->getWrappedCard(this->getEffectiveId());
+    use.card = wrapped;
+
+    Card::onUse(room, use);
+}
+
 void DelayedTrick::use(Room *room, ServerPlayer *source, QList<ServerPlayer *> &targets) const
 {
     if (room->getCardPlace(getEffectiveId()) != Player::PlaceTable || targets.isEmpty()) return;

@@ -157,17 +157,12 @@ public:
     LuaFunction enabled_at_play;
     LuaFunction enabled_at_response;
     LuaFunction enabled_at_nullification;
-    LuaFunction vs_card_names;
-    LuaFunction enabled_to_vs_card;
     LuaFunction in_pile;
 
     virtual bool isEnabledAtPlay(const Player *player) const;
     virtual bool isEnabledAtResponse(const Player *player, const QString &pattern) const;
     virtual bool isEnabledAtNullification(const ServerPlayer *player) const;
     virtual QString getExpandPile() const;
-
-    virtual QStringList getViewAsCardNames(const QList<const Card *> &selected = QList<const Card *>()) const;
-    virtual bool isEnabledtoViewAsCard(const QString &button_name = QString(), const QList<const Card *> &selected = QList<const Card *>()) const;
 
 protected:
     QString guhuo_type;

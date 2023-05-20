@@ -98,9 +98,6 @@ const char *QSanRoomSkin::S_SKIN_KEY_HEAD_ICON = "headIcon";
 const char *QSanRoomSkin::S_SKIN_KEY_DEPUTY_ICON = "deputyIcon";
 const char *QSanRoomSkin::S_SKIN_KEY_DISABLE_SHOW_LOCK = "%1DisableShowLock";
 const char *QSanRoomSkin::S_SKIN_KEY_SKILL_NAME_BG = "skillNameBg";
-const char *QSanRoomSkin::S_SKIN_KEY_GENERAL_CARD_BG = "generalCardBg";
-const char *QSanRoomSkin::S_SKIN_KEY_GENERAL_CARD_KINGDOM = "generalCardKingdom-%1";
-const char *QSanRoomSkin::S_SKIN_KEY_GENERAL_CARD_MAGATAMAS = "generalCardMagatamas-%1-%2";
 
 //CardContainer
 const char *QSanRoomSkin::S_SKIN_KEY_CARD_CONTAINER_TOP = "cardContainerTop";
@@ -128,9 +125,6 @@ const char *QSanRoomSkin::S_SKIN_KEY_GENERAL_CARD_ITEM_COMPANION_ICON = "general
 
 //TablePile
 const char *QSanRoomSkin::S_SKIN_KEY_TABLE_BG_BATTLE = "tableBgBattle";
-
-const char *QSanRoomSkin::S_SKIN_KEY_CARD_ITEM_SMALL_CARDS = "cardItemSmallCards-%1";
-const char *QSanRoomSkin::S_SKIN_KEY_CARD_ITEM_CHECK = "cardItemCheck";
 
 QSanSkinFactory *QSanSkinFactory::_sm_singleton = NULL;
 QHash<QString, int *> IQSanComponentSkin::QSanSimpleTextFont::_m_fontBank;
@@ -396,71 +390,14 @@ QPixmap QSanRoomSkin::getCardMainPixmap(const QString &cardName) const
 
 QPixmap QSanRoomSkin::getGeneralCardPixmap(const QString generalName, const int skinId) const
 {
-    QString id = QString::number(skinId);
-    QString key = S_SKIN_KEY_GENERAL_CARD;
-    bool addDefaultArg = true;
+    const QString id = QString::number(skinId);
+    const QString key = S_SKIN_KEY_GENERAL_CARD;
     if (isImageKeyDefined(key.arg(id).arg(generalName))
         || isImageKeyDefined(key.arg(id).arg(S_SKIN_KEY_DEFAULT))) {
-        key = key.arg(id);
-        id.clear();
-        addDefaultArg = false;
+        return getPixmap(key.arg(id), generalName);
+    } else {
+        return getPixmap(key, generalName, id, true);
     }
-
-    QPixmap pixmap(_m_commonLayout.m_generalCardSize);
-    pixmap.fill(Qt::transparent);
-
-    QPainter painter(&pixmap);
-
-    painter.drawPixmap(0, 0, getPixmap(key, generalName, id, addDefaultArg));
-    painter.drawPixmap(0, 0, getPixmap(S_SKIN_KEY_GENERAL_CARD_BG));
-
-    const General *general = Sanguosha->getGeneral(generalName);
-    if (general) {
-        QString kingdom = general->getKingdom();        
-        if (kingdom != "god") {
-            if (general->isLord())
-                kingdom = "lord";
-            QRect kingdom_rect = _m_commonLayout.m_generalCardKingdomArea;
-            if (general->isDoubleKingdoms()) {
-                QString kingdom2 = general->getSubordinateKingdom();
-                kingdom_rect.setSize(QSize(kingdom_rect.width()*2/3, kingdom_rect.height()*2/3));
-                painter.drawPixmap(kingdom_rect.translated(kingdom_rect.width()/2, kingdom_rect.height()/2), getPixmap(S_SKIN_KEY_GENERAL_CARD_KINGDOM, kingdom2));
-            }
-
-            painter.drawPixmap(kingdom_rect, getPixmap(S_SKIN_KEY_GENERAL_CARD_KINGDOM, kingdom));
-        }
-
-        int x = general->getDoubleMaxHp();
-        QRect magatamas_rect = _m_commonLayout.m_generalCardMagatamasArea;
-        int width = _m_commonLayout.m_generalCardDoubleMagatamasWidth;
-        for (int i = 0; i < x; i++) {
-            QString key1 = kingdom, key2 = "l";
-            if (i % 2 == 0) {
-                if (i > 0)
-                    magatamas_rect.translate(magatamas_rect.width(), 0);
-            } else {
-                magatamas_rect.translate(width - magatamas_rect.width(), 0);
-                if (general->isDoubleKingdoms()) {
-                    key1 = general->getSubordinateKingdom();
-                }
-                key2 = "r";
-            }
-            if (key1 == "god")
-                key1 = "lord";
-            painter.drawPixmap(magatamas_rect,
-                    getPixmap(S_SKIN_KEY_GENERAL_CARD_MAGATAMAS, key1, key2, true));
-        }
-
-        QString name = Sanguosha->translate("&" + generalName);
-        if (name.startsWith("&"))
-            name = Sanguosha->translate(generalName);
-
-        _m_commonLayout.m_generalCardNameFont.paintText(&painter, _m_commonLayout.m_generalCardNameArea,
-                Qt::AlignLeft | Qt::AlignJustify, name);
-
-    }
-
-    return pixmap;
 }
 
 QPixmap QSanRoomSkin::getCardSuitPixmap(Card::Suit suit) const
@@ -1053,13 +990,6 @@ bool QSanRoomSkin::_loadLayoutConfig(const QVariant &layout)
     tryParse(config["chooseGeneralBoxSparseIconSize"], _m_commonLayout.m_chooseGeneralBoxSparseIconSize);
     tryParse(config["tinyAvatarSize"], _m_commonLayout.m_tinyAvatarSize);
     _m_commonLayout.m_cardFootnoteFont.tryParse(config["cardFootnoteFont"]);
-
-    tryParse(config["generalCardSize"], _m_commonLayout.m_generalCardSize);
-    tryParse(config["generalCardKingdomArea"], _m_commonLayout.m_generalCardKingdomArea);
-    tryParse(config["generalCardNameArea"], _m_commonLayout.m_generalCardNameArea);
-    _m_commonLayout.m_generalCardNameFont.tryParse(config["generalCardNameFont"]);
-    tryParse(config["generalCardMagatamasArea"], _m_commonLayout.m_generalCardMagatamasArea);
-    tryParse(config["generalCardDoubleMagatamasWidth"], _m_commonLayout.m_generalCardDoubleMagatamasWidth);;
 
     tryParse(config["promptInfoSize"], _m_commonLayout.m_promptInfoSize);
     _m_commonLayout.m_promptInfoFont.tryParse(config["promptInfoFont"]);

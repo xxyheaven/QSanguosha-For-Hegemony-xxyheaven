@@ -41,7 +41,6 @@ public:
     void removeVisibleCards(const QList<int> &card_ids);
     QTextDocument *getMarkDoc() const;
     void changePile(const QString &name, bool add, QList<int> card_ids);
-    void changeGeneralPile(const QString &pile_name, const QStringList &general_names);
     QString getDeathPixmapPath() const;
     void setHandcardNum(int n);
     virtual QString getGameMode() const;
@@ -66,7 +65,7 @@ private:
     QTextDocument *mark_doc;
 
 signals:
-    void pile_changed(const QString &name, bool is_card_pile = true);
+    void pile_changed(const QString &name);
     void count_changed(const QString &name, int value);
     void tip_changed(const QString &name, bool is_add = false);
     void drank_changed();

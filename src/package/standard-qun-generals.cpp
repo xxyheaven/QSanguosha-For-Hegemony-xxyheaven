@@ -84,13 +84,9 @@ void ChuliCard::use(Room *room, ServerPlayer *player, QList<ServerPlayer *> &tar
             int to_throw = room->askForCardChosen(player, p, "he", "chuli", false, Card::MethodDiscard);
             CardMoveReason reason(CardMoveReason::S_REASON_DISMANTLE, player->objectName(), p->objectName(), "chuli", QString());
             CardsMoveStruct dis_move(to_throw, NULL, Player::DiscardPile, reason);
-            QVariant data = room->moveCardsSub(dis_move, true);
-
-            QVariantList move_datas = data.toList();
-
+            QList<CardsMoveOneTimeStruct> moveOneTimes = room->moveCardsSub(dis_move, true);
             bool is_spade = false;
-            foreach (QVariant move_data, move_datas) {
-                CardsMoveOneTimeStruct move = move_data.value<CardsMoveOneTimeStruct>();
+            foreach (CardsMoveOneTimeStruct move, moveOneTimes) {
                 if (move.from == p && move.reason.m_reason == CardMoveReason::S_REASON_DISMANTLE) {
                     for (int i = 0; i < move.card_ids.length(); ++i) {
                         const Card *card = Card::Parse(move.cards.at(i));
@@ -150,12 +146,17 @@ public:
         if (triggerEvent == TargetChosen) {
             if (use.card && (use.card->isKindOf("Slash") || use.card->isKindOf("Duel"))) {
                 if (TriggerSkill::triggerable(player)) {
-                    ServerPlayer *target = use.to.at(use.index);
-                    if (target != NULL)
-                        return QStringList(objectName() + "->" + target->objectName());
+                    QStringList targets;
+                    foreach(ServerPlayer *to, use.to)
+                        targets << to->objectName();
+                    if (!targets.isEmpty())
+                        return QStringList(objectName() + "->" + targets.join("+"));
                 }
             }
         } else if (triggerEvent == TargetConfirmed) {
+            if (!use.to.contains(player))
+                return QStringList();
+
             if (use.card && use.card->isKindOf("Duel") && TriggerSkill::triggerable(player)) {
                 return QStringList(objectName() + "->" + use.from->objectName());
             }
@@ -166,6 +167,10 @@ public:
                 if (!targets.isEmpty()) {
                     if (!use.card->isVirtualCard() || use.card->getSubcards().isEmpty())
                         return QStringList(objectName());
+                    else if (use.card->getSubcards().length() == 1) {
+                        if (Sanguosha->getCard(use.card->getEffectiveId())->objectName() == use.card->objectName())
+                            return QStringList(objectName());
+                    }
                 }
             }
         }
@@ -184,7 +189,6 @@ public:
 
         ask_who->tag.remove("WushuangData");
         if (invoke) {
-            room->doAnimate(QSanProtocol::S_ANIMATE_INDICATE, ask_who->objectName(), target->objectName());
             room->broadcastSkillInvoke(objectName(), ask_who);
             return true;
         }
@@ -382,7 +386,8 @@ public:
 
     virtual bool viewFilter(const QList<const Card *> &selected, const Card *to_select) const
     {
-        return selected.length() < 2 && !to_select->isEquipped() && Self->getMark("luanji_used_" + to_select->getSuitString()) == 0;
+        QStringList luanji_suits = Self->property("luanjiUsedSuits").toString().split("+");
+        return selected.length() < 2 && !to_select->isEquipped() && !luanji_suits.contains(to_select->getSuitString());
     }
 
     virtual const Card *viewAs(const QList<const Card *> &cards) const
@@ -412,22 +417,21 @@ public:
         if (triggerEvent == PreCardUsed) {
             CardUseStruct use = data.value<CardUseStruct>();
             if (use.card && use.card->getSkillName() == objectName()) {
+                QStringList luanji_suits = player->property("luanjiUsedSuits").toString().split("+");
                 QList<int> ids = use.card->getSubcards();
                 foreach (int id, ids) {
                     const Card *card = Sanguosha->getCard(id);
-                    QString suit_str = card->getSuitString();
-                    room->addPlayerMark(player, "luanji_used_" + suit_str);
+                    QString suitstr = card->getSuitString();
+                    if (!luanji_suits.contains(suitstr))
+                        luanji_suits << suitstr;
                 }
-                refreshLuanjiMark(room, player);
+                room->setPlayerProperty(player, "luanjiUsedSuits", luanji_suits.join("+"));
+
+
             }
         } else if (triggerEvent == EventPhaseChanging) {
             if (data.value<PhaseChangeStruct>().from == Player::Play) {
-
-                foreach (QString mark_name, player->getMarkNames()) {
-                    if (mark_name.startsWith("luanji_used_") || mark_name.startsWith("##luanji"))
-                        room->setPlayerMark(player, mark_name, 0);
-                }
-
+                room->setPlayerProperty(player, "luanjiUsedSuits", QVariant());
             }
         }
     }
@@ -437,26 +441,6 @@ public:
         return QStringList();
     }
 
-private:
-    static void refreshLuanjiMark(Room *room, ServerPlayer *player)
-    {
-        foreach (QString mark_name, player->getMarkNames()) {
-            if (mark_name.startsWith("##luanji"))
-                room->setPlayerMark(player, mark_name, 0);
-        }
-        QStringList luanji_suits, all_suits;
-
-        all_suits << "spade" << "heart" << "club" << "diamond";
-
-        foreach (QString suit_str, all_suits) {
-            if (player->getMark("luanji_used_" + suit_str) > 0) {
-                luanji_suits << suit_str + "_char";
-            }
-        }
-        if (!luanji_suits.isEmpty())
-            room->setPlayerMark(player, "##luanji+" + luanji_suits.join("+"), 1);
-
-    }
 
 };
 
@@ -850,9 +834,13 @@ public:
     {
         CardUseStruct use = data.value<CardUseStruct>();
         if (TriggerSkill::triggerable(player) && use.card != NULL && use.card->isKindOf("Slash")) {
-            ServerPlayer *target = use.to.at(use.index);
-            if (target != NULL && player->canDiscard(target, "he"))
-                return QStringList(objectName() + "->" + target->objectName());
+            QStringList targets;
+            foreach (ServerPlayer *to, use.to) {
+                if (player->canDiscard(to, "he"))
+                    targets << to->objectName();
+            }
+            if (!targets.isEmpty())
+                return QStringList(objectName() + "->" + targets.join("+"));
         }
         return QStringList();
     }
@@ -884,13 +872,10 @@ public:
 
         CardsMoveStruct dis_move(to_throw, NULL, Player::DiscardPile, reason);
 
-        QVariant m_data = room->moveCardsSub(dis_move, true);
-
-        QVariantList move_datas = m_data.toList();
+        QList<CardsMoveOneTimeStruct> moveOneTimes = room->moveCardsSub(dis_move, true);
 
         QList<const Card *> thrown;
-        foreach (QVariant move_data, move_datas) {
-            CardsMoveOneTimeStruct move = move_data.value<CardsMoveOneTimeStruct>();
+        foreach (CardsMoveOneTimeStruct move, moveOneTimes) {
             if (move.from == target && move.reason.m_reason == CardMoveReason::S_REASON_DISMANTLE) {
                 for (int i = 0; i < move.card_ids.length(); ++i) {
                     const Card *card = Card::Parse(move.cards.at(i));
@@ -1000,7 +985,8 @@ public:
 
         if (target->isKongcheng() && target->getHandPile().isEmpty()) {
             bool has_black = false;
-            foreach (const Card *equip, target->getEquips()) {
+            for (int i = 0; i < 4; i++) {
+                const EquipCard *equip = target->getEquip(i);
                 if (equip && equip->isBlack()) {
                     has_black = true;
                     break;
@@ -1398,6 +1384,45 @@ public:
     }
 };
 
+LirangGiveCard::LirangGiveCard()
+{
+    will_throw = false;
+    handling_method = Card::MethodNone;
+}
+
+void LirangGiveCard::onUse(Room *, const CardUseStruct &card_use) const
+{
+    QStringList targets = card_use.from->tag["lirang_target"].toStringList();
+    QStringList cards = card_use.from->tag["lirang_get"].toStringList();
+    targets << card_use.to.first()->objectName();
+    cards.append((IntList2StringList(this->getSubcards())).join("+"));
+    card_use.from->tag["lirang_target"] = targets;
+    card_use.from->tag["lirang_get"] = cards;
+}
+
+class LirangGive : public ViewAsSkill
+{
+public:
+    LirangGive() : ViewAsSkill("liranggive")
+    {
+        expand_pile = "#lirang";
+        response_pattern = "@@liranggive";
+    }
+
+    virtual bool viewFilter(const QList<const Card *> &, const Card *to_select) const
+    {
+        return Self->getPile("#lirang").contains(to_select->getId());
+    }
+
+    virtual const Card *viewAs(const QList<const Card *> &cards) const
+    {
+        if (cards.isEmpty()) return NULL;
+        LirangGiveCard *Lirang_card = new LirangGiveCard;
+        Lirang_card->addSubcards(cards);
+        return Lirang_card;
+    }
+};
+
 class Lirang : public TriggerSkill
 {
 public:
@@ -1448,6 +1473,7 @@ public:
         QList<int> cards;
         QVariantList move_datas = data.toList();
         foreach (QVariant move_data, move_datas) {
+
             CardsMoveOneTimeStruct move = move_data.value<CardsMoveOneTimeStruct>();
             if (move.from == player && move.to_place == Player::DiscardPile
                     && (move.reason.m_reason & CardMoveReason::S_MASK_BASIC_REASON) == CardMoveReason::S_REASON_DISCARD) {
@@ -1459,11 +1485,43 @@ public:
                         cards << id;
                 }
             }
+
         }
 
-        if (!cards.isEmpty())
-            room->askForRende(player, cards, objectName(), true, false, true, -1, 0,
-                              room->getOtherPlayers(player), CardMoveReason(), "@lirang-give", "#lirang");
+        QList<CardsMoveStruct> moves;
+
+        while (!cards.isEmpty() && player->isAlive()) {
+
+            room->notifyMoveToPile(player, cards, objectName(), Player::PlaceTable, true, true);
+
+            const Card *use = room->askForUseCard(player, "@@liranggive", "@lirang-distribute", -1, Card::MethodNone);
+
+            room->notifyMoveToPile(player, cards, objectName(), Player::DiscardPile, false, false);
+
+            if (use == NULL) break;
+
+            QStringList targets = player->tag["lirang_target"].toStringList();
+            QStringList cards_get = player->tag["lirang_get"].toStringList();
+            QList<int> get = StringList2IntList(cards_get.last().split("+"));
+            ServerPlayer *target = NULL;
+            foreach (ServerPlayer *p, room->getAlivePlayers()) {
+                if (p->objectName() == targets.last())
+                    target = p;
+            }
+            targets.removeLast();
+            cards_get.removeLast();
+            player->tag["lirang_target"] = targets;
+            player->tag["lirang_get"] = cards_get;
+
+            CardMoveReason reason(CardMoveReason::S_REASON_PREVIEWGIVE, player->objectName(), target->objectName(), objectName(), QString());
+            CardsMoveStruct move(get, target, Player::PlaceHand, reason);
+            moves.append(move);
+
+            foreach (int id, get)
+                cards.removeOne(id);
+        }
+
+        room->moveCardsAtomic(moves, true);
 
         return false;
     }
@@ -1686,7 +1744,7 @@ public:
                 || panfeng->getPhase() != Player::Play || panfeng->hasFlag("kuangfuUsed"))
             return QStringList();
         CardUseStruct use = data.value<CardUseStruct>();
-        if (use.card->isKindOf("Slash") && use.index == 0) {
+        if (use.card->isKindOf("Slash")) {
             foreach (ServerPlayer *p, use.to) {
                 if (p->canGetCard(p, "e"))
                     return QStringList(objectName());
@@ -1754,7 +1812,7 @@ public:
         frequency = Compulsory;
     }
 
-    virtual TriggerList triggerable(TriggerEvent , Room *, ServerPlayer *, QVariant &data) const
+    virtual TriggerList triggerable(TriggerEvent , Room *room, ServerPlayer *, QVariant &data) const
     {
         CardUseStruct use = data.value<CardUseStruct>();
         TriggerList skill_list;
@@ -1769,7 +1827,7 @@ public:
         return skill_list;
     }
 
-    virtual bool cost(TriggerEvent, Room *, ServerPlayer *, QVariant &, ServerPlayer *) const
+    virtual bool cost(TriggerEvent, Room *room, ServerPlayer *, QVariant &data, ServerPlayer *player) const
     {
         return true;
     }
@@ -1818,7 +1876,7 @@ public:
             return;
         if ((triggerEvent == GeneralShown || triggerEvent == GeneralHidden) && (!player->ownSkill(this) || player->inHeadSkills(this) != data.toBool()))
             return;
-        if (triggerEvent == GeneralRemoved && data.toString().split(":").first() != "zoushi")
+        if (triggerEvent == GeneralRemoved && data.toString() != "zoushi")
             return;
         if (triggerEvent == EventPhaseStart && !(player->getPhase() == Player::RoundStart || player->getPhase() == Player::NotActive))
             return;
@@ -1878,8 +1936,9 @@ public:
         }
 
         if (use.card->isKindOf("Slash")) {
-            use.disresponsive_list << "_ALL_PLAYERS";
-            data = QVariant::fromValue(use);
+            QStringList NoResponseTag = use.card->tag["NoResponse"].toStringList();
+            NoResponseTag << targets,
+            use.card->setTag("NoResponse", NoResponseTag);
         }
         if (use.card->isKindOf("ArcheryAttack")) {
             QStringList NoResponseTag = use.card->tag["EffectNoResponse"].toStringList();
@@ -2055,7 +2114,10 @@ void StandardPackage::addQunGenerals()
 
     addMetaObject<ChuliCard>();
     addMetaObject<LijianCard>();
+    addMetaObject<LirangGiveCard>();
     addMetaObject<LuanwuCard>();
     addMetaObject<XiongyiCard>();
     addMetaObject<QingchengCard>();
+
+    skills << new LirangGive;
 }

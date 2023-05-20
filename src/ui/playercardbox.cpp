@@ -24,7 +24,6 @@
 #include "engine.h"
 #include "carditem.h"
 #include "client.h"
-#include "button.h"
 #include "timedprogressbar.h"
 
 #include <QGraphicsProxyWidget>
@@ -46,18 +45,14 @@ const int PlayerCardBox::intervalBetweenRows = 5;
 const int PlayerCardBox::intervalBetweenCards = 3;
 
 PlayerCardBox::PlayerCardBox()
-    : player(NULL), confirm(new Button(tr("confirm"), 0.6)), progressBar(NULL),
+    : player(NULL), progressBar(NULL),
     rowCount(0), intervalsBetweenAreas(-1), intervalsBetweenRows(0), maxCardsInOneRow(0)
 {
-    confirm->setEnabled(ClientInstance->getReplayer());
-    confirm->setParentItem(this);
-    connect(confirm, &Button::clicked, this, &PlayerCardBox::reply);
-    confirm->hide();
 }
 
 void PlayerCardBox::chooseCard(const QString &reason, const ClientPlayer *player,
     const QString &flags, bool handcardVisible,
-    Card::HandlingMethod method, const QList<int> &disabledIds, const QList<int> &handcards, int min_num, int max_num)
+    Card::HandlingMethod method, const QList<int> &disabledIds, const QList<int> &handcards)
 {
     nameRects.clear();
     rowCount = 0;
@@ -65,27 +60,10 @@ void PlayerCardBox::chooseCard(const QString &reason, const ClientPlayer *player
     intervalsBetweenRows = 0;
     maxCardsInOneRow = 0;
 
-    this->single_result = false;
-    if (max_num == 0) {
-        min_num = 1;
-        max_num = 1;
-        this->single_result = true;
-    }
-
     this->handcards = handcards;
     this->player = player;
-
-    QString reason_tr = Sanguosha->translate(reason);
-    if (single_result)
-        this->title = tr("%1: please choose %2's card").arg(reason_tr).arg(ClientInstance->getPlayerName(player->objectName()));
-    else if (max_num == min_num)
-        this->title = tr("%1: please choose %2's %3 cards").arg(reason_tr).arg(ClientInstance->getPlayerName(player->objectName())).arg(max_num);
-    else
-        this->title = tr("%1: please choose %2's %3 to %4 cards").arg(reason_tr).arg(ClientInstance->getPlayerName(player->objectName())).arg(min_num).arg(max_num);
-
+    this->title = tr("%1: please choose %2's card").arg(reason).arg(ClientInstance->getPlayerName(player->objectName()));
     this->flags = flags;
-    this->min_num = min_num;
-    this->max_num = max_num;
     bool handcard = false;
     bool equip = false;
     bool judging = false;
@@ -138,14 +116,6 @@ void PlayerCardBox::chooseCard(const QString &reason, const ClientPlayer *player
 
     if (judging)
         arrangeCards(player->getJudgingArea(), QPoint(startX, nameRects.at(index).y()));
-
-    if (min_num == max_num) {
-        confirm->hide();
-    } else {
-        confirm->setPos(boundingRect().center().x() - confirm->boundingRect().width() / 2, boundingRect().height() - ((ServerInfo.OperationTimeout == 0) ? 40 : 60));
-        confirm->show();
-        confirm->setEnabled(false);
-    }
 
     if (ServerInfo.OperationTimeout != 0) {
         if (!progressBar) {
@@ -258,9 +228,6 @@ QRectF PlayerCardBox::boundingRect() const
     if (ServerInfo.OperationTimeout != 0)
         height += 12;
 
-    if (max_num > min_num)
-        height += 30;
-
     return QRectF(0, 0, width, height);
 }
 
@@ -306,7 +273,6 @@ void PlayerCardBox::clear()
     foreach(CardItem *item, items)
         item->deleteLater();
     items.clear();
-    selected.clear();
 
     disappear();
 }
@@ -345,21 +311,14 @@ void PlayerCardBox::arrangeCards(const CardList &cards, const QPoint &topLeft, b
         CardItem *item = new CardItem(card);
         if (handcards.contains(card->getId()) && !handcardVisible && Self != player && !player->getVisiblecards().contains(card))
             item = new CardItem(NULL);
-
-        if (player->getJudgingArea().contains(card) && card->objectName() != item->objectName())
-            item->showSmallCard(card->objectName());
-
         item->setAutoBack(false);
         item->setOuterGlowEffectEnabled(true);
         item->resetTransform();
         item->setParentItem(this);
         item->setFlag(ItemIsMovable, false);
         item->setEnabled(!disabledIds.contains(card->getEffectiveId()));
-
-
-
         if (!is_globalchoose)
-            connect(item, SIGNAL(clicked()), this, SLOT(selectCardItem()));
+            connect(item, SIGNAL(clicked()), this, SLOT(reply()));
         else {
             item->setOpacity(0.9);
             connect(item, SIGNAL(clicked()), this, SLOT(global_click()));
@@ -397,37 +356,18 @@ void PlayerCardBox::arrangeCards(const CardList &cards, const QPoint &topLeft, b
     }
 }
 
-void PlayerCardBox::selectCardItem()
+void PlayerCardBox::reply()
 {
     CardItem *item = qobject_cast<CardItem *>(sender());
 
-    if (selected.contains(item)) {
-        item->setChosen(false);
-        selected.removeOne(item);
-    } else {
-        selected << item;
-        if (selected.length() == max_num) {
-            reply();
-            return;
-        }
-        item->setChosen(true);
-    }
-    confirm->setEnabled(selected.length() >= min_num);
-}
+    int index = items.indexOf(item);
 
-void PlayerCardBox::reply()
-{
-    QList<int> card_ids;
-    foreach(CardItem *item, selected) {
-        int index = items.indexOf(item);
-        int card_id = -2;
-        if (item)
-            card_id = item->getId();
-        if (card_id == Card::S_UNKNOWN_CARD_ID)
-            card_id = handcards.at(index);
-        card_ids << card_id;
-    }
-    ClientInstance->onPlayerChooseCard(card_ids);
+    int id = -2;
+
+    if (item)
+        id = item->getId();
+
+    ClientInstance->onPlayerChooseCard(index, id);
 }
 
 void PlayerCardBox::global_click()

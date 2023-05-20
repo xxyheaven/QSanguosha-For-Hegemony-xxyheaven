@@ -183,20 +183,18 @@ QString TriggerOptionButton::displayedTextOf(const QString &str)
         time = str.split("*").last().toInt();
         skillName = str.split("*").first();
     }
-
-    QString text = Sanguosha->getSkillTranslate(skillName);
-
+    QString text = Sanguosha->translate(skillName);
     if (skillName.contains("->")) { // "tieqi->sgs4&1"
         QString realSkill = skillName.split("->").first(); // "tieqi"
         QString targetObj = skillName.split("->").last().split("&").first(); // "sgs4"
         QString targetName = ClientInstance->getPlayer(targetObj)->getFootnoteName();
-        text = tr("%1 (use upon %2)").arg(Sanguosha->getSkillTranslate(realSkill))
+        text = tr("%1 (use upon %2)").arg(Sanguosha->translate(realSkill))
             .arg(Sanguosha->translate(targetName));
     }
     if (skillName.contains("'")) {
         QString realSkill = skillName.split("'").last();
         QString targetName = ClientInstance->getPlayer(skillName.split("'").first())->getFootnoteName();
-        text = tr("%1 (use upon %2)").arg(Sanguosha->getSkillTranslate(realSkill))
+        text = tr("%1 (use upon %2)").arg(Sanguosha->translate(realSkill))
                 .arg(Sanguosha->translate(targetName));
     }
     if (time > 1)

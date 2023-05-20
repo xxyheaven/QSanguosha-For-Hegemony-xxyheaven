@@ -276,12 +276,7 @@ bool Skill::isEquipskill() const
     return (inherits("WeaponSkill") || inherits("ArmorSkill") || inherits("TreasureSkill"));
 }
 
-bool Skill::buttonVisible(const QString &) const
-{
-    return true;
-}
-
-bool Skill::buttonEnabled(const QString &button_name) const
+bool Skill::buttonEnabled(const QString &button_name, const QList<const Card *> &, const QList<const Player *> &) const
 {
     if (button_name.isEmpty()) {
         if (Sanguosha->currentRoomState()->getCurrentCardUseReason() != CardUseStruct::CARD_USE_REASON_PLAY) {
@@ -314,10 +309,14 @@ bool Skill::buttonEnabled(const QString &button_name) const
 ViewAsSkill::ViewAsSkill(const QString &name)
     : Skill(name), response_pattern(QString()), response_or_use(false), expand_pile(QString())
 {
-
 }
 
 QString ViewAsSkill::getGuhuoBox() const
+{
+    return guhuo_type;
+}
+
+QString TriggerSkill::getGuhuoBox() const
 {
     return guhuo_type;
 }
@@ -367,68 +366,18 @@ const ViewAsSkill *ViewAsSkill::parseViewAsSkill(const Skill *skill)
         const ViewAsSkill *view_as_skill = trigger_skill->getViewAsSkill();
         if (view_as_skill != NULL) return view_as_skill;
     }
-
+    if (skill->inherits("DistanceSkill")) {
+        const DistanceSkill *trigger_skill = qobject_cast<const DistanceSkill *>(skill);
+        Q_ASSERT(trigger_skill != NULL);
+        const ViewAsSkill *view_as_skill = trigger_skill->getViewAsSkill();
+        if (view_as_skill != NULL) return view_as_skill;
+    }
     return NULL;
 }
 
 QString ViewAsSkill::getExpandPile() const
 {
     return expand_pile;
-}
-
-QStringList ViewAsSkill::getViewAsCardNames(const QList<const Card *> &selected) const
-{
-    if (selected.isEmpty() && !inherits("ZeroCardViewAsSkill"))
-        return QStringList();
-
-    QString guhuo_type = getGuhuoBox();
-
-    if (guhuo_type.isEmpty()) return QStringList();
-
-    QStringList names;
-    QList<Card *> cards = Sanguosha->getCards();
-    foreach (const Card *card, cards) {
-        QString name = card->objectName();
-        if (guhuo_type.contains("s")) {
-            if (card->isKindOf("Slash"))
-                name = "slash";
-            if (card->isKindOf("Nullification"))
-                name = "nullification";
-        }
-
-        if (!ServerInfo.Extensions.contains("!" + card->getPackage()) && !names.contains(name)) {
-            if ((guhuo_type.contains("b") && card->isKindOf("BasicCard"))
-                    || (guhuo_type.contains("t") && card->isNDTrick())
-                    || (guhuo_type.contains("d") && card->isKindOf("DelayedTrick")))
-            names << card->objectName();
-        }
-    }
-    return names;
-}
-
-bool ViewAsSkill::isEnabledtoViewAsCard(const QString &button_name, const QList<const Card *> &selected) const
-{
-    Card *card = Sanguosha->cloneCard(button_name, Card::SuitToBeDecided, -1);
-
-    if (card == NULL) return true;
-
-    card->addSubcards(selected);
-
-    if (Sanguosha->currentRoomState()->getCurrentCardUseReason() == CardUseStruct::CARD_USE_REASON_PLAY)
-        return !Self->isCardLimited(card, Card::MethodUse, false) && card->isAvailable(Self);
-    else {
-        QString pattern = Sanguosha->currentRoomState()->getCurrentCardUsePattern();
-        if (pattern.startsWith(".") || pattern.startsWith("@")) {
-            return false;
-        }
-        if (pattern == "slash") {
-            return card->isKindOf("Slash");
-        } else if (pattern == "nullification") {
-            return card->isKindOf("Nullification");
-        } else
-            return pattern.contains(button_name);
-    }
-    return false;
 }
 
 ZeroCardViewAsSkill::ZeroCardViewAsSkill(const QString &name)
@@ -594,11 +543,6 @@ bool TriggerSkill::cost(TriggerEvent, Room *, ServerPlayer *, QVariant &, Server
 bool TriggerSkill::effect(TriggerEvent, Room *, ServerPlayer *, QVariant &, ServerPlayer *) const
 {
     return false;
-}
-
-QString TriggerSkill::getGuhuoBox() const
-{
-    return guhuo_type;
 }
 
 TriggerSkill::~TriggerSkill()
@@ -785,7 +729,33 @@ ProhibitSkill::ProhibitSkill(const QString &name)
 DistanceSkill::DistanceSkill(const QString &name)
     : Skill(name, Skill::Compulsory)
 {
+    //view_as_skill = new ShowDistanceSkill(objectName());
+}
 
+const ViewAsSkill *DistanceSkill::getViewAsSkill() const
+{
+    return view_as_skill;
+}
+
+ShowDistanceSkill::ShowDistanceSkill(const QString &name)
+    : ZeroCardViewAsSkill(name)
+{
+}
+
+const Card *ShowDistanceSkill::viewAs() const
+{
+    SkillCard *card = Sanguosha->cloneSkillCard("ShowMashu");
+    card->setShowSkill(objectName());
+    return card;
+}
+
+bool ShowDistanceSkill::isEnabledAtPlay(const Player *player) const
+{
+    const DistanceSkill *skill = qobject_cast<const DistanceSkill *>(Sanguosha->getSkill(objectName()));
+    if (skill) {
+        if (!player->hasShownSkill(skill->objectName())) return true;
+    }
+    return false;
 }
 
 MaxCardsSkill::MaxCardsSkill(const QString &name)

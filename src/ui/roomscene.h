@@ -38,7 +38,6 @@ class Button;
 class CardContainer;
 class GuanxingBox;
 class CardChooseBox;
-class FieldCardTransferBox;
 class PindianBox;
 class QSanButton;
 class QGroupBox;
@@ -189,7 +188,7 @@ public slots:
     void chooseGeneral(const QStringList &generals, const bool single_result, const bool can_convert, const bool same_kingdom);
     void chooseSuit(const QStringList &suits);
     void chooseCard(const ClientPlayer *playerName, const QString &flags, const QString &reason,
-        bool handcard_visible, Card::HandlingMethod method, QList<int> disabled_ids, QList<int> handcards, int min_num, int max_num);
+        bool handcard_visible, Card::HandlingMethod method, QList<int> disabled_ids, QList<int> handcards);
     void chooseKingdom(const QStringList &kingdoms);
     void chooseOption(const QString &skillName, const QStringList &options, const QStringList &all_options);
     //void chooseOrder(QSanProtocol::Game3v3ChooseOrderCommand reason);
@@ -225,7 +224,6 @@ public slots:
     void resetButton();
     void doCancelButton();
     void doDiscardButton();
-    void doOptionButton();
 
     void doTimeout();
 
@@ -236,8 +234,7 @@ public slots:
 
     void doGongxin(const QList<int> &card_ids, bool enable_heart, QList<int> enabled_ids);
 
-    void showPile(const QList<int> &card_ids, const QString &name);
-    void showGeneralPile(const QStringList &names, const QString &name);
+    void showPile(const QList<int> &card_ids, const QString &nam, const ClientPlayer *target);
     QString getCurrentShownPileName();
     void hidePile();
 
@@ -245,12 +242,11 @@ public slots:
     void onHuashenSkillActivated(const QString &skill_name);
     void onSkillDeactivated();
 
+    void onYiguiPopup();
+
     void clearRemainBox();
 
     void setPromptBoxPos();
-
-    void setOptionButtonsPos();
-    void clearOptionButtons();
 
     void trust();
 
@@ -292,7 +288,6 @@ private:
     TablePile *m_tablePile;
     QMainWindow *main_window;
     QSanButton *ok_button, *cancel_button, *discard_button;
-    QList<QSanButton *> option_buttons;
     QMenu *miscellaneous_menu;
     CardItem *pindian_from_card, *pindian_to_card;
     QGraphicsItem *control_panel;
@@ -320,8 +315,6 @@ private:
     GuanxingBox *m_guanxingBox;
 
     CardChooseBox *m_cardchooseBox;
-
-    FieldCardTransferBox *m_fieldcardtransferBox;
 
     PindianBox *m_pindianBox;
 
@@ -408,10 +401,8 @@ private:
 
     void freeze();
     void addRestartButton(QDialog *dialog);
+    QGraphicsItem *createDashboardButtons();
     void createReplayControlBar();
-    void createDashboardButtons();
-    void showDashboardButtons(bool can_discard = false);
-    void hideDashboardButtons();
 
     void setChatBoxVisible(bool show);
 
@@ -449,6 +440,7 @@ private slots:
     void updateSelectedTargets();
     void onSkillActivated();
     void onHuashenActivated();
+    void onYiguiActivated();
     void startInXs();
     void hideAvatars();
     void changeHp(const QString &who, int delta, DamageStruct::Nature nature, bool losthp);

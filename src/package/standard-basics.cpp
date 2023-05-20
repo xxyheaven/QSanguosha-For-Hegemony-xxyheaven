@@ -47,8 +47,7 @@ bool Slash::IsAvailable(const Player *player, const Card *slash, bool considerSp
     if (player->isCardLimited(THIS_SLASH, Card::MethodUse))
         return false;
 
-    if (Sanguosha->getCurrentCardUseReason() == CardUseStruct::CARD_USE_REASON_PLAY
-            || Sanguosha->getCurrentCardUsePattern() == "@@rende_basic") {
+    if (Sanguosha->getCurrentCardUseReason() == CardUseStruct::CARD_USE_REASON_PLAY) {
         QList<int> ids;
         if (slash) {
             if (slash->isVirtualCard()) {
@@ -172,7 +171,7 @@ void Slash::onEffect(const CardEffectStruct &card_effect) const
 
     int x = jink_list.takeFirst().toInt();
 
-    if (card_effect.disresponsive)
+    if (tag["NoResponse"].toStringList().contains(effect.to->objectName()) || tag["NoResponse"].toStringList().contains("_ALL_PLAYERS"))
         x = 0;
 
     effect.jink_num = x;
@@ -198,9 +197,6 @@ bool Slash::targetRated(const Player *to_select, const Player *Self) const
     }
 
     if (Self->getOffensiveHorse() && subcards.contains(Self->getOffensiveHorse()->getId()))
-        rangefix += 1;
-
-    if (Self->getSpecialHorse() && subcards.contains(Self->getSpecialHorse()->getId()))
         rangefix += 1;
 
     return Self->canSlash(to_select, this, distance_limit, rangefix);
@@ -369,6 +365,57 @@ void Analeptic::onEffect(const CardEffectStruct &effect) const
     } else {
         room->addPlayerMark(effect.to, "drank");
     }
+}
+
+QStringList Analeptic::checkTargetModSkillShow(const CardUseStruct &use) const
+{
+    if (use.card == NULL)
+        return QStringList();
+
+    if (use.from->usedTimes(getClassName()) >= 2) {
+        const ServerPlayer *from = use.from;
+        QList<const Skill *> skills = from->getSkillList(false, false);
+        QList<const TargetModSkill *> tarmods;
+
+        foreach (const Skill *skill, skills) {
+            if (from->hasSkill(skill) && skill->inherits("TargetModSkill")) {
+                const TargetModSkill *tarmod = qobject_cast<const TargetModSkill *>(skill);
+                tarmods << tarmod;
+            }
+        }
+
+        if (tarmods.isEmpty())
+            return QStringList();
+
+        int n = use.from->usedTimes(getClassName()) - 1;
+        QList<const TargetModSkill *> tarmods_copy = tarmods;
+
+        foreach (const TargetModSkill *tarmod, tarmods_copy) {
+            if (tarmod->getResidueNum(from, use.card, NULL) == 0) {
+                tarmods.removeOne(tarmod);
+                continue;
+            }
+
+            const Skill *main_skill = Sanguosha->getMainSkill(tarmod->objectName());
+            if (from->hasShownSkill(main_skill)) {
+                tarmods.removeOne(tarmod);
+                n -= tarmod->getResidueNum(from, use.card, NULL);
+            }
+        }
+
+        if (tarmods.isEmpty() || n <= 0)
+            return QStringList();
+
+        tarmods_copy = tarmods;
+
+        QStringList shows;
+        foreach (const TargetModSkill *tarmod, tarmods_copy) {
+            const Skill *main_skill = Sanguosha->getMainSkill(tarmod->objectName());
+            shows << main_skill->objectName();
+        }
+        return shows;
+    }
+    return QStringList();
 }
 
 QList<Card *> StandardCardPackage::basicCards()

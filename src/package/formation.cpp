@@ -564,7 +564,7 @@ public:
             return QStringList();
         if (triggerEvent == GeneralHidden && player->ownSkill(this) && player->inHeadSkills(objectName()) == data.toBool())
             return QStringList();
-        if (triggerEvent == GeneralRemoved && data.toString().split(":").first() != "jiangwei")
+        if (triggerEvent == GeneralRemoved && data.toString() == "jiangwei")
             return QStringList();
         if (player->aliveCount() < 4)
             return QStringList();
@@ -837,15 +837,18 @@ public:
     {
         TriggerList skill_list;
         CardUseStruct use = data.value<CardUseStruct>();
-        if (use.card == NULL || !use.card->isKindOf("Slash")) return skill_list;
-        ServerPlayer *target = use.to.at(use.index);
         QList<ServerPlayer *> skill_owners = room->findPlayersBySkillName(objectName());
         foreach (ServerPlayer *skill_owner, skill_owners) {
-            if (BattleArraySkill::triggerable(skill_owner) && skill_owner->hasShownSkill(this)) {
-                if (player->inSiegeRelation(skill_owner, target) ||
-                        (skill_owner == player && player->isAdjacentTo(target) && target->getFormation().length() == 1))
-                    skill_list.insert(skill_owner, QStringList(objectName() + "->" + target->objectName()));
-
+            if (BattleArraySkill::triggerable(skill_owner) && skill_owner->hasShownSkill(this)
+                && use.card != NULL && use.card->isKindOf("Slash")) {
+                QStringList targets;
+                foreach (ServerPlayer *to, use.to) {
+                    if (player->inSiegeRelation(skill_owner, to) ||
+                            (skill_owner == player && player->isAdjacentTo(to) && to->getFormation().length() == 1))
+                        targets << to->objectName();
+                }
+                if (!targets.isEmpty())
+                    skill_list.insert(skill_owner, QStringList(objectName() + "->" + targets.join("+")));
             }
         }
         return skill_list;
@@ -888,10 +891,12 @@ public:
     {
         if (!TriggerSkill::triggerable(player)) return QStringList();
         CardUseStruct use = data.value<CardUseStruct>();
-        if (use.card != NULL && use.card->isKindOf("Slash")) {
-            if (triggerEvent == TargetConfirmed)
-                return QStringList(objectName());
-            else if (triggerEvent == TargetChosen && use.index == 0)
+        bool invoke = triggerEvent == TargetChosen;
+        if (!invoke)
+            invoke = (use.to.contains(player));
+
+        if (invoke) {
+            if (use.card->isKindOf("Slash"))
                 return QStringList(objectName());
         }
         return QStringList();
@@ -929,9 +934,9 @@ public:
         TriggerList skill_list;
         CardUseStruct use = data.value<CardUseStruct>();
         if (!use.card->isKindOf("Slash")) return skill_list;
-        bool invoke = triggerEvent == TargetConfirmed;
+        bool invoke = triggerEvent == TargetChosen;
         if (!invoke)
-            invoke = (use.index == 0);
+            invoke = (use.to.contains(player));
 
         if (invoke) {
             QList<ServerPlayer *> xushengs = room->findPlayersBySkillName("yicheng");
@@ -1275,11 +1280,7 @@ public:
                             return QStringList(objectName());
                     }
                     if (triggerEvent == BeforeCardsMove) {
-                        if ((move.reason.m_reason & CardMoveReason::S_MASK_BASIC_REASON) == CardMoveReason::S_REASON_USE) {
-                            CardUseStruct use = move.reason.m_useStruct;
-                            if (use.card != NULL && use.card->isKindOf("DragonPhoenix"))
-                                continue;
-                        }
+                        if ((move.reason.m_reason & CardMoveReason::S_MASK_BASIC_REASON) == CardMoveReason::S_REASON_USE && move.reason.m_skillName.isEmpty()) return QStringList();
                         if ((move.from == player && (move.from_places[move.card_ids.indexOf(id)] == Player::PlaceHand || move.from_places[move.card_ids.indexOf(id)] == Player::PlaceEquip))
                             && (move.to != player || (move.to_place != Player::PlaceHand && move.to_place != Player::PlaceEquip)))
                             return QStringList(objectName());
@@ -1319,8 +1320,11 @@ public:
                         player->obtainCard(card);
                     } else {
                         room->showCard(player, id);
-                        CardsMoveStruct move2(id, NULL, Player::DrawPileBottom, move.reason);
+
+                        CardMoveReason reason(CardMoveReason::S_REASON_PUT, player->objectName(), objectName(), QString());
+                        CardsMoveStruct move2(id, NULL, Player::DrawPileBottom, reason);
                         move2.open = true;
+
                         data = room->changeMoveData(data, move2);
 
                     }
@@ -1345,22 +1349,16 @@ public:
 
     virtual QStringList triggerable(TriggerEvent, Room *, ServerPlayer *player, QVariant &data, ServerPlayer* &) const
     {
-        if (player == NULL || player->isDead() || !player->hasSkill("zhangwu")) return QStringList();
         QVariantList move_datas = data.toList();
+
         foreach (QVariant move_data, move_datas) {
             CardsMoveOneTimeStruct move = move_data.value<CardsMoveOneTimeStruct>();
-            if (player == move.from) {
-                if ((move.reason.m_reason & CardMoveReason::S_MASK_BASIC_REASON) == CardMoveReason::S_REASON_USE) {
-                    CardUseStruct use = move.reason.m_useStruct;
-                    if (use.card != NULL && use.card->isKindOf("DragonPhoenix"))
-                        continue;
-                }
-                for (int i = 0; i < move.card_ids.length(); ++i) {
-                    if ((move.from_places.at(i) == Player::PlaceHand || move.from_places.at(i) == Player::PlaceEquip) &&
-                            (move.to != player || (move.to_place != Player::PlaceHand && move.to_place != Player::PlaceEquip))) {
-                        if (Sanguosha->getCard(move.card_ids.at(i))->isKindOf("DragonPhoenix")) {
-                            return QStringList(objectName());
-                        }
+
+            if (player != NULL && player->isAlive() && player == move.from
+                    && move.to_place == Player::DrawPileBottom && move.reason.m_skillName == "zhangwu") {
+                foreach (int id, move.card_ids) {
+                    if (Sanguosha->getCard(id)->isKindOf("DragonPhoenix")) {
+                        return QStringList(objectName());
                     }
                 }
             }
@@ -1369,16 +1367,9 @@ public:
         return QStringList();
     }
 
-    virtual bool cost(TriggerEvent, Room *room, ServerPlayer *player, QVariant &, ServerPlayer *) const
+    virtual bool cost(TriggerEvent, Room *, ServerPlayer *, QVariant &, ServerPlayer *) const
     {
-        bool invoke = false;
-        if (player->hasShownSkill("zhangwu")) {
-            invoke = true;
-            room->sendCompulsoryTriggerLog(player, "zhangwu");
-        } else
-            invoke = player->askForSkillInvoke("zhangwu");
-
-        return invoke;
+        return true;
     }
 
     virtual bool effect(TriggerEvent, Room *, ServerPlayer *player, QVariant &, ServerPlayer *) const
@@ -1567,9 +1558,13 @@ public:
         if (triggerEvent == TargetChosen) {
             CardUseStruct use = data.value<CardUseStruct>();
             if (use.card != NULL && use.card->isKindOf("Slash")) {
-                ServerPlayer *target = use.to.at(use.index);
-                if (target && !target->isNude())
-                    return QStringList(objectName() + "->" + target->objectName());
+                QStringList targets;
+                foreach (ServerPlayer *to, use.to) {
+                    if (!to->isNude())
+                        targets << to->objectName();
+                }
+                if (!targets.isEmpty())
+                    return QStringList(objectName() + "->" + targets.join("+"));
             }
         } else if (triggerEvent == Dying) {
             DyingStruct dying = data.value<DyingStruct>();

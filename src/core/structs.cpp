@@ -159,7 +159,7 @@ QString DamageStruct::getReason() const
 }
 
 CardEffectStruct::CardEffectStruct()
-    : card(NULL), from(NULL), to(NULL), multiple(false), nullified(false), disresponsive(false)
+    : card(NULL), from(NULL), to(NULL), multiple(false), nullified(false)
 {
 }
 
@@ -236,7 +236,7 @@ PhaseChangeStruct::PhaseChangeStruct()
 }
 
 CardUseStruct::CardUseStruct()
-    : card(NULL), from(NULL), m_isOwnerUse(true), m_addHistory(true), nullified_list(QStringList()), disresponsive_list(QStringList())
+    : card(NULL), from(NULL), m_isOwnerUse(true), m_addHistory(true), nullified_list(QStringList())
 {
 }
 

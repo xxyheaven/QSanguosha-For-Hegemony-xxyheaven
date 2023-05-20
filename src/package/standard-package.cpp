@@ -68,29 +68,12 @@ public:
     }
 };
 
-class GlobalTargetMod : public TargetModSkill
-{
-public:
-    GlobalTargetMod() : TargetModSkill("#global-target")
-    {
-
-    }
-
-    virtual int getResidueNum(const Player *from, const Card *card, const Player *) const
-    {
-        if (!Sanguosha->matchExpPattern(pattern, from, card))
-            return 0;
-
-        return from->getMark("GlobalSlashResidue-PhaseClear") + from->getMark("GlobalSlashResidue-Clear");
-    }
-};
-
 class GlobalRecord : public TriggerSkill
 {
 public:
     GlobalRecord() : TriggerSkill("#global-record")
     {
-        events << PreCardsMoveOneTime << ConfirmMoveCards << Dying << Death << PreDamageDone << CardUsed << CardResponded << TargetRecord << SlashMissed;
+        events << CardsMoveOneTime << Dying << Death << PreDamageDone << CardUsed << CardResponded << TargetChosen;
         global = true;
     }
 
@@ -101,7 +84,7 @@ public:
 
     virtual void record(TriggerEvent triggerEvent, Room *room, ServerPlayer *player, QVariant &data) const
     {
-        if (triggerEvent == PreCardsMoveOneTime) {
+        if (triggerEvent == CardsMoveOneTime) {
             QVariantList move_datas = data.toList();
             foreach (QVariant move_data, move_datas) {
                 CardsMoveOneTimeStruct move = move_data.value<CardsMoveOneTimeStruct>();
@@ -124,29 +107,30 @@ public:
                 }
 
 
-                if (move.from == player) {
-                    if (move.to != player || (move.to_place != Player::PlaceHand && move.to_place != Player::PlaceEquip)) {
-                        for (int i = 0; i < move.card_ids.length(); ++i) {
-                            if ((move.from_places.at(i) == Player::PlaceHand || move.from_places.at(i) == Player::PlaceEquip)) {
-                                room->addPlayerMark(player, "GlobalLoseCardCount");
-                            }
+                if (move.from == player && !(move.to == player && (move.to_place == Player::PlaceHand || move.to_place == Player::PlaceEquip))) {
+                    for (int i = 0; i < move.card_ids.length(); ++i) {
+                        if ((move.from_places.at(i) == Player::PlaceHand || move.from_places.at(i) == Player::PlaceEquip)) {
+                            room->addPlayerMark(player, "GlobalLoseCardCount");
                         }
                     }
                 }
                 if (player->getPhase() != Player::NotActive && move.to_place == Player::DiscardPile) {
-                    QVariantList discardpile = room->getTag("GlobalRoundDisCardPile").toList();
                     foreach (int id, move.card_ids) {
-                        QVariant carddata = QVariant::fromValue(id);
-                        if (!discardpile.contains(carddata))
-                            discardpile << carddata;
+                        if (Sanguosha->getCard(id)->isRed())
+                            room->addPlayerMark(player, "GlobalZaiqiCount");
                     }
-                    room->setTag("GlobalRoundDisCardPile", discardpile);
+
                 }
             }
 
-        } else if (triggerEvent == ConfirmMoveCards) {
-
         } else if (triggerEvent == Dying) {
+            DyingStruct dying = data.value<DyingStruct>();
+            if (dying.who != player) return;
+            ServerPlayer *killer = dying.damage ? dying.damage->from : NULL;
+            ServerPlayer *current = room->getCurrent();
+
+            if (killer && current && current->getPhase() != Player::NotActive)
+                room->addPlayerMark(killer, "GlobalDyingCausedCount");
 
         } else if (triggerEvent == Death) {
             DeathStruct death = data.value<DeathStruct>();
@@ -163,10 +147,6 @@ public:
                 QStringList damaged_tag = damage.card->tag["GlobalCardDamagedTag"].toStringList();
                 damaged_tag << player->objectName();
                 damage.card->setTag("GlobalCardDamagedTag", damaged_tag);
-
-                int damage_point = damage.card->tag["GlobalCardDamagePoint"].toInt();
-                damage_point += damage.damage;
-                damage.card->setTag("GlobalCardDamagePoint", damage_point);
             }
 
             if (damage.from && (damage.from->distanceTo(player) == 0 || damage.from->distanceTo(player) == 1))
@@ -291,7 +271,7 @@ public:
 
                 }
             }
-        } else if (triggerEvent == TargetRecord) {
+        } else if (triggerEvent == TargetChosen) {
             CardUseStruct use = data.value<CardUseStruct>();
             if (use.card == NULL || use.card->getTypeId() == Card::TypeSkill) return;
 
@@ -321,8 +301,6 @@ public:
                 }
 
             }
-        } else if (triggerEvent == SlashMissed) {
-
         }
     }
 };
@@ -349,6 +327,7 @@ public:
                 foreach (ServerPlayer *p, room->getAlivePlayers()) {
                     room->setPlayerMark(p, "GlobalRuleDisCardCount", 0);
                     room->setPlayerMark(p, "GlobalDisCardCount", 0);
+                    room->setPlayerMark(p, "GlobalDyingCausedCount", 0);
                     room->setPlayerMark(p, "GlobalKilledCount", 0);
                     room->setPlayerMark(p, "GlobalInjuredCount", 0);
                     room->setPlayerMark(p, "Global_MaxcardsIncrease", 0);
@@ -368,7 +347,7 @@ public:
 
                     room->setPlayerMark(p, "AnalepticUsedTimes", 0);
 
-                    room->removeTag("GlobalRoundDisCardPile");
+                    room->setPlayerMark(p, "GlobalZaiqiCount", 0);
 
 
                 }
@@ -767,7 +746,7 @@ StandardPackage::StandardPackage()
     addMetaObject<ShowHeadCard>();
     addMetaObject<ShowDeputyCard>();
 
-    skills << new GlobalProhibit << new NoDistanceTargetMod << new GlobalTargetMod << new GlobalRecord << new GlobalClear
+    skills << new GlobalProhibit << new NoDistanceTargetMod << new GlobalRecord << new GlobalClear
            << new Skill("aozhan") << new Companion << new HalfMaxHp << new GlobalMaxCards << new FirstShow << new Careerman
            << new ShowHead << new ShowDeputy;
 

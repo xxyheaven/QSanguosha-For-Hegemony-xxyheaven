@@ -340,18 +340,25 @@ sgs.ai_skill_invoke.mouduan = function(self, data)
 	return true
 end
 
-sgs.ai_skill_playerchosen.mouduan = function(self, _targets, max_num, min_num)
+sgs.ai_skill_use["@@mouduan_move"] = function(self, prompt, method)
+	self:updatePlayers()
+	if prompt ~= "@mouduan-move" then
+		return "."
+	end
+	local MDCard = "@MouduanMoveCard=.&->"
 
-	self:sort(self.enemies, "defense")
+		self:sort(self.enemies, "defense")
 		for _, friend in ipairs(self.friends) do
 			if not friend:getCards("j"):isEmpty() and self:getMoveCardorTarget(friend, ".") then
-				return {friend, self:getMoveCardorTarget(friend, "target")}
+				self.mouduancard = self:getMoveCardorTarget(friend, "card")
+				return MDCard .. friend:objectName() .. "+" .. self:getMoveCardorTarget(friend, "target"):objectName()
 			end
 		end
 
 		for _, friend in ipairs(self.friends_noself) do
 			if friend:hasEquip() and friend:hasShownSkills(sgs.lose_equip_skill) and self:getMoveCardorTarget(friend, ".") then
-				return {friend, self:getMoveCardorTarget(friend, "target")}
+				self.mouduancard = self:getMoveCardorTarget(friend, "card")
+				return MDCard .. friend:objectName() .. "+" .. self:getMoveCardorTarget(friend, "target"):objectName()
 			end
 		end
 
@@ -364,11 +371,13 @@ sgs.ai_skill_playerchosen.mouduan = function(self, _targets, max_num, min_num)
 
 		if #targets > 0 then
 			self:sort(targets, "defense")
-			return {targets[#targets], self:getMoveCardorTarget(targets[#targets], "target")}
+			self.mouduancard = self:getMoveCardorTarget(targets[#targets], "card")
+			return MDCard .. targets[#targets]:objectName() .. "+" .. self:getMoveCardorTarget(targets[#targets], "target"):objectName()
 		end
 
 		if self.player:hasEquip() and self.player:hasShownSkills(sgs.lose_equip_skill) and self:getMoveCardorTarget(self.player, ".") then
-			return {self.player, self:getMoveCardorTarget(self.player, "target" ,"e")}
+			self.mouduancard = self:getMoveCardorTarget(self.player, "card","e")
+			return MDCard .. self.player:objectName() .. "+" .. self:getMoveCardorTarget(self.player, "target" ,"e"):objectName()
 		end
 
 		local friends = {}--没有敌人则简单转移队友装备
@@ -380,14 +389,15 @@ sgs.ai_skill_playerchosen.mouduan = function(self, _targets, max_num, min_num)
 
 		if #friends > 0 then
 			self:sort(friends, "hp", true)
-			return {friends[#friends], self:getMoveCardorTarget(friends[#friends], "target")}
+			self.mouduancard = self:getMoveCardorTarget(friends[#friends], "card")
+			return MDCard .. friends[#friends]:objectName() .. "+" .. self:getMoveCardorTarget(friends[#friends], "target"):objectName()
 		end
 
-	return {}
+	return "."
 end
 
-sgs.ai_skill_transfercardchosen.mouduan = function(self, targets, equipArea, judgingArea)
-	return self:getMoveCardorTarget(targets:first(), "card")
+sgs.ai_skill_askforag["mouduan"] = function(self, card_ids)
+	return self.mouduancard:getId()
 end
 
 --黄盖

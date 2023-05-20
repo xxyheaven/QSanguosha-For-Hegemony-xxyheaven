@@ -80,7 +80,6 @@ public:
 QiceCard::QiceCard()
 {
     will_throw = false;
-    handling_method = Card::MethodNone;
 }
 
 bool QiceCard::targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const
@@ -176,12 +175,11 @@ void QiceCard::onUse(Room *room, const CardUseStruct &card_use) const
     }
 }
 
-class Qice : public ZeroCardViewAsSkill
+class QiceVS : public ZeroCardViewAsSkill
 {
 public:
-    Qice() : ZeroCardViewAsSkill("qice")
+    QiceVS() : ZeroCardViewAsSkill("qice")
     {
-        guhuo_type = "t";
     }
 
     virtual const Card *viewAs() const
@@ -198,10 +196,30 @@ public:
 
     virtual bool isEnabledAtPlay(const Player *player) const
     {
-        return !player->isKongcheng() && !player->hasUsed("QiceCard");
+        return !player->isKongcheng() && !player->hasUsed("QiceCard") && player->hasShownSkill(objectName());
+    }
+};
+
+class Qice : public TriggerSkill
+{
+public:
+    Qice() : TriggerSkill("qice")
+    {
+        guhuo_type = "t";
+        view_as_skill = new QiceVS;
     }
 
-    bool isEnabledtoViewAsCard(const QString &button_name, const QList<const Card *> &) const
+    virtual bool canShowInPlay() const
+    {
+        return true;
+    }
+
+    virtual QStringList triggerable(TriggerEvent, Room *, ServerPlayer *, QVariant &, ServerPlayer* &) const
+    {
+        return QStringList();
+    }
+
+    bool buttonEnabled(const QString &button_name, const QList<const Card *> &, const QList<const Player *> &) const
     {
         if (button_name.isEmpty()) return true;
 
@@ -209,7 +227,6 @@ public:
 
         if (card == NULL) return false;
 
-        card->addSubcards(Self->getHandcards());
         card->setSkillName("qice");
 
 
@@ -249,8 +266,9 @@ public:
 
         }
 
-        return ViewAsSkill::isEnabledtoViewAsCard(button_name, Self->getHandcards());
+        return Skill::buttonEnabled(button_name);
     }
+
 };
 
 //bianhuanhou
@@ -863,13 +881,7 @@ const Card *YiguiCard::validate(CardUseStruct &card_use) const
 
     room->setPlayerFlag(source, "Yigui_" + classname);
 
-    LogMessage log;
-    log.type = "#dropHuashenDetail";
-    log.from = source;
-    log.arg = soul_name;
-    room->sendLog(log);
-
-    source->removeGeneralPile("soul", soul_name, false);
+    room->dropHuashenCard(source, soul_name);
 
     return use_card;
 }
@@ -898,13 +910,7 @@ const Card *YiguiCard::validateInResponse(ServerPlayer *user) const
     c->setSkillName("yigui");
     c->deleteLater();
 
-    LogMessage log;
-    log.type = "#dropHuashenDetail";
-    log.from = user;
-    log.arg = soul_name;
-    room->sendLog(log);
-
-    user->removeGeneralPile("soul", soul_name, false);
+    room->dropHuashenCard(user, soul_name);
 
     return c;
 
@@ -915,7 +921,6 @@ class YiguiViewAsSkill : public ZeroCardViewAsSkill
 public:
     YiguiViewAsSkill() : ZeroCardViewAsSkill("yigui")
     {
-        guhuo_type = "bt";
     }
 
     virtual const Card *viewAs() const
@@ -932,7 +937,7 @@ public:
 
     virtual bool isEnabledAtPlay(const Player *zuoci) const
     {
-        return !zuoci->getGeneralPile("soul").isEmpty();
+        return !zuoci->property("Huashens").toString().isEmpty();
     }
 
     virtual bool isEnabledAtResponse(const Player *zuoci, const QString &pattern) const
@@ -940,7 +945,7 @@ public:
         if (Sanguosha->currentRoomState()->getCurrentCardUseReason() != CardUseStruct::CARD_USE_REASON_RESPONSE_USE)
             return false;
 
-        if (zuoci->getGeneralPile("soul").isEmpty()) return false;
+        if (zuoci->property("Huashens").toString().isEmpty()) return false;
 
         if (pattern == "jink" || pattern == "nullification") return false;
 
@@ -956,6 +961,22 @@ public:
                 break;
             }
         }
+
+        if (target->hasShownOneGeneral()) {
+            QStringList huashens = zuoci->tag["Huashens"].toStringList();
+            bool no_same = true;
+            foreach (QString name, huashens) {
+                const General *general = Sanguosha->getGeneral(name);
+                if (general == NULL) continue;
+                if (general->getKingdoms().contains(target->getKingdom())) {
+                    no_same = false;
+                    break;
+                }
+
+            }
+            if (no_same) return false;
+        }
+
 
         if (pattern.contains("peach")) {
             if (!zuoci->hasFlag("Yigui_Peach")) {
@@ -981,9 +1002,22 @@ public:
 
         return false;
     }
+};
 
-    bool isEnabledtoViewAsCard(const QString &button_name, const QList<const Card *> &) const
+class Yigui : public TriggerSkill
+{
+public:
+    Yigui() : TriggerSkill("yigui")
     {
+        events << EventLoseSkill << BuryVictim;
+        guhuo_type = "bt";
+        view_as_skill = new YiguiViewAsSkill;
+    }
+
+    bool buttonEnabled(const QString &button_name, const QList<const Card *> &, const QList<const Player *> &) const
+    {
+        if (button_name.isEmpty()) return true;
+
         QString generalName = Self->tag["yigui_general"].toString();
         const General *general = Sanguosha->getGeneral(generalName);
         if (general == NULL) return false;
@@ -1027,6 +1061,8 @@ public:
                     if (Self->isProhibited(target, card, QList<const Player *>()))
                         return false;
                 }
+
+
             } else
                 return false;
 
@@ -1040,23 +1076,15 @@ public:
             } else
                 return pattern.contains(button_name);
         }
-
         return false;
-    }
-};
-
-class Yigui : public TriggerSkill
-{
-public:
-    Yigui() : TriggerSkill("yigui")
-    {
-        view_as_skill = new YiguiViewAsSkill;
     }
 
     static void AcquireGenerals(ServerPlayer *zuoci, int n, QString reason)
     {
         Room *room = zuoci->getRoom();
-
+        QStringList huashens;
+        if (!zuoci->property("Huashens").toString().isEmpty())
+            huashens = zuoci->property("Huashens").toString().split("+");
         QStringList acquired = GetAvailableGenerals(zuoci, n);
 
         LogMessage log;
@@ -1080,7 +1108,16 @@ public:
                 room->doAnimate(QSanProtocol::S_ANIMATE_HUASHEN, zuoci->objectName(), hidden.join(":"), QList<ServerPlayer *>() << p);
         }
 
-        zuoci->addToGeneralPile("soul", acquired, false);
+
+        foreach (QString name, acquired) {
+            huashens << name;
+            room->handleUsedGeneral(name);
+        }
+        room->setPlayerProperty(zuoci, "Huashens", huashens.join("+"));
+        JsonArray arg;
+        arg << QSanProtocol::S_GAME_EVENT_HUASHEN << zuoci->objectName() << huashens.join("+");
+        room->doBroadcastNotify(QSanProtocol::S_COMMAND_LOG_EVENT, arg);
+
     }
 
     static QStringList GetAvailableGenerals(ServerPlayer *zuoci, int n)
@@ -1096,6 +1133,23 @@ public:
         n = qMin(n, available.length());
 
         return available.mid(0, n);
+    }
+
+    virtual void record(TriggerEvent triggerEvent, Room *room, ServerPlayer *player, QVariant &data) const
+    {
+        if (triggerEvent == EventLoseSkill)
+            if (player == NULL || data.toString().split(":").first() != objectName()) return;
+
+        QStringList huashens;
+        if (!player->property("Huashens").toString().isEmpty())
+            huashens = player->property("Huashens").toString().split("+");
+        foreach (QString name, huashens)
+            room->handleUsedGeneral("-" + name);
+        JsonArray arg;
+        arg << QSanProtocol::S_GAME_EVENT_HUASHEN << player->objectName() << QString();
+        room->doBroadcastNotify(QSanProtocol::S_COMMAND_LOG_EVENT, arg);
+        room->setPlayerProperty(player, "Huashens", QString());
+
     }
 
     virtual QStringList triggerable(TriggerEvent, Room *, ServerPlayer *, QVariant &, ServerPlayer* &) const
@@ -1115,7 +1169,8 @@ public:
 
     virtual QStringList triggerable(TriggerEvent , Room *, ServerPlayer *player, QVariant &data, ServerPlayer* &) const
     {
-        if (player->cheakSkillLocation("yigui", data) && player->getMark("yiguiUsed") == 0) {
+        if (player && player->isAlive() && player->hasShownSkill("yigui") &&
+                player->cheakSkillLocation("yigui", data.toStringList()) && player->getMark("yiguiUsed") == 0) {
             return QStringList(objectName());
         }
         return QStringList();
@@ -1417,6 +1472,12 @@ public:
             room->broadcastSkillInvoke(objectName(), lingtong);
             return true;
         } else lingtong->tag.remove("xuanlue_target");
+        /*
+        if (room->askForSkillInvoke(lingtong, objectName())) {
+            room->broadcastSkillInvoke(objectName(), lingtong);
+            return true;
+        }
+        */
         return false;
 
     }
@@ -1430,7 +1491,80 @@ public:
             CardMoveReason reason = CardMoveReason(CardMoveReason::S_REASON_DISMANTLE, lingtong->objectName(), to->objectName(), objectName(), NULL);
             room->throwCard(Sanguosha->getCard(card_id), reason, to, lingtong);
         }
+        /*
+        QList<int> ids = room->GlobalCardChosen(lingtong, room->getOtherPlayers(lingtong), "he", objectName(), "@xuanlue", 1, 1,
+            Room::OnebyOne, false, Card::MethodDiscard);
+        ServerPlayer *to = room->getCardOwner(ids.first());
+        CardMoveReason reason = CardMoveReason(CardMoveReason::S_REASON_DISMANTLE, lingtong->objectName(), to->objectName(), objectName(), NULL);
+        room->throwCard(Sanguosha->getCard(ids.first()), reason, to, lingtong);
+        */
         return false;
+    }
+};
+
+YongjinMoveCard::YongjinMoveCard()
+{
+
+}
+
+bool YongjinMoveCard::targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *) const
+{
+    if (targets.length() == 0)
+        return to_select->hasEquip();
+    else if (targets.length() == 1) {
+        for (int i = 0; i < S_EQUIP_AREA_LENGTH; i++) {
+            if (targets.first()->getEquip(i) && to_select->canSetEquip(i))
+                return true;
+        }
+    }
+    return false;
+}
+
+bool YongjinMoveCard::targetsFeasible(const QList<const Player *> &targets, const Player *) const
+{
+    return targets.length() == 2;
+}
+
+void YongjinMoveCard::onUse(Room *room, const CardUseStruct &card_use) const
+{
+    CardUseStruct use = card_use;
+    ServerPlayer *lingtong = use.from;
+
+    if (use.to.length() != 2)
+        return;
+
+    ServerPlayer *from = use.to.first();
+    ServerPlayer *to = use.to.last();
+
+    bool can_select = false;
+    QList<int> disabled_ids;
+    for (int i = 0; i < S_EQUIP_AREA_LENGTH; i++) {
+        if (from->getEquip(i)){
+            if (to->canSetEquip(i))
+                can_select = true;
+            else
+                disabled_ids << from->getEquip(i)->getEffectiveId();
+        }
+    }
+
+    if (can_select) {
+        int card_id = room->askForCardChosen(lingtong, from, "e", "yongjin", false, Card::MethodNone, disabled_ids);
+        room->moveCardTo(Sanguosha->getCard(card_id), from, to, room->getCardPlace(card_id),
+                         CardMoveReason(CardMoveReason::S_REASON_TRANSFER, lingtong->objectName(), "yongjin", QString()));
+    }
+}
+
+class YongjinMove : public ZeroCardViewAsSkill
+{
+public:
+    YongjinMove() : ZeroCardViewAsSkill("yongjin_move")
+    {
+        response_pattern = "@@yongjin_move";
+    }
+
+    virtual const Card *viewAs() const
+    {
+        return new YongjinMoveCard;
     }
 };
 
@@ -1467,10 +1601,9 @@ void YongjinCard::onUse(Room *room, const CardUseStruct &card_use) const
 
 void YongjinCard::use(Room *room, ServerPlayer *lingtong, QList<ServerPlayer *> &) const
 {
-    for (int i = 0; i < 3; i++) {
-        if (!room->askForQiaobian(lingtong, room->getAlivePlayers(), "yongjin", "@yongjin-next", true, false))
-            break;
-    }
+    if (room->askForUseCard(lingtong, "@@yongjin_move", "@yongjin-next", -1, Card::MethodNone))
+        if (room->askForUseCard(lingtong, "@@yongjin_move", "@yongjin-next", -1, Card::MethodNone))
+            room->askForUseCard(lingtong, "@@yongjin_move", "@yongjin-next", -1, Card::MethodNone);
 }
 
 class Yongjin : public ZeroCardViewAsSkill
@@ -2247,8 +2380,7 @@ TransformationPackage::TransformationPackage()
     Zuoci_new->addSkill(new Yigui);
     Zuoci_new->addSkill(new YiguiShow);
     Zuoci_new->addSkill(new YiguiProhibit);
-    Zuoci_new->addSkill(new DetachEffectSkill("yigui", "soul"));
-    insertRelatedSkills("yigui", 3, "#yigui-show", "#yigui-prohibit", "#yigui-clear");
+    insertRelatedSkills("yigui", 2, "#yigui-show", "#yigui-prohibit");
     Zuoci_new->addSkill(new Jihun);
     Zuoci_new->addCompanion("yuji");
 
@@ -2285,6 +2417,7 @@ TransformationPackage::TransformationPackage()
     insertRelatedSkills("haoshi_flamemap", "#haoshi_flamemap-give");
 
     addMetaObject<YongjinCard>();
+    addMetaObject<YongjinMoveCard>();
     addMetaObject<QiceCard>();
     addMetaObject<YiguiCard>();
     addMetaObject<XiongsuanCard>();
@@ -2293,6 +2426,7 @@ TransformationPackage::TransformationPackage()
     addMetaObject<FlameMapCard>();
 
     skills << new HuashenVH;
+    skills << new YongjinMove;
     skills << new ZhimanSecond;
     skills << new FlameMap;
     skills << new Yingzi("flamemap") << new Shelie << new HaoshiFlamemap << new HaoshiFlamemapGive << new DuoshiFlamemap;

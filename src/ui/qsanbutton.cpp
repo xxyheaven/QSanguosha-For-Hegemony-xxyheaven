@@ -324,7 +324,8 @@ void QSanSkillButton::setSkill(const Skill *skill)
         _m_emitActivateSignal = true;
         _m_emitDeactivateSignal = true;
     } else if ((freq == Skill::Frequent || freq == Skill::NotFrequent)
-        && skill->inherits("TriggerSkill") && !skill->isEquipskill() && _m_viewAsSkill == NULL) {
+        && skill->inherits("TriggerSkill") && !skill->inherits("WeaponSkill")
+        && !skill->inherits("ArmorSkill") && _m_viewAsSkill == NULL) {
         setStyle(QSanButton::S_STYLE_TOGGLE);
         setState(QSanButton::S_STATE_DISABLED);
         if (skill->isAttachedLordSkill())
@@ -333,7 +334,7 @@ void QSanSkillButton::setSkill(const Skill *skill)
             _setSkillType(QSanInvokeSkillButton::S_SKILL_PROACTIVE);
         _m_emitActivateSignal = false;
         _m_emitDeactivateSignal = false;
-    } else if (freq == Skill::Limited || freq == Skill::NotFrequent || (skill->isEquipskill() && _m_viewAsSkill != NULL)) {
+    } else if (freq == Skill::Limited || freq == Skill::NotFrequent || ((skill->inherits("WeaponSkill") || skill->inherits("ArmorSkill")) && _m_viewAsSkill != NULL)) {
         setState(QSanButton::S_STATE_DISABLED);
         if (skill->isAttachedLordSkill())
             _setSkillType(QSanInvokeSkillButton::S_SKILL_ATTACHEDLORD);
@@ -578,7 +579,7 @@ void QSanInvokeSkillDock::update()
         button->setPos(0, rowTop1 + G_DASHBOARD_LAYOUT.m_skillButtonsSize[0].height() * 3 * (i - 1));
     }
 #else
-    int rowTop1 = -G_DASHBOARD_LAYOUT.m_normalHeight - G_DASHBOARD_LAYOUT.m_confirmButtonArea.height() - G_DASHBOARD_LAYOUT.m_skillButtonsSize[0].height();
+    int rowTop1 = G_DASHBOARD_LAYOUT.m_confirmButtonArea.top() - G_DASHBOARD_LAYOUT.m_confirmButtonArea.height() - G_DASHBOARD_LAYOUT.m_skillButtonsSize[0].height();
     for (int i = 1; i <= lordskillNum; i++) {
         QSanInvokeSkillButton *button = lordskill_buttons[m1++];
         button->setButtonWidth((QSanInvokeSkillButton::SkillButtonWidth)(0));

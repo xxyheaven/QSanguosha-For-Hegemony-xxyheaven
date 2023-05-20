@@ -24,29 +24,6 @@
 #include "package.h"
 #include "standard.h"
 
-class JGKedingCard : public SkillCard
-{
-    Q_OBJECT
-
-public:
-    Q_INVOKABLE JGKedingCard();
-
-    virtual bool targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const;
-    virtual bool targetsFeasible(const QList<const Player *> &targets, const Player *Self) const;
-    virtual void use(Room *room, ServerPlayer *source, QList<ServerPlayer *> &targets) const;
-};
-
-class JGJiaoxieCard : public SkillCard
-{
-    Q_OBJECT
-
-public:
-    Q_INVOKABLE JGJiaoxieCard();
-
-    virtual bool targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const;
-    virtual void onEffect(const CardEffectStruct &effect) const;
-};
-
 class JiangeDefensePackage : public Package
 {
     Q_OBJECT

@@ -100,8 +100,6 @@ public:
     void hideFrame();
     void showAvatar(const General *general, const QString card_name = QString());
     void hideAvatar();
-    void showSmallCard(const QString &card_name);
-    void hideSmallCard();
     void setAutoBack(bool auto_back);
     void setFootnote(const QString &desc);
 
@@ -112,15 +110,6 @@ public:
     inline void setSelected(bool selected)
     {
         m_isSelected = selected;
-    }
-
-    inline bool isChosen() const
-    {
-        return m_isChosen;
-    }
-    inline void setChosen(bool selected)
-    {
-        m_isChosen = selected;
     }
 
     inline bool isHovered() const
@@ -178,7 +167,6 @@ protected:
     double m_opacityAtHome;
     bool m_isSelected;
     bool m_isHovered;
-    bool m_isChosen;
     bool _m_isUnknownGeneral;
     int _skinId;
     bool auto_back, frozen;
@@ -197,7 +185,7 @@ protected:
 private:
     int m_cardId;
     const Card *Vcard = NULL;
-    QString _m_frameType, _m_avatarName, _m_smallCardName;
+    QString _m_frameType, _m_avatarName;
     QPointF home_pos;
     bool outerGlowEffectEnabled;
     QColor outerGlowColor;

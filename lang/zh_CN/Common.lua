@@ -123,7 +123,6 @@ CommonTranslationTable = {
 	["defensive_horse"] = "+1坐骑",
 	["offensive_horse"] = "-1坐骑",
 	["treasure"] = "宝物",
-	["special_horse"] = "特殊坐骑",
 
 	["luck_card"] = "手气卡",
 
@@ -141,7 +140,6 @@ CommonTranslationTable = {
 	["#InvokeOthersSkill"] = "%from 发动了 %to 的“%arg”",
 	["#ChoosePlayerWithSkill"] = "%from 发动了“%arg”，目标是 %to",
 	["#TriggerSkill"] = "%from 的“%arg”被触发",
-	["#TriggerSkillEffect"] = "%from 的“%arg”效果生效",
 	["#Pindian"] = "%from 向 %to 发起了拼点",
 	["#PindianSuccess"] = "%from (对 %to) 拼点赢！",
 	["#PindianFailure"] = "%from (对 %to) 拼点没赢",
@@ -289,7 +287,7 @@ CommonTranslationTable = {
 	["$AddCard"] = "%card 加入游戏",
 	["$RemoveCard"] = "%card 被移出游戏",
 	
-	["@tarnsferfieldcard"] = "选择移动的卡牌",
+	
 }
 
 return CommonTranslationTable

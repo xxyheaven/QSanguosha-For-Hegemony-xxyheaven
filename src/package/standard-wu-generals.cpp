@@ -162,12 +162,92 @@ public:
     }
 };
 
+MouduanMoveCard::MouduanMoveCard()
+{
+    mute = true;
+}
+
+bool MouduanMoveCard::targetsFeasible(const QList<const Player *> &targets, const Player *) const
+{
+    return targets.length() == 2;
+}
+
+bool MouduanMoveCard::targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *) const
+{
+    if (targets.isEmpty())
+        return (!to_select->getJudgingArea().isEmpty() || !to_select->getEquips().isEmpty());
+    else if (targets.length() == 1){
+        for (int i = 0; i < S_EQUIP_AREA_LENGTH; i++) {
+            if (targets.first()->getEquip(i) && to_select->canSetEquip(i))
+                return true;
+        }
+        foreach(const Card *card, targets.first()->getJudgingArea()){
+            if (!Sanguosha->isProhibited(NULL, to_select, card))
+                return true;
+        }
+
+    }
+    return false;
+}
+
+void MouduanMoveCard::onUse(Room *room, const CardUseStruct &card_use) const
+{
+    CardUseStruct use = card_use;
+    ServerPlayer *caoren = use.from;
+    if (use.to.length() != 2) return;
+
+    ServerPlayer *from = use.to.first();
+    ServerPlayer *to = use.to.last();
+
+    QList<int> all, ids, disabled_ids;
+    for (int i = 0; i < S_EQUIP_AREA_LENGTH; i++) {
+        if (from->getEquip(i)){
+            if (to->canSetEquip(i))
+                ids << from->getEquip(i)->getEffectiveId();
+            else
+                disabled_ids << from->getEquip(i)->getEffectiveId();
+            all << from->getEquip(i)->getEffectiveId();
+        }
+    }
+
+    foreach(const Card *card, from->getJudgingArea()){
+        if (!Sanguosha->isProhibited(NULL, to, card))
+            ids << card->getEffectiveId();
+        else
+            disabled_ids << card->getEffectiveId();
+        all << card->getEffectiveId();
+    }
+
+    room->fillAG(all, caoren, disabled_ids);
+    from->setFlags("MouduanTarget");
+    int card_id = room->askForAG(caoren, ids, true, "mouduan");
+    from->setFlags("-MouduanTarget");
+    room->clearAG(caoren);
+
+    if (card_id != -1)
+        room->moveCardTo(Sanguosha->getCard(card_id), from, to, room->getCardPlace(card_id), CardMoveReason(CardMoveReason::S_REASON_TRANSFER, caoren->objectName(), "mouduan", QString()));
+}
+
+class MouduanMove : public ZeroCardViewAsSkill
+{
+public:
+    MouduanMove() : ZeroCardViewAsSkill("mouduan_move")
+    {
+        response_pattern = "@@mouduan_move";
+    }
+
+    virtual const Card *viewAs() const
+    {
+        return new MouduanMoveCard;
+    }
+};
+
 class Mouduan : public PhaseChangeSkill
 {
 public:
     Mouduan() : PhaseChangeSkill("mouduan")
     {
-
+        frequency = Frequent;
     }
 
     virtual QStringList triggerable(TriggerEvent, Room *, ServerPlayer *player, QVariant &, ServerPlayer* &) const
@@ -205,11 +285,11 @@ public:
 
     virtual bool onPhaseChange(ServerPlayer *lvmeng) const
     {
-        Room *room = lvmeng->getRoom();
-        room->askForQiaobian(lvmeng, room->getAlivePlayers(), "mouduan", "@mouduan-move", true, true);
+        lvmeng->getRoom()->askForUseCard(lvmeng, "@@mouduan_move", "@mouduan-move");
         return false;
     }
 };
+
 
 KurouCard::KurouCard()
 {
@@ -421,8 +501,6 @@ bool LiuliCard::targetFilter(const QList<const Player *> &targets, const Player 
         const Weapon *weapon = qobject_cast<const Weapon *>(Self->getWeapon()->getRealCard());
         range_fix += weapon->getRange() - Self->getAttackRange(false);
     } else if (Self->getOffensiveHorse() && Self->getOffensiveHorse()->getId() == card_id) {
-        range_fix += 1;
-    } else if (Self->getSpecialHorse() && Self->getSpecialHorse()->getId() == card_id) {
         range_fix += 1;
     }
     int distance = Self->distanceTo(to_select, range_fix);
@@ -1920,6 +1998,7 @@ void StandardPackage::addWuGenerals()
     dingfeng->addSkill(new Fenxun);
 
     addMetaObject<ZhihengCard>();
+    addMetaObject<MouduanMoveCard>();
     addMetaObject<KurouCard>();
     addMetaObject<FanjianCard>();
     addMetaObject<LiuliCard>();
@@ -1932,5 +2011,5 @@ void StandardPackage::addWuGenerals()
     addMetaObject<FenxunCard>();
     //    addMetaObject<GuzhengCard>();
 
-    skills << new YingziMaxCards << new HaoshiGiveViewAsSkill;
+    skills << new MouduanMove << new YingziMaxCards << new HaoshiGiveViewAsSkill;
 }

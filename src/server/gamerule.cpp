@@ -442,24 +442,8 @@ bool GameRule::effect(TriggerEvent triggerEvent, Room *room, ServerPlayer *playe
     }
     case EventPhaseChanging: {
         room->addPlayerHistory(NULL, "pushPile");
-
-        foreach (ServerPlayer *p, room->getAllPlayers(true)) {
-            foreach (QString mark, p->getMarkNames()) {
-                if (mark.endsWith("-PhaseClear") && p->getMark(mark) > 0)
-                    room->setPlayerMark(p, mark, 0);
-            }
-        }
-
         PhaseChangeStruct change = data.value<PhaseChangeStruct>();
         if (change.to == Player::NotActive) {
-
-            foreach (ServerPlayer *p, room->getAllPlayers(true)) {
-                foreach (QString mark, p->getMarkNames()) {
-                    if (mark.endsWith("-Clear") && p->getMark(mark) > 0)
-                        room->setPlayerMark(p, mark, 0);
-                }
-            }
-
             if (room->getTag("ImperialOrderInvoke").toBool()) {
                 room->setTag("ImperialOrderInvoke", false);
                 LogMessage log;
@@ -565,35 +549,12 @@ bool GameRule::effect(TriggerEvent triggerEvent, Room *room, ServerPlayer *playe
                     card_use.from->tag["Jink_" + card_use.card->toString()] = QVariant::fromValue(jink_list);
                 }
                 if (card_use.from && !card_use.to.isEmpty()) {
-                    thread->trigger(TargetRecord, room, card_use.from, data);
-
-                    for (int i = 0; i < card_use.to.length(); i++) {
-                        CardUseStruct new_use = data.value<CardUseStruct>();
-                        new_use.index = i;
-                        data = QVariant::fromValue(new_use);
-                        thread->trigger(TargetChosen, room, card_use.from, data);
-                    }
-
-                    for (int i = 0; i < card_use.to.length(); i++) {
-                        CardUseStruct new_use = data.value<CardUseStruct>();
-                        new_use.index = i;
-                        data = QVariant::fromValue(new_use);
-                        ServerPlayer *to = card_use.to.at(i);
-                        thread->trigger(TargetConfirmed, room, to, data);
-                    }
+                    thread->trigger(TargetChosen, room, card_use.from, data);
+                    foreach(ServerPlayer *p, room->getAllPlayers())
+                        thread->trigger(TargetConfirmed, room, p, data);
                 }
                 card_use = data.value<CardUseStruct>();
-
-                if (card_use.card->hasFlag("GlobalCardUseNullified"))
-                    card_use.nullified_list << "_ALL_TARGETS";
                 room->setTag("CardUseNullifiedList", QVariant::fromValue(card_use.nullified_list));
-
-                if (card_use.card->hasFlag("GlobalCardUseDisresponsive"))
-                    card_use.disresponsive_list << "_ALL_PLAYERS";
-                card_use.card->setTag("CardUseDisresponsiveList", QVariant::fromValue(card_use.disresponsive_list));
-
-                data = QVariant::fromValue(card_use);
-
                 card_use.card->use(room, card_use.from, card_use.to);
                 if (!jink_list_backup.isEmpty())
                     card_use.from->tag["Jink_" + card_use.card->toString()] = QVariant::fromValue(jink_list_backup);
@@ -646,7 +607,7 @@ bool GameRule::effect(TriggerEvent triggerEvent, Room *room, ServerPlayer *playe
         break;
     }
     case PostHpReduced: {
-        if (player->getHp() > 0)
+        if (player->getHp() > 0 || player->hasFlag("Global_Dying")) // newest GameRule -- a player cannot enter dying when it is dying.
             break;
         if (data.canConvert<DamageStruct>()) {
             DamageStruct damage = data.value<DamageStruct>();
@@ -1128,6 +1089,7 @@ QString GameRule::getWinner(ServerPlayer *victim) const
 
                         room->setTag("GlobalCareeristShow", true);
                         p->showGeneral(true, false);
+                        room->removePlayerMark(p, "HaventShowGeneral");
                         room->setTag("GlobalCareeristShow", false);
 
                         careerists << p;

@@ -2,10 +2,31 @@
 #define GUHUOBOX
 
 #include "graphicsbox.h"
-#include "carditem.h"
+#include "button.h"
 #include "title.h"
 
-class QScrollBar;
+class CardButton : public QGraphicsObject
+{
+    Q_OBJECT
+    friend class GuhuoBox;
+
+signals:
+    void clicked();
+
+protected:
+    virtual void paint(QPainter *painter, const QStyleOptionGraphicsItem *, QWidget *);
+    virtual QRectF boundingRect() const;
+    virtual void mousePressEvent(QGraphicsSceneMouseEvent *event);
+    virtual void mouseReleaseEvent(QGraphicsSceneMouseEvent *event);
+    virtual void hoverEnterEvent(QGraphicsSceneHoverEvent *event);
+    virtual void hoverLeaveEvent(QGraphicsSceneHoverEvent *event);
+
+private:
+    CardButton(QGraphicsObject *parent, const QString &card, int scale);
+    QString cardName;
+    int Scale;
+    bool generalCard;
+};
 
 class GuhuoBox : public GraphicsBox
 {
@@ -26,24 +47,18 @@ public slots:
     void reply();
     void clear();
 
-    void scrollBarValueChanged(int newValue);
-
 protected:
     virtual QRectF boundingRect() const;
 
     bool isButtonEnable(const QString &card) const;
-    bool isButtonVisible(const QString &card) const;
 
     QString translate(const QString &option) const;
-
-    virtual void wheelEvent(QGraphicsSceneWheelEvent *event);
 
     bool play_only;
     QString flags;
     QString skill_name;
 
-    QList<CardItem *> generalItems;
-    QList<CardItem *> buttons;
+    QList<CardButton *> buttons;
 
     QList<Title*> titles;
 
@@ -56,13 +71,6 @@ protected:
 
 private:
     int maxcardcount, maxrow, scale;
-
-    QScrollBar *m_vScrollBar;
-    int m_oldScrollValue;
-
-    void createCardItem(const QString &cardname, const QPointF &pos);
-    void onGeneralItemClicked();
-    void updateCardItems();
 };
 
 #endif // GUHUOBOX

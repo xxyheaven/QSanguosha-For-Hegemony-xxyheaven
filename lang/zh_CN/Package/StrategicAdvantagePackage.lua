@@ -97,11 +97,11 @@ return {
 	["#RemoveImperialOrder"] = "【%arg】因使用其效果以外的原因进入弃牌堆，将被移出游戏",
 	["#ImperialOrderEffect"] = "%from 的回合结束，【%arg】因被移出游戏生效",
 	
-	["@imperial_order-choose"] = "敕令：选择：1.明置一张武将牌并摸一张牌；2.弃置一张装备牌；3.失去1点体力",
+	["@imperial_order-choose"] = "敕令效果，选择：1.明置一张武将牌并摸一张牌；2.弃置一张装备牌；3.失去1点体力",
 	["imperial_order:show_head"] = "明置主将",
 	["imperial_order:show_deputy"] = "明置副将",
 	["imperial_order:dis_equip"] = "弃置装备",
-	["imperial_order:cancel"] = "失去体力",
-	["@imperial_order-equip"] = "敕令：选择一张装备牌弃置",
+	["imperial_order:losehp"] = "失去体力",
+	["@imperial_order-equip"] = "敕令效果，选择一张装备牌弃置",
 	
 }

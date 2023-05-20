@@ -43,7 +43,6 @@ void CardItem::_initialize()
     _m_height = G_COMMON_LAYOUT.m_cardNormalHeight;
     _m_showFootnote = true;
     m_isSelected = false;
-    m_isChosen = false;
     _m_isUnknownGeneral = false;
     auto_back = true;
     frozen = false;
@@ -242,16 +241,6 @@ void CardItem::hideAvatar()
     _m_avatarName = QString();
 }
 
-void CardItem::showSmallCard(const QString &card_name)
-{
-    _m_smallCardName = card_name;;
-}
-
-void CardItem::hideSmallCard()
-{
-    _m_smallCardName = QString();
-}
-
 void CardItem::setAutoBack(bool auto_back)
 {
     this->auto_back = auto_back;
@@ -375,8 +364,6 @@ void CardItem::mouseReleaseEvent(QGraphicsSceneMouseEvent *mouseEvent)
     if (auto_back) {
         goBack(true, false);
     }
-
-    update();
 }
 
 void CardItem::mouseMoveEvent(QGraphicsSceneMouseEvent *mouseEvent)
@@ -429,10 +416,7 @@ void CardItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *, QWidge
 
     if (frozen || !isEnabled()) {
         painter->fillRect(G_COMMON_LAYOUT.m_cardMainArea, QColor(100, 100, 100, 255 * opacity()));
-        if (Vcard && Vcard->getSkillName() == "guhuo")
-            painter->setOpacity(0.4 * opacity());
-        else
-            painter->setOpacity(0.7 * opacity());
+        painter->setOpacity(0.7 * opacity());
     }
 
     const Card *card = Sanguosha->getEngineCard(m_cardId);
@@ -464,13 +448,13 @@ void CardItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *, QWidge
             G_ROOM_SKIN.getPixmap(QSanRoomSkin::S_SKIN_KEY_CARD_TRANSFERABLE_ICON));
 
     } else if (Vcard != NULL && Vcard->isVirtualCard()) {
+
+
         if (Vcard->isKindOf("SkillCard"))
             painter->drawPixmap(G_COMMON_LAYOUT.m_cardMainArea, G_ROOM_SKIN.getCardMainPixmap(Vcard->getClassName()));
         else {
             painter->drawPixmap(G_COMMON_LAYOUT.m_cardMainArea, G_ROOM_SKIN.getCardMainPixmap(Vcard->objectName()));
-
-            if (Vcard->getSuit() != Card::NoSuit || Vcard->subcardsLength() > 0)
-                painter->drawPixmap(G_COMMON_LAYOUT.m_cardSuitArea, G_ROOM_SKIN.getCardSuitPixmap(Vcard->getSuit()));
+            painter->drawPixmap(G_COMMON_LAYOUT.m_cardSuitArea, G_ROOM_SKIN.getCardSuitPixmap(Vcard->getSuit()));
 
             if (Vcard->getNumber() > 0)
                 painter->drawPixmap(G_COMMON_LAYOUT.m_cardNumberArea, G_ROOM_SKIN.getCardNumberPixmap(Vcard->getNumber(), !Vcard->isRed()));
@@ -479,6 +463,7 @@ void CardItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *, QWidge
                 painter->drawPixmap(G_COMMON_LAYOUT.m_cardTransferableIconArea,
                 G_ROOM_SKIN.getPixmap(QSanRoomSkin::S_SKIN_KEY_CARD_TRANSFERABLE_ICON));
         }
+
     }
 
     QRect rect = G_COMMON_LAYOUT.m_cardFootnoteArea;
@@ -501,16 +486,6 @@ void CardItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *, QWidge
             rect.setHeight(15);
             font.paintText(painter, rect, Qt::AlignHCenter, card_name);
         }
-    }
-
-    if (!_m_smallCardName.isEmpty()) {
-        QPixmap chartlet = G_ROOM_SKIN.getPixmap(QSanRoomSkin::S_SKIN_KEY_CARD_ITEM_SMALL_CARDS, _m_smallCardName);
-        painter->drawPixmap(boundingRect().center().x() - chartlet.width() / 2 + 2, boundingRect().center().y() - chartlet.height() / 2, chartlet);
-    }
-
-    if (m_isChosen) {
-        QPixmap chartlet = G_ROOM_SKIN.getPixmap(QSanRoomSkin::S_SKIN_KEY_CARD_ITEM_CHECK);
-        painter->drawPixmap(boundingRect().center().x() - chartlet.width() / 2, boundingRect().bottom() - chartlet.height() - 10, chartlet);
     }
 }
 

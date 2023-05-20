@@ -249,7 +249,6 @@ public:
     void removeMark(const QString &mark, int remove_num = 1);
     virtual void setMark(const QString &mark, int value);
     int getMark(const QString &mark) const;
-    QStringList getMarkNames() const;
 
     void setChained(bool chained);
     bool isChained() const;
@@ -269,8 +268,6 @@ public:
     QList<int> getPile(const QString &pile_name) const;
     QStringList getPileNames() const;
     QString getPileName(int card_id) const;
-
-    QStringList getGeneralPile(const QString &pile_name) const;
 
     //Xusine:
     QList<int> getHandPile() const;
@@ -341,7 +338,7 @@ public:
     bool inDeputySkills(const QString &skill_name) const;
     bool inDeputySkills(const Skill *skill) const;
     bool cheakSkillLocation(const QString &skill_name, bool is_head) const;
-    bool cheakSkillLocation(const QString &skill_name, const QVariant &data) const;
+    bool cheakSkillLocation(const QString &skill_name, const QStringList &show_list) const;
     const General *getActualGeneral1() const;
     const General *getActualGeneral2() const;
     QString getActualGeneral1Name() const;
@@ -373,13 +370,6 @@ public:
 
     bool ownSkill(const QString &skill_name) const;
     bool ownSkill(const Skill *skill) const;
-
-    bool ownHeadSkill(const QString &skill_name) const;
-    bool ownHeadSkill(const Skill *skill) const;
-
-    bool ownDeputySkill(const QString &skill_name) const;
-    bool ownDeputySkill(const Skill *skill) const;
-
     bool isFriendWith(const Player *player) const;
     bool willBeFriendWith(const Player *player) const;
 
@@ -406,7 +396,6 @@ public:
 protected:
     QMap<QString, int> marks;
     QMap<QString, QList<int> > piles;
-    QMap<QString, QStringList> general_piles;
     QMap<QString, QStringList> pile_open;
     QSet<QString> head_acquired_skills, deputy_acquired_skills;
     QMap<QString, bool> head_skills;

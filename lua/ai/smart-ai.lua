@@ -58,12 +58,10 @@ sgs.ai_skill_pindian =      {}
 sgs.ai_skill_playerchosen = {}
 sgs.ai_skill_discard =      {}
 sgs.ai_skill_movecards =    {}
-sgs.ai_skill_transfercardchosen =    {}
 sgs.ai_skill_exchange = 	{}
 sgs.ai_cardshow =           {}
 sgs.ai_nullification =      {}
 sgs.ai_skill_cardchosen =   {}
-sgs.ai_skill_cardschosen =  {}
 sgs.ai_skill_use =          {}
 sgs.ai_cardneed =           {}
 sgs.ai_skill_use_func =     {}
@@ -163,10 +161,10 @@ function SetInitialTables()
 							"zhukou|jinghe|guowu|shenwei|wanggui|boyan|kuangcai|"..
 							"miewu|guishu|sidi|danlao|wanglie|zhuidu"
 	sgs.masochism_skill = "yiji|fankui|jieming|ganglie|fangzhu|hengjiang|jianxiong|qianhuan|zhiyu|jihun|fudi|" ..
-						  "bushi|shicai|quanji|zhaoxin|fankui_simazhao|wanggui|sidi"
+						  "bushi|shicai|quanji|zhaoxin|fankui_simazhao|wanggui|sidi|shangshi|benyu"
 	sgs.defense_skill = "qingguo|longdan|kongcheng|niepan|bazhen|kanpo|xiangle|tianxiang|liuli|qianxun|leiji|duanchang|beige|weimu|" ..
 						"tuntian|shoucheng|yicheng|qianhuan|jizhao|wanwei|enyuan|buyi|keshou|qiuan|biluan|jiancai|aocai|" ..
-						"xibing|zhente|qiao|shejian|yusui|deshao|yuanyu|mingzhe|jilei|shigong"
+						"xibing|zhente|qiao|shejian|yusui|deshao|yuanyu|mingzhe|jilei|shigong|dingke|shefu"
 	sgs.usefull_skill = "tiandu|qiaobian|xingshang|xiaoguo|wusheng|guanxing|qicai|jizhi|kuanggu|lianhuan|huoshou|juxiang|shushen|zhiheng|keji|" ..
 						"duoshi|xiaoji|hongyan|haoshi|guzheng|zhijian|shuangxiong|guidao|guicai|xiongyi|mashu|lirang|yizhi|shengxi|" ..
 						"xunxun|wangxi|yingyang|hunshang|biyue"
@@ -2846,16 +2844,6 @@ function SmartAI:askForMoveCards(upcards, downcards, reason, pattern, min_num, m
 	return {}, {}
 end
 
-function SmartAI:askForTransferFieldCards(targets, reason, equipArea, judgingArea)
-	local callback = sgs.ai_skill_transfercardchosen[reason]
-	if type(callback) == "function" then
-		local card = callback(self, targets, equipArea, judgingArea)
-		if type(card) == "number" then return card
-		elseif card then return card:getEffectiveId() end
-	end
-	return -1
-end
-
 --positive：为 true 时，本【无懈可击】使 trick 失效，否则本【无懈可击】使 trick 生效
 function SmartAI:askForNullification(trick, from, to, positive)
 	if self.player:isDead() then return nil end
@@ -3400,25 +3388,14 @@ function SmartAI:askForCardChosen(who, flags, reason, method, disable_list)
 	end
 end
 
-function SmartAI:askForCardsChosen(who, flags, reason, min_num, max_num, method, disable_list)
+function SmartAI:askForCardsChosen(targets, flags, reason, min_num, max_num, disable_list)
 	disable_list = disable_list or {}
-
-	local cardschosen = sgs.ai_skill_cardschosen[string.gsub(reason, "%-", "_")]
-    local result
-    if type(cardschosen) == "function" then
-        result = cardschosen(self, who, flags, min_num, max_num, method)
-        if type(result) == "table" then return result end
-    elseif type(cardschosen) == "table" then
-        sgs.ai_skill_cardchosen[string.gsub(reason, "%-", "_")] = nil
-        return cardschosen
-    end
-	if (min_num == 1 and max_num == 1) then
-		local card_id = self:askForCardChosen(who, flags, reason, method, disable_list)
-		if (card_id ~= -1) then
-			return {card_id}
-		end
+	local cardchosen = sgs.ai_skill_cardchosen[string.gsub(reason, "%-", "_")]
+	local card
+	if type(cardchosen) == "function" then
+		card = cardchosen(self, targets, flags, min_num, max_num, disable_list)
+		if type(card) == "table" then return card end
 	end
-    return {}
 end
 
 function sgs.ai_skill_cardask.nullfilter(self, data, pattern, target)

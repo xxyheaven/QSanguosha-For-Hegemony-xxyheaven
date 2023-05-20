@@ -149,7 +149,7 @@ QString JiangeDefenseScenario::getRoles() const
 QString JiangeDefenseScenario::getRandomWeiGhost() const
 {
     QStringList ghosts;
-    ghosts << "jg_xiahoudun" << "jg_zhangliao" << "jg_caozhen" << "jg_xiahou" << "jg_sima" << "jg_zhanghe";
+    ghosts << "jg_caozhen" << "jg_xiahou" << "jg_sima" << "jg_zhanghe";
     return ghosts.at(qrand() % ghosts.length());
 }
 
@@ -163,7 +163,7 @@ QString JiangeDefenseScenario::getRandomWeiMachine() const
 QString JiangeDefenseScenario::getRandomShuGhost() const
 {
     QStringList ghosts;
-    ghosts << "jg_liubei" << "jg_guanyu" << "jg_zhaoyun" << "jg_zhuge" << "jg_yueying" << "jg_pangtong";
+    ghosts << "jg_liubei" << "jg_zhuge" << "jg_yueying" << "jg_pangtong";
     return ghosts.at(qrand() % ghosts.length());
 }
 

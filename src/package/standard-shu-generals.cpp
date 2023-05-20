@@ -28,31 +28,21 @@
 #include "roomthread.h"
 #include "json.h"
 
-class RendeBasic : public ZeroCardViewAsSkill
+class RendeSlash : public ZeroCardViewAsSkill
 {
 public:
-    RendeBasic() : ZeroCardViewAsSkill("rende_basic")
+    RendeSlash() : ZeroCardViewAsSkill("rende_slash")
     {
-        guhuo_type = "b";
-        response_pattern = "@@rende_basic";
+        response_pattern = "@@rende_slash";
     }
 
     const Card *viewAs() const
     {
-        QString rende_card = Self->tag["rende_basic"].toString();
+        QString rende_card = Self->property("rende_slash").toString();
         if (rende_card.isEmpty()) return NULL;
-        Card *slash = Sanguosha->cloneCard(rende_card, Card::NoSuit, 0);
-        if (slash == NULL) return NULL;
+        Card *slash = Sanguosha->cloneCard(rende_card);
         slash->setSkillName("_rende");
         return slash;
-    }
-
-    bool isEnabledtoViewAsCard(const QString &button_name, const QList<const Card *> &) const
-    {
-        Card *card = Sanguosha->cloneCard(button_name, Card::NoSuit, 0);
-        if (card == NULL) return false;
-        card->setSkillName("_rende");
-        return (!Self->isCardLimited(card, Card::MethodUse, false) && card->isAvailable(Self));
     }
 };
 
@@ -87,7 +77,29 @@ void RendeCard::use(Room *room, ServerPlayer *source, QList<ServerPlayer *> &tar
 
     if (old_value < 2 && new_value >= 2) {
 
-        room->askForUseCard(source, "@@rende_basic", "@rende-basic");
+        QString card_names = "slash+fire_slash+thunder_slash+jink+peach+analeptic";
+        QStringList card_list;
+
+        foreach (QString c_name, card_names.split("+")) {
+            Card *use_card = Sanguosha->cloneCard(c_name);
+            use_card->setSkillName("_rende");
+            if (use_card->isAvailable(source))
+                card_list << c_name;
+        }
+
+        if (card_list.isEmpty()) return;
+        card_list << "cancel";
+        card_names = card_names + "+cancel";
+        QString card_name = room->askForChoice(source, "rende_basic", card_list.join("+"), QVariant(), "@rende-choose", card_names);
+        if (card_name == "cancel") return;
+        Card *rende_card = Sanguosha->cloneCard(card_name);
+        rende_card->setSkillName("_rende");
+        if (card_name.contains("slash")) {
+            room->setPlayerProperty(source, "rende_slash", card_name);
+            room->askForUseCard(source, "@@rende_slash", "@rende-slash:::"+card_name);
+        } else {
+            room->useCard(CardUseStruct(rende_card, source, source));
+        }
     }
 }
 
@@ -242,9 +254,11 @@ public:
         CardUseStruct use = data.value<CardUseStruct>();
         if (triggerEvent == TargetChosen && player->enjoyingSkill("shouyue") && player->getSeemingKingdom() == "shu") {
             if (use.card != NULL && use.card->isKindOf("Slash")) {
-                ServerPlayer *target = use.to.at(use.index);
-                if (target != NULL)
-                    return QStringList(objectName() + "->" + target->objectName());
+                QStringList targets;
+                foreach(ServerPlayer *to, use.to)
+                    targets << to->objectName();
+                if (!targets.isEmpty())
+                    return QStringList(objectName() + "->" + targets.join("+"));
             }
         } else if (triggerEvent == CardUsed) {
             if (use.card && use.card->isKindOf("Slash") && player->getCardUsedTimes("Slash") == 2)
@@ -654,6 +668,11 @@ public:
     }
 };
 
+ShowMashu::ShowMashu()
+    : ShowDistanceCard()
+{
+}
+
 Mashu::Mashu(const QString &owner) : DistanceSkill("mashu_" + owner)
 {
 }
@@ -675,9 +694,11 @@ QStringList Tieqi::triggerable(TriggerEvent , Room *, ServerPlayer *player, QVar
 {
     CardUseStruct use = data.value<CardUseStruct>();
     if (TriggerSkill::triggerable(player) && use.card != NULL && use.card->isKindOf("Slash")) {
-        ServerPlayer *target = use.to.at(use.index);
-        if (target != NULL)
-            return QStringList(objectName() + "->" + target->objectName());
+        QStringList targets;
+        foreach(ServerPlayer *to, use.to)
+            targets << to->objectName();
+        if (!targets.isEmpty())
+            return QStringList(objectName() + "->" + targets.join("+"));
     }
     return QStringList();
 }
@@ -686,7 +707,6 @@ bool Tieqi::cost(TriggerEvent, Room *room, ServerPlayer *skill_target, QVariant 
 {
     if (player->askForSkillInvoke(this, QVariant::fromValue(skill_target))) {
         room->broadcastSkillInvoke(objectName(), player);
-        room->doAnimate(QSanProtocol::S_ANIMATE_INDICATE, player->objectName(), skill_target->objectName());
         return true;
     }
     return false;
@@ -821,6 +841,10 @@ public:
         if (use.card != NULL && use.card->isNDTrick()) {
             if (!use.card->isVirtualCard() || use.card->getSubcards().isEmpty())
                 return QStringList(objectName());
+            else if (use.card->getSubcards().length() == 1) {
+                if (Sanguosha->getCard(use.card->getEffectiveId())->objectName() == use.card->objectName())
+                    return QStringList(objectName());
+            }
         }
         return QStringList();
     }
@@ -873,9 +897,13 @@ public:
     {
         CardUseStruct use = data.value<CardUseStruct>();
         if (TriggerSkill::triggerable(player) && use.card != NULL && use.card->isKindOf("Slash")) {
-            ServerPlayer *target = use.to.at(use.index);
-            if (target != NULL && target->getHp() >= player->getHp())
-                return QStringList(objectName() + "->" + target->objectName());
+            QStringList targets;
+            foreach (ServerPlayer *to, use.to) {
+                if (to->getHp() >= player->getHp())
+                    targets << to->objectName();
+            }
+            if (!targets.isEmpty())
+                return QStringList(objectName() + "->" + targets.join("+"));
         }
         return QStringList();
     }
@@ -884,7 +912,6 @@ public:
     {
         if (player->askForSkillInvoke(this, QVariant::fromValue(skill_target))) {
             room->broadcastSkillInvoke(objectName(), player);
-            room->doAnimate(QSanProtocol::S_ANIMATE_INDICATE, player->objectName(), skill_target->objectName());
             return true;
         }
         return false;
@@ -1228,7 +1255,7 @@ public:
         if (player == NULL) return QStringList();
         if (triggerEvent == TargetChosen) {
             CardUseStruct use = data.value<CardUseStruct>();
-            if (use.card->isKindOf("SavageAssault") && use.index == 0) {
+            if (use.card->isKindOf("SavageAssault")) {
                 ServerPlayer *menghuo = room->findPlayerBySkillName(objectName());
                 if (TriggerSkill::triggerable(menghuo) && use.from != menghuo) {
                     ask_who = menghuo;
@@ -1280,29 +1307,19 @@ public:
         events << EventPhaseEnd;
     }
 
-    virtual QStringList triggerable(TriggerEvent, Room *room, ServerPlayer *menghuo, QVariant &, ServerPlayer* &) const
+    virtual QStringList triggerable(TriggerEvent, Room *, ServerPlayer *menghuo, QVariant &, ServerPlayer* &) const
     {
-        if (!TriggerSkill::triggerable(menghuo) || menghuo->getPhase() != Player::Discard) return QStringList();
+        if (!TriggerSkill::triggerable(menghuo))
+            return QStringList();
 
-        QVariantList discardpile = room->getTag("GlobalRoundDisCardPile").toList();
-        foreach (QVariant card_data, discardpile) {
-            int card_id = card_data.toInt();
-            if (Sanguosha->getCard(card_id)->isRed())
-                return QStringList(objectName());
-        }
-
+        if (menghuo->getPhase() == Player::Discard && menghuo->getMark("GlobalZaiqiCount") > 0)
+            return QStringList(objectName());
         return QStringList();
     }
 
     virtual bool cost(TriggerEvent, Room *room, ServerPlayer *player, QVariant &, ServerPlayer *) const
     {
-        int x = 0;
-        QVariantList discardpile = room->getTag("GlobalRoundDisCardPile").toList();
-        foreach (QVariant card_data, discardpile) {
-            int card_id = card_data.toInt();
-            if (Sanguosha->getCard(card_id)->isRed())
-                x++;
-        }
+        int x = player->getMark("GlobalZaiqiCount");
 
         QList<ServerPlayer *> targets, allplayers = room->getAlivePlayers();
 
@@ -1328,6 +1345,8 @@ public:
 
                 return true;
             }
+
+
         }
 
         return false;
@@ -1476,7 +1495,7 @@ public:
     virtual QStringList triggerable(TriggerEvent, Room *, ServerPlayer *player, QVariant &data, ServerPlayer* &) const
     {
         CardUseStruct use = data.value<CardUseStruct>();
-        if (use.card->isKindOf("Slash") && TriggerSkill::triggerable(player))
+        if (use.card->isKindOf("Slash") && TriggerSkill::triggerable(player) && use.to.contains(player))
             return QStringList(objectName());
         return QStringList();
     }
@@ -1800,7 +1819,8 @@ void StandardPackage::addShuGenerals()
 
     addMetaObject<RendeCard>();
     addMetaObject<FangquanCard>();
+    addMetaObject<ShowMashu>();
 
-    skills << new RendeBasic << new WushengTargetMod << new LongdanSlash << new LongdanJink
+    skills << new RendeSlash << new WushengTargetMod << new LongdanSlash << new LongdanJink
            << new LongdanDraw << new LiegongTargetMod << new LiegongRange << new FangquanAsk;
 }

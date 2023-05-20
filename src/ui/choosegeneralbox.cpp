@@ -399,7 +399,7 @@ void ChooseGeneralBox::chooseGeneral(const QStringList &_generals, bool view_onl
     if (!view_only && !single_result)
         _initializeItems();
 
-    if ((view_only || ServerInfo.OperationTimeout != 0)) {
+    if ((view_only || ServerInfo.OperationTimeout != 0) && reason != "yigui_use") {
         if (!progress_bar) {
             progress_bar = new QSanCommandProgressBar();
             progress_bar->setMaximumWidth(boundingRect().width() - 10);
@@ -597,7 +597,14 @@ void ChooseGeneralBox::reply()
             generals += ("+" + selected.last()->objectName());
     }
 
-    ClientInstance->onPlayerChooseGeneral(generals);
+    if (reason == "yigui_use") {
+        Self->tag["yigui_general"] = selected.first()->objectName();
+
+        RoomSceneInstance->onYiguiPopup();
+
+        clear();
+    } else
+        ClientInstance->onPlayerChooseGeneral(generals);
 }
 
 void ChooseGeneralBox::clear()
