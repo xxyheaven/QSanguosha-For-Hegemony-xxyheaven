@@ -1125,7 +1125,6 @@ function SmartAI:findLeijiTarget(player, leiji_value, slasher)
 		damage.damage = 2
 		if not self:damageIsEffective_(damage) then return 99 end
 		if enemy:hasShownSkill("hongyan") then return 99 end
-		--if enemy:hasShownSkill("yujia") then return 99 end
 		if self:cantbeHurt(enemy, player, 2) or self:objectiveLevel(enemy) < 3
 			or (enemy:isChained() and not self:isGoodChainTarget_(damage)) then return 100 end
 		if not sgs.isGoodTarget(enemy, self.enemies, self) then value = value + 50 end
