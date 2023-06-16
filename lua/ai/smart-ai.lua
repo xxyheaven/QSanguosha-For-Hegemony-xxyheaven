@@ -7830,16 +7830,21 @@ end
 
 function SmartAI:willShowForAttack()
 	if sgs.isRoleExpose() then return true end
-	if self.player:hasShownOneGeneral() then return true end
+	if self.player:hasShownOneGeneral() or self.player:isLord() then return true end
 	if self.room:alivePlayerCount() < 3 then return true end
 
-	local notshown, shown, f, e, eAtt = 0, 0, 0, 0, 0
+	local notshown, shown, f, Wbf, e, eAtt, eMax = 0, 0, 0, 0, 0, 0, 0
 	for _,p in sgs.qlist(self.room:getAlivePlayers()) do
 		if  not p:hasShownOneGeneral() then
 			notshown = notshown + 1
 		end
 		if p:hasShownOneGeneral() then
 			shown = shown + 1
+			if self.player:willBeFriendWith(p) then
+				Wbf = Wbf + 1
+			elseif p:getPlayerNumWithSameKingdom("AI") > eMax then
+				eMax = p:getPlayerNumWithSameKingdom("AI")
+			end
 			if self:evaluateKingdom(p) == self.player:getKingdom() then
 				f = f + 1
 			else
@@ -7858,7 +7863,16 @@ function SmartAI:willShowForAttack()
 		end
 	end
 	if firstShowReward and showRate > 0.9 then return true end
-
+	
+	if Wbf >= e or Wbf + 1 >= math.floor((shown + notshown)/2) or eMax >= math.floor((shown + notshown)/2) then 
+		local cn = sgs.cardneed_skill:split("|")
+		for _, skill in ipairs(cn) do
+			if self.player:hasSkill(skill) then
+				return true
+			end
+		end
+	end
+	
 	if showRate < 0.9 then return false end
 	if e < f or eAtt <= 0 then return false end
 
@@ -7867,17 +7881,22 @@ end
 
 function SmartAI:willShowForDefence()
 	if sgs.isRoleExpose() then return true end
-	if self.player:hasShownOneGeneral() then return true end
+	if self.player:hasShownOneGeneral() or self.player:isLord() then return true end
 	if self.room:alivePlayerCount() < 3 then return true end
 	if self:isWeak() then return true end
 
-	local notshown, shown, f, e, eAtt = 0, 0, 0, 0, 0
+	local notshown, shown, f, Wbf, e, eAtt, eMax = 0, 0, 0, 0, 0, 0, 0
 	for _,p in sgs.qlist(self.room:getAlivePlayers()) do
 		if  not p:hasShownOneGeneral() then
 			notshown = notshown + 1
 		end
 		if p:hasShownOneGeneral() then
 			shown = shown + 1
+			if self.player:willBeFriendWith(p) then
+				Wbf = Wbf + 1
+			elseif p:getPlayerNumWithSameKingdom("AI") > eMax then
+				eMax = p:getPlayerNumWithSameKingdom("AI")
+			end
 			if self:evaluateKingdom(p) == self.player:getKingdom() then
 				f = f + 1
 			else
@@ -7894,8 +7913,17 @@ function SmartAI:willShowForDefence()
 			firstShowReward = true
 		end
 	end
-	if firstShowReward and showRate > 0.9 then return true end
-
+	if firstShowReward and (showRate > 0.9 or self:isWeak()) then return true end
+	
+	if Wbf >= e or Wbf + 1 >= math.floor((shown + notshown)/2) or eMax >= math.floor((shown + notshown)/2) then  
+		local cn = sgs.cardneed_skill:split("|")
+		for _, skill in ipairs(cn) do
+			if self.player:hasSkill(skill) then
+				return true
+			end
+		end
+	end
+	
 	if showRate < 0.8 then return false end
 	if f < 2 or not self:isWeak() then return false end
 
@@ -7904,16 +7932,21 @@ end
 
 function SmartAI:willShowForMasochism()
 	if sgs.isRoleExpose() then return true end
-	if self.player:hasShownOneGeneral() then return true end
+	if self.player:hasShownOneGeneral() or self.player:isLord() then return true end
 	if self.room:alivePlayerCount() < 3 then return true end
 
-	local notshown, shown, f, e, eAtt = 0, 0, 0, 0, 0
+	local notshown, shown, f, Wbf, e, eAtt, eMax = 0, 0, 0, 0, 0, 0, 0
 	for _,p in sgs.qlist(self.room:getAlivePlayers()) do
 		if  not p:hasShownOneGeneral() then
 			notshown = notshown + 1
 		end
 		if p:hasShownOneGeneral() then
 			shown = shown + 1
+			if self.player:willBeFriendWith(p) then
+				Wbf = Wbf + 1
+			elseif p:getPlayerNumWithSameKingdom("AI") > eMax then
+				eMax = p:getPlayerNumWithSameKingdom("AI")
+			end
 			if self:evaluateKingdom(p) == self.player:getKingdom() then
 				f = f + 1
 			else
@@ -7932,6 +7965,15 @@ function SmartAI:willShowForMasochism()
 	end
 	if firstShowReward and showRate > 0.9 then return true end
 
+	if Wbf >= e or Wbf + 1 >= math.floor((shown + notshown)/2) or eMax >= math.floor((shown + notshown)/2) then 
+		local cn = sgs.cardneed_skill:split("|")
+		for _, skill in ipairs(cn) do
+			if self.player:hasSkill(skill) then
+				return true
+			end
+		end
+	end
+
 	if showRate < 0.2 then return false end
 	if self.player:getLostHp() == 0 and self:getCardsNum("Peach") > 0 and showRate < 0.2 then return false end
 
@@ -7945,7 +7987,8 @@ function SmartAI:getReward(player)
 	end
 	if not sgs.isAnjiang(player) and player:getRole() == "careerist" then return 1 end
 	local x = 1
-	for _, p in sgs.qlist(Global_room:getOtherPlayers(player)) do
+	--(Global_room:getOtherPlayers(player))Wrong arguments for overloaded function 'Room_getOtherPlayers'
+	for _, p in sgs.qlist(player:getAliveSiblings()) do
 		if p:isFriendWith(player) then x = x + 1 end
 	end
 	return x
