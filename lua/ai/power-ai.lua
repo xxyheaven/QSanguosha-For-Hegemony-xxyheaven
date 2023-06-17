@@ -200,61 +200,117 @@ end
 sgs.ai_skill_choice.startcommand_jieyue = sgs.ai_skill_choice.startcommand_to
 
 sgs.ai_skill_choice["docommand_jieyue"] = function(self, choices, data)
-  local source = data:toPlayer()
-  local index = self.player:getMark("command_index")
-  local is_enemy = self:isEnemy(source)
-  local is_friend = self:isFriend(source)
-  if index == 1 then
-    if not is_enemy and not is_friend then
-      return "yes"
-    end
-    if is_friend and not self:isWeak(source) then
-      for _, p in ipairs(self.enemies) do
-        if p:getHp() == 1 and self:isWeak(p) and self:isEnemy(source, p) then
-          return "yes"
-        end
-      end
-    end
-  end
-  if index == 5 and not self.player:faceUp() then
-    return "yes"
-  end
-  if is_enemy then
-    if index == 2 then
-      return "yes"
-    end
-    if index == 3 and self.player:hasSkill("hongfa") and not self.player:getPile("heavenly_army"):isEmpty() then
-      return "yes"
-    end
-    if index == 4 then
-      if self.player:getMark("command4_effect") > 0 then
-        return "yes"
-      end
-      local has_peach = false
-      for _, c in sgs.qlist(self.player:getHandcards()) do
-        if isCard("Peach", c, self.player) then--有实体卡桃可回血
-          has_peach = true
-        end
-      end
-      if has_peach then
-        for _, p in ipairs(self.friends) do
-          if p:getHp() == 1 and self:isWeak(p) and source:canSlash(self.player, nil, true) then
-            return "no"
-          end
-        end
-      end
-      if not source:canSlash(self.player, nil, true) then
-        return "yes"
-      end
-    end
-    if index == 6 and self.player:getEquips():length() < 3 and self.player:getHandcardNum() < 3 then
-      return "yes"
-    end
-  end
-  return "no"
+	local source = data:toPlayer()
+	local index = self.player:getMark("command_index")
+	local is_enemy = self:isEnemy(source)
+	local is_friend = self:isFriend(source)
+	if index == 1 then
+		if not is_enemy and not is_friend then
+			return "yes"
+		end
+		if is_friend and not self:isWeak(source) then
+			for _, p in ipairs(self.enemies) do
+				if p:getHp() == 1 and self:isWeak(p) and self:isEnemy(source, p) and self:canAttack(p,self.player) then
+					return "yes"
+				end
+			end
+		end
+	end
+	if index == 5 and not self.player:faceUp() then
+		return "yes"
+	end
+	if is_enemy then
+		if self:willSkipDrawPhase(source) or (self:willSkipPlayPhase(source) and self:getOverflow(source) > -1) then
+			return "no"
+		end
+		if index == 1 then
+			for _, p in ipairs(self.friends) do
+				if p:getHp() <= 2 and self:isWeak(p) and self:canAttack(p,self.player) then
+					return "no"
+				end
+			end
+			return "yes"
+		end
+		if index == 2 then
+			return "yes"
+		end
+		if index == 3 then
+			if (self.player:hasSkill("hongfa") and not self.player:getPile("heavenly_army"):isEmpty()) 
+				or self:needToLoseHp() or not self:isWeak() then
+				return "yes"
+			end
+		end
+		if index == 4 then
+			if self.player:getMark("command4_effect") > 0 then
+				return "yes"
+			end
+			local has_peach = false
+			for _, c in sgs.qlist(self.player:getHandcards()) do
+				if isCard("Peach", c, self.player) then--有实体卡桃可回血
+					has_peach = true
+				end
+			end
+			if has_peach then
+				for _, p in ipairs(self.friends) do
+					if p:getHp() == 1 and self:isWeak(p) and source:canSlash(self.player, nil, true) then
+						return "no"
+					end
+				end
+			end
+			if not source:canSlash(self.player, nil, true) then
+				return "yes"
+			end
+		end
+		if index == 6 then
+			if (self.player:getEquips():length() < 3 and self.player:getHandcardNum() < 3)
+				or (self.player:hasSkill("lirang") and #self.friends_noself > 0) then
+				return "yes"
+			end
+		end
+	end
+	return "no"
 end
-
+--伤害来源不同,合适的伤害目标也不同,实际并不能照搬(例如远域打自己)
 sgs.ai_skill_playerchosen["command_jieyue"] = sgs.ai_skill_playerchosen.damage
+
+sgs.ai_choicemade_filter.skillChoice["docommand_jieyue"] = function(self, player, promptlist)
+	local yujin = self.room:getCurrent()
+	local index = player:getMark("command_index")
+	local choice = promptlist[#promptlist]
+	--[[
+	["#command1"] = "军令一：对你指定的角色造成1点伤害",
+	["#command2"] = "军令二：摸一张牌，然后交给你两张牌",
+	["#command3"] = "军令三：失去1点体力",
+	["#command4"] = "军令四：本回合不能使用或打出手牌且所有非锁定技失效",
+	["#command5"] = "军令五：叠置，本回合不能回复体力",
+	["#command6"] = "军令六：选择一张手牌和一张装备区里的牌，弃置其余的牌",
+	--]]
+	if index == 1 and not self:needDamagedEffects(player, player) and not self:needToLoseHp(player) then
+		if choice == "no" then
+			if not (self:willSkipDrawPhase(yujin) or (self:willSkipPlayPhase(yujin) and self:getOverflow(yujin) > -1)) then
+				sgs.updateIntention(player, yujin, -80)
+			end
+		elseif self:isWeak(player) and self:canAttack(player) and choice == "yes" then
+			sgs.updateIntention(player, yujin, -40)
+		elseif choice == "yes" then
+			sgs.updateIntention(player, yujin, 80)
+		end
+	elseif index == 3 and not self:needToLoseHp(player) then
+		if choice == "yes" then
+			sgs.updateIntention(player, yujin, 80)
+		elseif not self:isWeak(player) then
+			if not (self:willSkipDrawPhase(yujin) or (self:willSkipPlayPhase(yujin) and self:getOverflow(yujin) > -1)) then
+				sgs.updateIntention(player, yujin, -80)
+			end
+		end
+	elseif index == 5 and self.player:faceUp() then
+		if choice == "yes" then
+			sgs.updateIntention(player, yujin, 40)
+		end
+	elseif choice == "yes" then
+		sgs.updateIntention(player, yujin, 80)
+	end
+end
 
 function sgs.ai_cardneed.jieyue(to, card)
 	return to:isKongcheng()
@@ -266,7 +322,29 @@ jianglve_skill.name = "jianglve"
 table.insert(sgs.ai_skills, jianglve_skill)
 jianglve_skill.getTurnUseCard = function(self, inclusive)
 	if self.player:getMark("@strategy") < 1 then return end
-  return sgs.Card_Parse("@JianglveCard=.&jianglve")
+	---[[--将略召唤效果没了
+	local jianglve_value = 0
+	local evaluate_value = 0
+	local evaluate_friend = false
+	for _,p in sgs.qlist(self.room:getAlivePlayers()) do
+		if sgs.isAnjiang(p) then
+			if self:evaluateKingdom(p) == "unknown" then
+				evaluate_value = evaluate_value + 0.5
+				evaluate_friend = true
+			elseif self:isFriendWith(p) then
+				evaluate_value = evaluate_value + 1
+				if self:isWeak(p) then evaluate_value = evaluate_value + 1 end
+			end
+		elseif self.player:isFriendWith(p) then
+			jianglve_value = jianglve_value + 1
+			if self:isWeak(p) then jianglve_value = jianglve_value + 1 end
+		end
+	end
+	if not evaluate_friend then return sgs.Card_Parse("@JianglveCard=.&jianglve") end--没有未明置的队友
+	if jianglve_value >= 4 then return sgs.Card_Parse("@JianglveCard=.&jianglve") end--至少覆盖3人或者2人isWeak
+	if jianglve_value < 3 and evaluate_value > 0 then return end--暂且等待队友明置
+	--]]
+	return sgs.Card_Parse("@JianglveCard=.&jianglve")
 end
 
 sgs.ai_skill_use_func.JianglveCard= function(card, use, self)
@@ -323,7 +401,7 @@ sgs.ai_skill_choice["docommand_jianglve"] = function(self, choices, data)
   end
   if index == 6 then
     if (self.player:getEquips():length() < 4
-      and self.player:getHandcardNum() < (self.player:hasSkills("xuanhuoattach|paoxiao") and 5 or 4))
+      and self.player:getHandcardNum() <= (self.player:hasSkills("xuanhuoattach|paoxiao") and 5 or 4))
     or (self:isWeak() and self:getCardsNum("Peach") + self:getCardsNum("Analeptic") == 0) then
       return "yes"
     end
@@ -336,7 +414,8 @@ sgs.ai_skill_playerchosen["command_jianglve"] = sgs.ai_skill_playerchosen.damage
 
 sgs.ai_skill_choice["jianglve"] = function(self, choices, data)--ai势力召唤
   choices = choices:split("+")
-  if table.contains(choices,"show_head_general") and self.player:inHeadSkills("rende")--君主替换
+  if table.contains(choices,"show_head_general") and (self.player:inHeadSkills("jianxiong") or self.player:inHeadSkills("rende")
+	or self.player:inHeadSkills("zhiheng") or self.player:inHeadSkills("guidao"))--君主替换
     and sgs.GetConfig("EnableLordConvertion", true) and self.player:getMark("Global_RoundCount") <= 1  then
     return "show_deputy_general"
   end
@@ -371,6 +450,16 @@ sgs.ai_skill_choice["jianglve"] = function(self, choices, data)--ai势力召唤
   return choices[1]
 end
 
+sgs.ai_choicemade_filter.skillChoice["jianglve"] = function(self, player, promptlist)
+	local current = self.room:getCurrent()
+	if not player:hasShownOneGeneral() then
+		local choice = promptlist[#promptlist]
+		if choice == "cancel" and (player:canShowGeneral("h") or player:canShowGeneral("d")) then
+			sgs.updateIntention(player, current, 80)
+		end
+	end
+end
+
 --法正
 sgs.ai_skill_invoke.enyuan = function(self, data)
   local target = data:toPlayer()
@@ -381,6 +470,8 @@ sgs.ai_skill_invoke.enyuan = function(self, data)
 end
 
 sgs.ai_skill_exchange["_enyuan"] = function(self,pattern,max_num,min_num,expand_pile)
+  --Global_room:writeToConsole("恩怨判断开始:"..tostring(pattern))
+  --2.3.0恩怨自己必掉血……
   if self.player:isKongcheng() then
     return {}
   end
@@ -663,9 +754,10 @@ sgs.ai_skill_choice.xuanhuo = function(self, choices)
   end
   Global_room:writeToConsole("眩惑杀目标:"..sgs.Sanguosha:translate(target:getGeneralName()).."/"..sgs.Sanguosha:translate(target:getGeneral2Name()))
 
-  if not has_Crossbow and not has_paoxiao and not has_baolie and table.contains(choices,"paoxiao") and enough_pxslash then
-    self.room:writeToConsole(sgs.Sanguosha:translate(string.format("SEAT(%s)",self.player:getSeat()))..":眩惑可咆哮")
-    can_paoxiao = true
+  if not has_Crossbow and not has_paoxiao and not has_baolie and table.contains(choices,"paoxiao") and enough_pxslash and target then
+	--有合适的目标才咆哮
+	self.room:writeToConsole(sgs.Sanguosha:translate(string.format("SEAT(%s)",self.player:getSeat()))..":眩惑可咆哮")
+	can_paoxiao = true
   end
   if not has_wusheng and table.contains(choices,"wusheng") then
     self.room:writeToConsole(sgs.Sanguosha:translate(string.format("SEAT(%s)",self.player:getSeat()))..":眩惑可武圣")
@@ -1123,7 +1215,9 @@ sgs.ai_skill_use_func.GanluCard = function(card, use, self)
 	end
 end
 
-sgs.ai_use_priority.GanluCard = sgs.ai_use_priority.Dismantlement + 0.1
+--sgs.ai_use_priority.GanluCard = sgs.ai_use_priority.Dismantlement + 0.1
+--过拆之前不合适,联军回血导致不能甘露太恶心了,但是改成联军之前又会导致在没有联军的时候先奇袭……
+sgs.ai_use_priority.GanluCard = sgs.ai_use_priority.AllianceFeast + 0.1
 sgs.dynamic_value.control_card.GanluCard = true
 
 sgs.ai_card_intention.GanluCard = function(self,card, from, to)
@@ -1250,6 +1344,15 @@ sgs.ai_skill_cardask["@keshou"] = function(self, data, pattern, target, target2)
     return "."
   end
 
+	if damage.damage == 1 and (self:needToLoseHp(self.player, damage.from, damage.card and damage.card:isKindOf("Slash"), true)
+		or self:needDamagedEffects(self.player, damage.from,  damage.card and damage.card:isKindOf("Slash"))) then return "." end--提供结姻目标等
+	if self.player:isChained() and damage.nature ~= sgs.DamageStruct_Normal and not damage.chain then
+		--连环传导起点考虑不发动(例如火攻自己)
+		if self:isGoodChainTarget(self.player, damage.from, damage.nature) and not (damage.from and self:isEnemy(damage.from)) then
+			return "."
+		end
+	end
+
   local function canKeshouDiscard(card)
     if isCard("Peach", card, self.player) or (card:isKindOf("Analeptic") and self.player:getHp() == 1) then
       return false
@@ -1284,14 +1387,16 @@ sgs.ai_skill_cardask["@keshou"] = function(self, data, pattern, target, target2)
   end
   return "."
 end
-
+--蒋干回合防盗书0牌不应发动筑围
+sgs.ai_skill_invoke.zhuwei= sgs.ai_skill_invoke.tiandu
+--[[
 sgs.ai_skill_invoke.zhuwei= function(self, data)
     if not self:willShowForDefence() then
 		  return false
   	end
     return true
 end
-
+--]]
 sgs.ai_skill_choice.zhuwei = function(self, choices, data)
   local target = self.room:getCurrent()
   if self:isFriend(target) then
@@ -1329,7 +1434,7 @@ sgs.ai_skill_exchange.fudi= function(self,pattern,max_num,min_num,expand_pile)
 		if not from:isFriendWith(p) or p:getHp() < x then
 			continue
 		end
-		if p:getHp() > x and self:damageIsEffective(p, nil, self.player) then
+		if p:getHp() > x then--伤害无效也算血量目标
 			targets = sgs.SPlayerList()
 		end
 		x = p:getHp()
@@ -1674,15 +1779,153 @@ sgs.ai_skill_invoke.zongyu = true
 
 --五子良将纛
 local function shouldUseJiananByValue(self, name)
-  if not sgs.general_value[name] then
-    return true
-  end
-  Global_room:writeToConsole("五子良将纛武将值:"..sgs.Sanguosha:translate(name)..sgs.general_value[name])
-  if sgs.general_value[name] and sgs.general_value[name] < (self.player:getHandcardNum() < 3 and 6 or 7) then
-    return true
-  end
-  --安置求安函？
-  return false
+	local is_head = (self.player:getActualGeneral1Name() == name)
+	local players_num = self.room:alivePlayerCount()
+	local round_num,round_friend_num,round_enemy_num = 0,0,0
+	if self.player:hasSkill("jianan") then
+		round_num = players_num - 1
+		round_friend_num = self.player:getPlayerNumWithSameKingdom("AI") - 1
+		round_enemy_num = players_num - self.player:getPlayerNumWithSameKingdom("AI")
+	else
+		local lord_caocao = sgs.findPlayerByShownSkillName("jianan")
+		round_num = self:playerGetRound(self.player, lord_caocao)
+		round_enemy_num = self:getEnemyNumBySeat(self.player, lord_caocao)
+		round_friend_num = self:getFriendNumBySeat(self.player, lord_caocao)
+	end
+	local v = 0
+	--五子良将纛武将值:甄姬9,曹真9,郭淮7,许褚6
+	if self.player:isDuanchang(is_head) or (is_head and not self.player:canShowGeneral("h")) or (not is_head and not self.player:canShowGeneral("d")) then
+		v = - 1
+	elseif sgs.general_value[name] and not (name == "zhenji") then
+		if name == "caozhen" then
+			if round_enemy_num == 0 then
+				v = 2*(self.player:getPile("drive"):length())
+			else
+				v = 5 + math.max(self.player:getPile("drive"):length(),round_enemy_num)*2
+			end
+		elseif name == "dengai" then
+			if self.player:hasSkill("jixi") then
+				v = 4*(self.player:getPile("field"):length()) + round_enemy_num
+			else
+				v = 2*(self.player:getPile("field"):length()) + round_enemy_num
+			end
+		elseif name == "guohuai" then
+			local drawcardnum = self:imitateDrawNCards(self.player, self.player:getVisibleSkillList(true))
+			local to_use = drawcardnum/2
+			local jingce_value = math.min(self.player:getLostHp(),self:getCardsNum("Peach"))
+			for _,c in sgs.qlist(self.player:getCards("h")) do
+				local dummy_use = { isDummy = true , to = sgs.SPlayerList()}
+				self:useCardByClassName(c,dummy_use)
+				if dummy_use.card then
+					to_use = to_use + 1
+				end
+			end
+			if to_use < self.player:getHandcardNum() + drawcardnum then
+				for _,skill in sgs.qlist(self.player:getVisibleSkillList(true)) do
+					if skill:inherits("ViewAsSkill") or (skill:inherits("TriggerSkill") and not skill:canPreshow()) then
+						to_use = to_use + 1
+						if to_use >= self.player:getHandcardNum() + drawcardnum then break end
+					end
+				end
+			end
+			if to_use - self.player:getHp() >= 0 then
+				if not self:isWeak() then
+					jingce_value = (jingce_value + 1)/2
+					Global_room:writeToConsole("多牌精策修正:"..tostring(jingce_value))
+				elseif jingce_value == 0 then
+					jingce_value = 0.8
+					Global_room:writeToConsole("无桃精策修正:"..tostring(jingce_value))
+				end
+			else
+				jingce_value = 1/self.player:getHp()
+				Global_room:writeToConsole("少牌精策修正:"..tostring(jingce_value))
+			end
+			v = sgs.general_value[name]*jingce_value
+			Global_room:writeToConsole("精策修正价值:"..tostring(v))
+		elseif name == "xiahoudun" then--夏侯惇不值8
+			if self:isWeak() then
+				v = 2*round_enemy_num
+			else
+				v = 2*round_friend_num/math.max(round_num,1)
+			end
+		elseif name == "yujin" then
+			v = - 1
+		else
+			v = sgs.general_value[name]
+		end
+	else
+		if not sgs.general_value[name] then v = v + 4 end
+		--司马凭什么价值8……
+		local before_skill = "luoshen|jieyue"
+		for _,skill in sgs.qlist(sgs.Sanguosha:getGeneral(name):getVisibleSkillList(true, is_head)) do
+			if before_skill:match(skill:objectName()) then v = v - 1 continue end
+			if sgs.priority_skill:match(skill:objectName()) then
+				v = v + 3*(players_num-round_num)/players_num
+			elseif sgs.Active_cardneed_skill:match(skill:objectName()) then
+				v = v + 2
+			elseif sgs.notActive_cardneed_skill:match(skill:objectName()) then
+				v = v + 2*round_enemy_num/math.max(round_num,1)
+			elseif sgs.masochism_skill:match(skill:objectName()) then
+				if self:isWeak() then
+					v = v + 2*round_enemy_num
+				else
+					v = v + 2*round_friend_num/math.max(round_num,1)
+				end
+			elseif sgs.defense_skill:match(skill:objectName()) then
+				if self:isWeak() then
+					v = v + 2*round_enemy_num
+				else
+					v = v + 2*round_enemy_num/math.max(round_num,1)
+				end
+			elseif skill:inherits("BattleArraySkill") then
+				local NP = self.player:getNextAlive()
+				local LP = self.player:getLastAlive()
+				if NP:isFriendWith(LP) then
+					if skill:objectName() == "fangyuan" and not self.player:isFriendWith(NP) then
+						local slash = sgs.cloneCard("slash")
+						if (self.player:canSlash(NP, slash, true) and self:slashIsEffective(slash, NP) and not self:slashProhibit(nil, NP))
+							or (self.player:canSlash(LP, slash, true) and self:slashIsEffective(slash, LP) and not self:slashProhibit(nil, LP)) then
+							--current:inSiegeRelation(self.player, self.player)
+							v = v + 2
+						end
+					elseif self.player:isFriendWith(NP) then
+						v = v + self.player:getFormation()
+					end
+				end
+			elseif skill:inherits("ViewAsSkill") or (skill:inherits("TriggerSkill") and not skill:canPreshow()) then
+				v = v + 2
+			elseif skill:inherits("LuaViewAsSkill") or skill:inherits("LuaTriggerSkill") then
+				v = v + 2
+			else
+				v = v + 1
+			end
+		end
+	end
+	Global_room:writeToConsole("五子良将纛武将值:"..sgs.Sanguosha:translate(name)..tostring(v))
+	if v < (self.player:getHandcardNum() < 3 and 6 or 7) then
+		return true
+	end
+	if not self.player:hasSkill("qiaobian") and self.player:containsTrick("indulgence")
+		and self:getFinalRetrial() ~= 1 and self:getOverflow() > (v - 5) then
+		--曹丕价值11,但是如果能跳乐多存6张应该也是值得的
+		local jianan_skills = {"tuxi", "qiaobian", "xiaoguo", "jieyue", "duanliang"}
+		for _, p in sgs.qlist(self.room:getAlivePlayers()) do
+			for _, skill in ipairs(jianan_skills) do
+				if p:hasShownSkill(skill) or p:hasShownSkill(skill .. "_egf") then
+					table.removeOne(jianan_skills,skill)
+				end
+			end
+		end
+		if self.player:hasSkill("jieyue") then
+			table.insert(jianan_skills ,"jieyue")
+		end
+		if #jianan_skills > 0 then
+			local choice = sgs.ai_skill_choice.jianan_skill(self ,table.concat(jianan_skills,"+"))
+			if choice == "qiaobian" then return true end
+		end
+	end
+	--暗置求安函？
+	return false
 end
 
 sgs.ai_skill_cardask["@elitegeneralflag"] = function(self, data, pattern, target, target2)
@@ -1695,11 +1938,28 @@ sgs.ai_skill_cardask["@elitegeneralflag"] = function(self, data, pattern, target
     end
   end
   if self.player:hasSkill("jieyue") then--和五子良将纛同一时机触发的技能，设置优先发动jieyue
-    table.insert(jianan_skills ,"jieyue")
+	local jieyue_egf_use = false--于禁暗置时,其他队友先抢jieyue_egf的情况
+	for _, p in sgs.qlist(self.room:getAlivePlayers()) do
+		if p:hasShownSkill("jieyue_egf") then jieyue_egf_use = true break end
+	end
+	if not jieyue_egf_use then
+		table.insert(jianan_skills ,"jieyue")
+	end
   end
   if #jianan_skills == 0 and self.player:getMark("JieyueExtraDraw") < 1 then--没有技能可选，参考眩惑预选
-    return "."
+	self.room:writeToConsole("五子良将纛没有可选的技能")
+	return "."
   end
+	local players_num = self.room:alivePlayerCount()
+	local round_friend_num,round_enemy_num = 0,0
+	if self.player:hasSkill("jianan") then
+		round_friend_num = self.player:getPlayerNumWithSameKingdom("AI") - 1
+		round_enemy_num = players_num - self.player:getPlayerNumWithSameKingdom("AI")
+	else
+		local lord_caocao = sgs.findPlayerByShownSkillName("jianan")
+		round_friend_num = self:getFriendNumBySeat(self.player, lord_caocao)
+		round_enemy_num = self:getEnemyNumBySeat(self.player, lord_caocao)
+	end
   local choice = sgs.ai_skill_choice.jianan_skill(self ,table.concat(jianan_skills,"+"))
   self.room:writeToConsole("---五子良将纛预选技能:"..sgs.Sanguosha:translate(choice).."---")
 
@@ -1718,21 +1978,28 @@ sgs.ai_skill_cardask["@elitegeneralflag"] = function(self, data, pattern, target
     end
     return discard:toString()
   end
-  if (self.player:hasSkill(choice) and choice ~= "jieyue") or choice == "xiaoguo" then--骁果
+  if (self.player:hasSkill(choice) and choice ~= "jieyue") then
     return "."
   end
   if self.player:isLord() and self.player:inHeadSkills("sidi") and not self.player:getPile("drive"):isEmpty() then
     return "."
   end
-  if choice == "qiaobian" then
-    return discard:toString()
-  end
+	if choice == "xiaoguo" then--骁果
+		if self:isWeak() or self.player:getHandcardNum() < 3 or round_enemy_num <= 0 then return "." end
+	end
+	if (self.player:isLastHandCard(discard) and #allcards > 1) and (choice == "jieyue" 
+		or (choice == "qiaobian" and (self.player:containsTrick("supply_shortage") or self.player:containsTrick("indulgence")))) then--最后一张手牌需要留做巧变节钺
+		return allcards[2]:toString()
+	end
   if self.player:hasSkills("qiaobian|qiaobian_egf") and choice == "tuxi" then
     return "."
   end
   if not isCard("Peach", discard, self.player) then
     local g1name = self.player:getActualGeneral1Name()
     local g2name = self.player:getActualGeneral2Name()
+	if g1name == "yujin" or g2name == "yujin" then--
+		if round_friend_num > 0 or self:getOverflow() > 0 then return discard:toString() end
+	end
     if shouldUseJiananByValue(self, g1name) or shouldUseJiananByValue(self, g2name)
     or self.player:isDuanchang(true) or self.player:isDuanchang(false) then
       --self.room:writeToConsole("五子良将纛准备弃牌")
@@ -1741,48 +2008,92 @@ sgs.ai_skill_cardask["@elitegeneralflag"] = function(self, data, pattern, target
   end
 	return "."
 end
-
+--有暗置武将牌时,不会触发jianan_hide
 sgs.ai_skill_choice.jianan_hide = function(self, choices)
-  --self.room:writeToConsole("五子良将纛暗置选项:"..choices)
-  if self.player:hasSkill("jieyue") then
-    if self.player:inHeadSkills("jieyue") then
-      return "head"
-    else
-      return "deputy"
-    end
-  end
+	--self.room:writeToConsole("五子良将纛暗置选项:"..choices)
+	if self.player:hasSkill("jieyue") then
+		if self.player:inHeadSkills("jieyue") then
+			return "head"
+		elseif self.player:inDeputySkills("jieyue") then
+			return "deputy"
+		end
+	end
 
 	local g1name = self.player:getActualGeneral1Name()
-  local g2name = self.player:getActualGeneral2Name()
-  local v1 = sgs.general_value[g1name] or 5
-  local v2 = sgs.general_value[g2name] or 5
-  if self.player:isDuanchang(true) then
-    v1 = 0
-  end
-  if self.player:isDuanchang(false) then
-    v2 = 0
-  end
-  if self.player:hasShownSkill("luoshen") then--甄姬值9-4
-    if self.player:inHeadSkills("luoshen") and v2 > 5 then
-      v1 = v1 - 4
-    elseif self.player:inDeputySkills("luoshen") and v1 > 5 then
-      v2 = v2 - 4
-    end
+	local g2name = self.player:getActualGeneral2Name()
+	local active_value = 5
+	--副将曹丕大于3田主将邓艾……
+	--[[
+	“突袭”、“巧变”、“骁果”、“节钺”、“断粮”
+	["zhangliao"] = 2.5
+	["zhanghe"] = 3
+	["yuejin"] = 2.5
+	["xuhuang"] = 3
+	--]]
+	local v1 = sgs.general_value[g1name] or 5
+	local v2 = sgs.general_value[g2name] or 5
+	if self.player:isDuanchang(true) then
+		v1 = 0
 	end
-  if self.player:hasShownSkill("tuntian") then
-    if self.player:inHeadSkills("tuntian") then
-      v1 = v1 + self.player:getPile("field"):length()
-    else
-      v2 = v2 + self.player:getPile("field"):length() * 0.5
-    end
+	if self.player:isDuanchang(false) then
+		v2 = 0
 	end
-  if self.player:hasSkill("sidi") then
-    if self.player:inHeadSkills("sidi") then
-      v1 = v1 + self.player:getPile("drive"):length()
-    else
-      v2 = v2 + self.player:getPile("drive"):length()
-    end
-  end
+	
+	local active_v1,active_v2 = 0,0
+	if self.player:hasShownSkills(sgs.Active_cardneed_skill) then
+		local Acd = sgs.Active_cardneed_skill:split("|")
+		for _, skill in ipairs(Acd) do
+			if active_v1 >= 4 and active_v2 >= 4 then break end
+			if not self.player:hasShownSkill(skill) then continue end
+			if self.player:inHeadSkills(skill) then
+				active_v1 = active_v1 + 2
+			elseif self.player:inDeputySkills(skill) then
+				active_v2 = active_v2 + 2
+			end
+		end
+		v1 = v1 + active_v1
+		v2 = v2 + active_v2
+	elseif self.player:hasShownSkills(sgs.notActive_cardneed_skill) then
+		local Ncd = sgs.notActive_cardneed_skill:split("|")
+		for _, skill in ipairs(Ncd) do
+			if active_v1 >= 2 and active_v2 >= 2 then break end
+			if not self.player:hasShownSkill(skill) then continue end
+			if self.player:inHeadSkills(skill) then
+				active_v1 = active_v1 + 1
+			elseif self.player:inDeputySkills(skill) then
+				active_v2 = active_v2 + 1
+			end
+		end
+		v1 = v1 + active_v1
+		v2 = v2 + active_v2
+	end
+	if self.player:hasShownSkill("luoshen") then--甄姬值9-4
+		if self.player:inHeadSkills("luoshen") and v2 >= 5 then--曹仁值5……
+			v1 = v1 - 4
+		elseif self.player:inDeputySkills("luoshen") and v1 >= 5 then
+			v2 = v2 - 4
+		end
+	end
+	if self.player:hasShownSkill("tuntian") then
+		if self.player:inHeadSkills("tuntian") then
+			v1 = v1 + self.player:getPile("field"):length()
+		else
+			v2 = v2 + self.player:getPile("field"):length() * 0.5
+		end
+	end
+	if self.player:hasSkill("sidi") then
+		if self.player:inHeadSkills("sidi") then
+			v1 = v1 + self.player:getPile("drive"):length()
+		else
+			v2 = v2 + self.player:getPile("drive"):length()
+		end
+	end
+	if shouldUseJiananByValue(self, g1name) and not shouldUseJiananByValue(self, g2name) then
+		return "head"
+	elseif shouldUseJiananByValue(self, g2name) and not shouldUseJiananByValue(self, g1name) then
+		return "deputy"
+	end
+	--Global_room:writeToConsole("五子良将纛暗置:"..tostring(v1)..":"..tostring(v2))
 	return v1 > v2 and "deputy" or "head"
 end
 
@@ -1814,19 +2125,29 @@ sgs.ai_skill_choice.jianan_skill = function(self, skills)
         end
       end
     end
-    if (self:getOverflow() > (self.player:getMark("JieyueExtraDraw") > 0 and 2 or 4)
-      or (self:willSkipDrawPhase() and self.player:getMark("JieyueExtraDraw") > 0)--配合节钺
-      or (self:willSkipPlayPhase() and not self.player:isKongcheng()))--一般的被乐
-    and table.contains(skills, "qiaobian") then
-      return "qiaobian"
-    end
+    local Nullification = false
+		for _, p in ipairs(self.friends) do
+			if getKnownCard(p, self.player, "Nullification") > 0 then
+				Nullification = true
+			end
+		end
+		local supply_shortage = (self.player:containsTrick("supply_shortage") and (not self:hasWizard(self.friends) or self:hasWizard(self.enemies, true)))
+		local indulgence = (self.player:containsTrick("indulgence") and self:getFinalRetrial() ~= 1 and self:getOverflow() > -1)
+		
+		if (self:getOverflow() > (self.player:getMark("JieyueExtraDraw") > 0 and 2 or 4)--配合节钺(跳弃牌)
+			--or (self:willSkipDrawPhase() and self.player:getMark("JieyueExtraDraw") > 0)--配合节钺(跳判定)
+			--or (self:willSkipPlayPhase() and not self.player:isKongcheng()))--一般的被乐
+			or (self.player:getCardCount(true) >= 2 and not self.player:isKongcheng() and not Nullification and (indulgence or supply_shortage)))
+			and table.contains(skills, "qiaobian") then
+			return "qiaobian"
+		end
 	end
-  if table.contains(skills, "jieyue") then--能发动节钺时
-    if sgs.ai_skill_use["@@jieyue"](self) ~= "." and not self:willSkipDrawPhase() then
-      return "jieyue"
-    elseif #skills > 1 then
-      table.removeOne(skills, "jieyue")
-    end
+	if table.contains(skills, "jieyue") and self.player:getCardCount(true) >= 2 then--能发动节钺时
+		if sgs.ai_skill_use["@@jieyue"](self) ~= "." and not self:willSkipDrawPhase() then
+			return "jieyue"
+		elseif #skills > 1 then
+			table.removeOne(skills, "jieyue")
+		end
 	end
   if table.contains(skills, "duanliang") then
     local duanliang_count = 0
@@ -2022,16 +2343,16 @@ sgs.ai_skill_exchange.command = function(self,pattern,max_num,min_num,expand_pil
 	end
   local visibleflag = string.format("%s_%s_%s", "visible", self.player:objectName(), to:objectName())
 
+  local cards = self.player:getCards("he")
+  cards = sgs.QList2Table(cards)
   local function card_insert(card)--判断并防止重复
     local c_id = card:getEffectiveId()
-    if #card_give < max_num and not table.contains(card_give, c_id) then
+	--需要额外过滤,例如self:getCard("Slash")会拿到天兵,self:getCard("Peach")会拿到珠子等
+    if #card_give < max_num and not table.contains(card_give, c_id) and table.contains(cards, c_id) then
       if not card:hasFlag("visible") then card:setFlags(visibleflag) end--记录已知牌
       table.insert(card_give, c_id)
     end
   end
-
-  local cards = self.player:getCards("he")
-	cards = sgs.QList2Table(cards)
   if self.player:getPhase() <= sgs.Player_Play then
 		self:sortByUseValue(cards, true)
 	else

@@ -30,6 +30,7 @@ daoshu_skill.getTurnUseCard = function(self, inclusive)
 	if #self.enemies == 0 then return end
 	return sgs.Card_Parse("@DaoshuCard=.&daoshu")
 end
+--通过建安暗置的蒋干能发动盗书？
 
 sgs.ai_skill_use_func.DaoshuCard = function(card, use, self)
 	sgs.ai_use_priority.DaoshuCard = 2.9--合纵连横之后
@@ -66,7 +67,9 @@ sgs.ai_skill_use_func.DaoshuCard = function(card, use, self)
 				if suit == enemy:getHandcardNum() then--如果已知花色等于手牌数
 					sgs.ai_use_priority.DaoshuCard = 5.3
 					self.daoshu_suit = table.indexOf(known_suit,suit) - 1
-					--Global_room:writeToConsole("已知花色:"..self.daoshu_suit)
+					local suit_table = {"♠", "♣", "♥", "♦"}
+					local suit_str = suit_table[(self.daoshu_suit + 1)]
+					Global_room:writeToConsole("盗书已知花色:"..suit_str)
 					use.card = card
 					if use.to then
 						use.to:append(enemy)
@@ -91,7 +94,9 @@ sgs.ai_skill_use_func.DaoshuCard = function(card, use, self)
 			if enemy:hasSkill("hongyan") then--针对小乔
 				self.daoshu_suit = 2
 			end
-			--Global_room:writeToConsole("最多的花色数量:"..max_suit)
+			local suit_table = {"♠", "♣", "♥", "♦"}
+			local suit_str = suit_table[(self.daoshu_suit + 1)]
+			Global_room:writeToConsole("盗书最多的花色:数量:"..tostring(suit_str)..":"..max_suit)
 			use.card = card
 			if use.to then
 				use.to:append(enemy)
@@ -150,6 +155,11 @@ sgs.ai_skill_invoke.duannian = function(self, data)
 			return true
 		end
 	end
+	if self.player:hasSkill("lirang") then
+		for _, afriend in ipairs(self.friends_noself) do
+			if not self:needKongcheng(afriend, true) then return true end
+		end
+	end
 	return false
 end
 
@@ -172,6 +182,9 @@ sgs.ai_skill_playerchosen.lianyou = function(self, targets)
 	for _, target in ipairs(targetlist) do
 		if self:isFriend(target) then return target end
 	end
+	for _, target in ipairs(targetlist) do
+		if not self:isEnemy(target) then return target end
+	end
 	return {}
 end
 
@@ -192,7 +205,10 @@ sgs.ai_skill_invoke.gongxiu = function(self, data)
 	if self.player:getMark("gongxiuchoice") == 1 then
 		local num = 0
 		for _, p in sgs.qlist(self.room:getOtherPlayers(self.player)) do
-			if not self:isFriend(p) and not p:isNude() then
+			if p:isNude() then continue end
+			if self:doNotDiscard(p, "he", true, 1, "gongxiu") then
+				if self:isFriend(p) then num = num + 1 end
+			elseif not self:isFriend(p) then
 				num = num + 1
 			end
 		end
@@ -220,15 +236,13 @@ sgs.ai_skill_playerchosen.gongxiu_draw = function(self, targets, max_num, min_nu
 	local targetlist = sgs.QList2Table(targets)
 	self:sort(targetlist, "handcard")
 	for _, target in ipairs(targetlist) do
-		if self:isFriendWith(target) and #result < max_num then
+		if self:isFriendWith(target) and #result < max_num and not table.contains(result, target) then
 			table.insert(result, target)
-			table.removeOne(targetlist, target)--防止重复
 		end
 	end
 	for _, target in ipairs(targetlist) do
-		if self:isFriend(target) and #result < max_num then
+		if self:isFriend(target) and #result < max_num and not table.contains(result, target) then
 			table.insert(result, target)
-			table.removeOne(targetlist, target)
 		end
 	end
 	return result
@@ -239,15 +253,21 @@ sgs.ai_skill_playerchosen.gongxiu_discard = function(self, targets, max_num, min
 	local targetlist = sgs.QList2Table(targets)
 	self:sort(targetlist, "handcard")
 	for _, target in ipairs(targetlist) do
-		if self:isEnemy(target) and #result < max_num then
+		if target:isNude() or table.contains(result, target) then continue end
+		if self:isEnemy(target) and not self:doNotDiscard(target, "he", true, 1, "gongxiu") and #result < max_num then
 			table.insert(result, target)
-			table.removeOne(targetlist, target)--防止重复
 		end
 	end
 	for _, target in ipairs(targetlist) do
-		if not self:isFriend(target) and #result < max_num then
+		if target:isNude() or table.contains(result, target) then continue end
+		if not self:isFriend(target) and not self:doNotDiscard(target, "he", true, 1, "gongxiu") and #result < max_num then
 			table.insert(result, target)
-			table.removeOne(targetlist, target)
+		end
+	end
+	for _, target in ipairs(targetlist) do
+		if target:isNude() or table.contains(result, target) then continue end
+		if self:isFriend(target) and self:doNotDiscard(target, "he", true, 1, "gongxiu") and #result < max_num then
+			table.insert(result, target)
 		end
 	end
 	return result
@@ -259,7 +279,13 @@ table.insert(sgs.ai_skills, jinghe_skill)
 jinghe_skill.getTurnUseCard = function(self, inclusive)
 	if self.player:isKongcheng() or self.player:hasUsed("JingheCard") then return end
 	local jinghe_show = {}
-	local num = math.min(#self.friends, self.player:getMaxHp())
+	local show_count = 0
+	for _, p in ipairs(self.friends) do
+		if p:hasShownOneGeneral() then--必须是明置角色
+			show_count = show_count + 1
+		end
+	end
+	local num = math.min(show_count, self.player:getMaxHp())
 
 	local function canJingheShow(to_select)
 		for _, id in ipairs(jinghe_show) do
@@ -659,24 +685,24 @@ sgs.ai_skill_playerchosen["#guowu_effect"] = function(self, targets, max_num, mi
 	elseif card:isKindOf("ExNihilo") then
 		self:sort(targetlist, "handcard")
 		for _, target in ipairs(targetlist) do
-			if self:isFriendWith(target) and #result < max_num and not table.contains(result, target) then
+			if self:isFriendWith(target) and self:trickIsEffective(card, target, self.player) and #result < max_num and not table.contains(result, target) then
 		  		table.insert(result, target)
 			end
 		end
 		for _, target in ipairs(targetlist) do
-			if self:isFriend(target) and #result < max_num and not table.contains(result, target) then
+			if self:isFriend(target) and self:trickIsEffective(card, target, self.player) and #result < max_num and not table.contains(result, target) then
 		  		table.insert(result, target)
 			end
 		end
 	elseif card:isKindOf("BefriendAttacking") then
 		self:sort(targetlist, "handcard")
 		for _, target in ipairs(targetlist) do
-			if self:isFriend(target) and #result < max_num and not table.contains(result, target) then
+			if self:isFriend(target) and self:trickIsEffective(card, target, self.player) and #result < max_num and not table.contains(result, target) then
 		  		table.insert(result, target)
 			end
 		end
 		for _, target in ipairs(targetlist) do
-			if #result < max_num and not table.contains(result, target) then
+			if self:trickIsEffective(card, target, self.player) and #result < max_num and not table.contains(result, target) then
 		  		table.insert(result, target)
 			end
 		end
@@ -684,25 +710,25 @@ sgs.ai_skill_playerchosen["#guowu_effect"] = function(self, targets, max_num, mi
 		local method = card:isKindOf("Snatch") and sgs.Card_MethodGet or sgs.Card_MethodDiscard
 		local extratargets = self:findPlayerToDiscard("hej", false, method, targets, true)
 		for _, target in ipairs(extratargets) do
-			if #result < max_num and not table.contains(result, target) then
+			if self:trickIsEffective(card, target, self.player) and #result < max_num and not table.contains(result, target) then
 		  		table.insert(result, target)
 			end
 		end
 	elseif card:isKindOf("Duel") or card:isKindOf("Drowning") then--决斗详细？
 		self:sort(targetlist, "hp")
 		for _, target in ipairs(targetlist) do
-			if self:isEnemy(target) and #result < max_num and not table.contains(result, target) then
+			if self:isEnemy(target) and self:trickIsEffective(card, target, self.player) and #result < max_num and not table.contains(result, target) then
 		  		table.insert(result, target)
 			end
 		end
 		for _, target in ipairs(targetlist) do
-			if not self:isFriendWith(target) and #result < max_num and not table.contains(result, target) then
+			if not self:isFriendWith(target) and self:trickIsEffective(card, target, self.player) and #result < max_num and not table.contains(result, target) then
 		  		table.insert(result, target)
 			end
 		end
 	elseif card:isKindOf("TrickCard") and (not self:slashIsAvailable() or self:getCardsNum("Slash") == 0) then--其他锦囊暂不考虑
 		for _, target in ipairs(targetlist) do
-			if #result < max_num and not table.contains(result, target) then
+			if self:trickIsEffective(card, target, self.player) and #result < max_num and not table.contains(result, target) then
 		  		table.insert(result, target)
 			end
 		end
@@ -723,6 +749,7 @@ zhuangrong_skill.getTurnUseCard = function(self)
 	self:sortByUseValue(cards, true)
 	for _, card in ipairs(cards) do
 		if card:getTypeId() == sgs.Card_TypeTrick and self:getUseValue(card) < 5 then--值多少合适？
+			if isCard("Duel", card, self.player) and (not self:slashIsAvailable() or self:getCardsNum("Slash") == 0) and self:getCardsNum("Duel") <= 1 then return end--考虑唯一一张决斗
 			local card_str = ("@ZhuangrongCard=%d&zhuangrong"):format(card:getId())
 			return sgs.Card_Parse(card_str)
 		end
@@ -740,3 +767,28 @@ sgs.ai_skill_invoke.wushuang_lvlingqi = sgs.ai_skill_invoke.wushuang
 sgs.ai_cardneed.wushuang_lvlingqi = sgs.ai_cardneed.wushuang
 
 sgs.ai_skill_invoke.shenwei = true
+
+--杨婉
+sgs.ai_skill_invoke.youyan = true
+
+sgs.ai_skill_playerchosen["zhuihuan"] = function(self, targets, max_num, min_num)
+	local result = {}
+	self:sort(self.friends, "hp")--从小到大排序
+	for _, target in ipairs(self.friends) do
+		if self.player:isFriendWith(target) and #result < max_num and not table.contains(result, target) then
+			table.insert(result, target)
+		end
+	  end
+	for _, target in ipairs(self.friends) do
+		if #result < max_num and not table.contains(result, target) then
+			table.insert(result, target)
+	  	end
+	end
+	return result
+end
+
+sgs.ai_skill_choice.kangrui = function(self, choices, data)
+	--local target = data:toPlayer()--暂不考虑
+	choices = choices:split("+")
+	return choices[math.random(1,#choices)]
+end

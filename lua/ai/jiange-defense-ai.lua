@@ -125,14 +125,30 @@ sgs.ai_skill_invoke.jgqiwu = true
 
 sgs.ai_skill_playerchosen.jgqiwu = function(self, targets)
 	local target = nil
-	local chained = 0
-	self:sort(self.friends, "hp")
-	for _, friend in ipairs(self.friends) do
-		if self.player:isFriendWith(friend) and friend:getLostHp() > 0 then
-			target = friend
+	local arr1, arr2 = self:getWoundedFriend()
+	if #arr1 > 0 then target = arr1[1] end
+	
+	if not target then
+		self:sort(self.friends, "hp")
+		for _, friend in ipairs(self.friends) do
+			if self.player:isFriendWith(friend) and friend:getLostHp() > 0 and friend:canRecover() then
+				target = friend
+				break
+			end
 		end
 	end
+	
 	return target
+end
+
+sgs.ai_cardneed.jgqiwu = function(to, card, self)
+	local friends = self:getFriendsNoself(to)
+	local need_qiwu = false
+	self:sort(friends, "hp")
+	for _, friend in ipairs(friends) do
+		if friend:isWounded() and not friend:isRemoved() then need_qiwu = true break end
+	end
+	return need_qiwu and card:getSuit() == sgs.Card_Club
 end
 
 sgs.ai_skill_invoke.jgtianyu = true
@@ -245,32 +261,59 @@ sgs.ai_skill_playerchosen.jgleili = function(self, targets)
 	local target = nil
 	local chained = 0
 	self:sort(self.enemies, "hp")
-	for _, enemy in ipairs(self.enemies) do
-		if not self.player:isFriendWith(enemy) and not enemy:hasArmorEffect("PeaceSpell") then
-			if self.player:isChained() then
-				chained = chained + 1
-			end
-		end
-	end
-	if chained > 1 then
-		for _, enemy in ipairs(self.enemies) do
-			if not self.player:isFriendWith(enemy) and not enemy:hasArmorEffect("PeaceSpell") then
-				if enemy:isChained() then
-					target = enemy
-					break
+	local damage = self.room:getTag("CurrentDamageStruct"):toDamage()
+	local max_leili_value = 0
+	local current_chain_value = 0
+	if damage.to and damage.damage then
+		local chain_num = self.room:getTag("is_chained"):toInt()
+		if damage.nature ~= sgs.DamageStruct_Normal and chain_num > 0 then
+			--damage.chain
+			for _, p in sgs.qlist(self.room:getAlivePlayers()) do
+				if p:isChained() and self:damageIsEffective(p, damage.nature, damage.from, damage.card) then
+					if self.player:isFriendWith(p) then
+						current_chain_value = current_chain_value - damage.damage
+					elseif self:isEnemy(p) then
+						current_chain_value = current_chain_value + damage.damage
+					end
 				end
 			end
 		end
 	end
-	if not target then
-		for _, enemy in ipairs(self.enemies) do
-			if not self.player:isFriendWith(enemy) and not enemy:hasArmorEffect("PeaceSpell") then
-				target = enemy
-				break
+	local leili_damage = {}
+	leili_damage.from = self.player
+	leili_damage.nature = sgs.DamageStruct_Thunder
+	for _, enemy in sgs.qlist(targets) do
+		leili_damage.to = enemy
+		if self.player:isFriendWith(enemy) then continue end
+		if not self:damageIsEffective_(leili_damage) then continue end
+		local leili_value = -1
+		if self:isGoodChainTarget(enemy, self.player, sgs.DamageStruct_Thunder) then 
+			leili_value = 1
+			if enemy:isChained() then
+				for _, p in sgs.qlist(self.room:getAlivePlayers()) do
+					if p:objectName() == enemy:objectName() then continue end
+					if p:isChained() and self:damageIsEffective(p, sgs.DamageStruct_Thunder, self.player) then
+						if self.player:isFriendWith(p) then
+							leili_value = leili_value - 1
+						elseif self:isEnemy(p) then
+							leili_value = leili_value + 1
+						end
+					end
+				end
 			end
 		end
+		if not target then
+			max_leili_value = leili_value
+			target = enemy
+		elseif leili_value > max_leili_value then
+			max_leili_value = leili_value
+			target = enemy
+		end
 	end
-	return target
+	if max_leili_value > current_chain_value and target then
+		return target
+	elseif max_leili_value < 0 then return nil end
+	return targets[1]
 end
 
 sgs.ai_playerchosen_intention.jgleili = 80
@@ -405,104 +448,3 @@ sgs.ai_trick_prohibit.jgjiguan = function(self, card, to, from)
 	end
 end
 ]]
-
-
-
---room->setPlayerProperty(player, "jgkeding_available_targets", available_targets.join("+"));
---player->tag["jgkeding-use"] = data;
---const Card *card = room->askForUseCard(player, "@@jgkeding", "@jgkeding:::" + use.card->objectName(), -1, Card::MethodDiscard);
-
-sgs.ai_skill_use["@@jgkeding"] = function(self, prompt, method)
-	--local use = self.player:getTag("jgkeding-use"):toCardUse()
-	--local list = self.player:property("jgkeding_available_targets"):toString():split("+")
-	
-	
-	
-	
-	
-end
-
-sgs.ai_skill_invoke.jglongwei = function(self, data)
-	local target = data:toPlayer()
-	if target:getHp() < 0 then return true end
-	local x = self:getCardsNum("Peach")
-	if target == self.player then
-		x = x + self:getCardsNum("Analeptic")
-	end
-	return (x == 0)
-end
-
-sgs.ai_skill_invoke.jgbashi = function(self, data)
-	local use = data:toCardUse()
-	local card = use.card
-	if card:isKindOf("Slash") then
-		if self:slashProhibit(card, self.player, use.from) or not self:isWeak() then return false end
-		local nature = sgs.Slash_Natures[card:getClassName()]
-		if not self:damageIsEffective(self.player, nature, use.from) then return false
-		elseif self:needToLoseHp(self.player, use.from, true) then return false
-		elseif self:needDamagedEffects(self.player, use.from, true) then return false end
-		
-		for _, jink in ipairs(self:getCards("Jink")) do
-			if self.room:isJinkEffected(self.player, jink) then
-				return false
-			end
-		end
-		return true
-	end
-	if card:isNDTrick() and self:trickIsEffective(card, self.player, use.from) then
-		if card:isKindOf("AOE") then
-			if not self:aoeIsEffective(card, self.player, use.from) then return false end
-			if card:isKindOf("ArcheryAttack") and self:getCardsNum("Jink") >= 1 then
-				return false
-			end
-			if card:isKindOf("SavageAssault") and self:getCardsNum("Slash") >= 1 then
-				return false
-			end
-			return self:isWeak()
-		end
-		if card:isKindOf("Duel") then
-			return self:isWeak()
-		end
-		if (card:isKindOf("IronChain") or card:isKindOf("FightTogether")) and not self.player:isChained() then
-			return self:isWeak()
-		end
-		if card:isKindOf("FireAttack") or card:isKindOf("Drowning") then
-			--return self:isWeak()
-		end
-		if card:isKindOf("Snatch") or card:isKindOf("Dismantlement") then
-			return self:getValuableCard(self.player)
-		end
-	end
-	return false
-end
-
-sgs.ai_skill_invoke.jgdanjing = function(self, data)
-
-	return true
-end
-
-local jiaoxie_skill = {}
-jiaoxie_skill.name = "jgjiaoxie"
-table.insert(sgs.ai_skills, jiaoxie_skill)
-jiaoxie_skill.getTurnUseCard = function(self)
-	if self.player:hasUsed("JGJiaoxieCard") then return end
-	return sgs.Card_Parse("@JGJiaoxieCard=.&jgjiaoxie")
-end
-
-sgs.ai_skill_use_func.JGJiaoxieCard = function(card, use, self)
-	local targets = {}
-    for _, p in sgs.qlist(self.room:getAlivePlayers()) do
-		if not self.player:isFriendWith(p) and string.find(p:getGeneral():objectName(), "machine") and not p:isNude() then
-			table.insert(targets, p)
-		end
-	end
-	self:sort(targets, "handcard")
-	use.card = card
-	if use.to then
-		for _, p in ipairs(targets) do
-			use.to:append(p)
-		end
-	end
-end
-
-sgs.ai_use_priority.JGJiaoxieCard = 9.31

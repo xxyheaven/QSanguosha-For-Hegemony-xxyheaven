@@ -78,25 +78,57 @@ rende_skill.getTurnUseCard = function(self)
 	if self.player:isKongcheng() then return end
 
 	if self:shouldUseRende() then
-		return sgs.Card_Parse("@RendeCard=.&rende")
+		local available_targets = sgs.SPlayerList()
+		local RendeCard = sgs.Card_Parse("@RendeCard=.&rende")
+		for _, p in ipairs(self.friends_noself) do
+			if RendeCard:targetFilter(sgs.PlayerList(), p, self.player) then
+				available_targets:append(p)
+			end
+		end
+		if not available_targets:isEmpty() then
+			return sgs.Card_Parse("@RendeCard=.&rende")
+		end
+		--return sgs.Card_Parse("@RendeCard=.&rende")
 	end
 end
 
 sgs.ai_skill_use_func.RendeCard = function(rdcard, use, self)
 	local cards = sgs.QList2Table(self.player:getHandcards())
 	self:sortByUseValue(cards, true)
-
+	
+	local friends_tables = {}
+	local RendeCard = sgs.Card_Parse("@RendeCard=.&rende")
+	for _, p in ipairs(self.friends_noself) do
+		if RendeCard:targetFilter(sgs.PlayerList(), p, self.player) then
+			table.insert(friends_tables, p)
+		end
+	end
+	
+	local giveNum = self.player:getMark("rende")
+	local need_Num = math.max(2 - giveNum, 0)
+	local rende_gives = {}
 	for i = 1, #cards do
-		local card, friend = self:getCardNeedPlayer(cards, nil, "rende")
+		local card, friend = self:getCardNeedPlayer(cards, friends_tables, "rende")
+		
+		if #self.friends_noself > 0 and not friend then
+			if self.player:hasSkill("kongcheng") or self:needKongcheng() then
+				local can_recover = (self.player:isWounded() and giveNum < 2 
+					and self.player:getHandcardNum() + giveNum >= 2)
+				local need_save = (self.player:isWounded() and self.player:getHp() <= 2 and self:getOverflow() <= 0)
+				if can_recover or not need_save then
+					if self.player:getHandcardNum() < 3 then
+						for _, p in ipairs(self.friends_noself) do
+							friend = p
+						end
+					end
+				end
+			end
+		end
 		if card and friend then
 			cards = self:resetCards(cards, card)
 		else
+			--满血老诸葛/刘备有两队友(1血3牌赵云/马超，满血0牌小诸葛/庞统),留了1张无懈卡手？
 			break
-		end
-		if self.player:getHandcardNum() < 3 and self.player:hasSkill("kongcheng") then
-			for _, p in ipairs(self.friends_noself) do
-				friend = p
-			end
 		end
 
 		if friend:objectName() == self.player:objectName() or not self.player:getHandcards():contains(card) then continue end
@@ -126,10 +158,44 @@ sgs.ai_skill_use_func.RendeCard = function(rdcard, use, self)
 			if dummy_use.card then continue end
 		end
 
-		use.card = sgs.Card_Parse("@RendeCard=" .. card:getId() .. "&rende")
-		if use.to then use.to:append(friend) return end
+		--use.card = sgs.Card_Parse("@RendeCard=" .. card:getId() .. "&rende")
+		--if use.to then use.to:append(friend) return end
+		rende_gives[card:getId()] = friend:objectName()
+		need_Num = need_Num - 1
+		Global_room:writeToConsole("rende:"..tostring(card:getId())..":"..friend:objectName())
+	end	
+	if #friends_tables > 1 then
+		for _, p in ipairs(friends_tables) do
+			local give_ids = {}
+			for _, card in sgs.qlist(self.player:getHandcards()) do
+				if rende_gives[card:getId()] and rende_gives[card:getId()] == p:objectName() then
+					table.insert(give_ids, card:getId())
+				end
+			end
+			if #give_ids > 0 then
+				use.card = sgs.Card_Parse("@RendeCard=" .. table.concat(give_ids, "+") .. "&rende")
+				if use.to then use.to:append(p) return end
+			end
+		end
+	elseif #friends_tables == 1 then--只有最后一名可仁德的队友时
+		local give_ids = {}
+		local keep_cards = {}
+		for _, card in sgs.qlist(self.player:getHandcards()) do
+			if rende_gives[card:getId()] and rende_gives[card:getId()] == friends_tables[1]:objectName() then
+				table.insert(give_ids, card:getId())
+			else
+				table.insert(keep_cards, card)
+			end
+		end
+		if need_Num == 1 and #keep_cards > 0 and self.player:isWounded() then--若还差一张牌才够2牌,
+			self:sortByUseValue(keep_cards, true)
+			table.insert(give_ids, keep_cards[1]:getId())
+		end
+		if #give_ids > 0 then
+			use.card = sgs.Card_Parse("@RendeCard=" .. table.concat(give_ids, "+") .. "&rende")
+			if use.to then use.to:append(friends_tables[1]) return end
+		end
 	end
-
 end
 
 sgs.ai_use_value.RendeCard = 8.5
@@ -553,7 +619,11 @@ end
 
 sgs.ai_skill_cardask["@tieji-discard"] = function(self, data, pattern, target, target2, arg, arg2)
 	--Global_room:writeToConsole("铁骑判定弃牌")
-	if not arg or self.player:isKongcheng() or self.player:isCardLimited(sgs.cloneCard("jink"), sgs.Card_MethodResponse) then
+	if not arg then return "." end
+	if self:needToThrowArmor() and self.player:getArmor():getSuitString() == arg then--弃狮子回血或弃藤甲
+		return "$" .. self.player:getArmor():getEffectiveId()
+	end
+	if self.player:isKongcheng() or self.player:isCardLimited(sgs.cloneCard("jink"), sgs.Card_MethodResponse) then
 		return "."
 	end
 	local use = data:toCardUse()--考虑杀详细
@@ -568,9 +638,6 @@ sgs.ai_skill_cardask["@tieji-discard"] = function(self, data, pattern, target, t
 				break
 			end
 		end
-	end
-	if self:needToThrowArmor() and self.player:getArmor():getSuitString() == arg then
-		discard = self.player:getArmor()
 	end
 	if not discard then
 		for _,c in ipairs(cards) do
@@ -786,12 +853,19 @@ sgs.ai_cardneed.lianhuan = function(to, card)
 end
 
 sgs.ai_skill_invoke.niepan = function(self, data)
-	if not self.player:canRecover() then
-		return false
-	end
+	if not self.player:canRecover() then return false end
 	local dying = data:toDying()
-	local peaches = 1 - dying.who:getHp()
-	return self:getCardsNum("Peach") + self:getCardsNum("Analeptic") < peaches
+	local need_peaches = 1 - dying.who:getHp()
+	local self_recovers = (self:getCardsNum("Peach") + self:getCardsNum("Analeptic"))
+	if need_peaches > self_recovers then return true end
+	local value = 3 - self.player:getCardCount(true) + self:getLeastHandcardNum()
+	if self:needToThrowArmor() then value = value + 2 end
+	if not self.player:faceUp() then value = value + 3 end
+	local peach_marks = (self.player:getMark("@companion") + self.player:getMark("@careerist"))
+	if self_recovers - peach_marks <= need_peaches then--尽量保标记
+		value = value + 2*(need_peaches - self_recovers + peach_marks)
+	end
+	return value > 0
 end
 
 sgs.ai_suit_priority.lianhuan= "club|diamond|heart|spade"
@@ -815,11 +889,13 @@ huoji_skill.getTurnUseCard = function(self)
 	local card
 	for _,acard in ipairs(cards) do
 		local fireValue = sgs.ai_use_value.FireAttack
+		local acardValue = self:getDynamicUsePriority(acard)
 		if self.player:hasSkill("jizhi") and acard:isKindOf("TrickCard") then
 			fireValue = fireValue - 4
+			acardValue = self:getUsePriority(acard)
 		end
 		if acard:isRed() and not isCard("Peach", acard, self.player) and not acard:isKindOf("FireAttack")
-		and (self:getUseValue(acard) < fireValue or self:getOverflow() > 0) then
+		and (acardValue < fireValue or self:getOverflow() > 0) then
 			if acard:isKindOf("Slash") and self:getCardsNum("Slash") == 1 then
 				local keep
 				local dummy_use = { isDummy = true , to = sgs.SPlayerList() }
@@ -1075,7 +1151,8 @@ sgs.ai_skill_use["@@fangquan_ask"] = function(self, prompt)
 	if self.fangquan_target then
 		for i = #cards, 1, -1 do
 			local card = cards[i]
-			if not isCard("Peach", card, self.player) and not self.player:isJilei(card) then
+			--留3张桃发动放权不弃牌……
+			if not (self:getCardsNum("Peach") <= 1 and isCard("Peach", card, self.player)) and not self.player:isJilei(card) then
 				return "@FangquanCard=" .. card:getEffectiveId() .. "&fangquan->" .. self.fangquan_target:objectName()
 			end
 		end

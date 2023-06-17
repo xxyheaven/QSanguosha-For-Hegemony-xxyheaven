@@ -45,7 +45,9 @@ function sgs.ai_skill_invoke.wangxi(self, data)
 		if self:isFriend(target) then
 			if not self:needKongcheng(target) then return true end
 		else
-			if not (target:getPhase() ~= sgs.Player_NotActive and (target:hasShownSkills(sgs.Active_cardneed_skill) or self:hasCrossbowEffect(target)))
+			if self.player:hasShownSkill("fankui") and target:isNude() then return true end--反馈拿回来
+			--考虑骁果的时机
+			if not (target:getPhase() ~= sgs.Player_NotActive and target:getPhase() <= sgs.Player_Play and (target:hasShownSkills(sgs.Active_cardneed_skill) or self:hasCrossbowEffect(target)))
 				and not (target:getPhase() == sgs.Player_NotActive and target:hasShownSkills(sgs.notActive_cardneed_skill))
 				or self:needKongcheng(target) then
 				return true
@@ -125,7 +127,7 @@ sgs.ai_skill_cardask["@qianxi-discard"] = function(self, data, pattern, target, 
 	end
 	return cards[1]:toString()--必须弃1
 end
-
+--qianxi_target
 sgs.ai_skill_playerchosen.qianxi_target = function(self, targets)
 	local enemies = {}
 	local slash = self:getCard("Slash") or sgs.cloneCard("slash")
@@ -135,9 +137,17 @@ sgs.ai_skill_playerchosen.qianxi_target = function(self, targets)
 			table.insert(enemies, target)
 		end
 	end
+	if #enemies == 0 then--敌人全空城也尽量不选队友
+		for _, target in sgs.qlist(targets) do
+			if not self:isFriend(target) then
+				table.insert(enemies, target)
+			end
+		end
+	end
 	self:sort(enemies, "defenseSlash")
 
 	if #enemies == 1 then
+		Global_room:writeToConsole("潜袭唯一敌方")
 		return enemies[1]
 	else
 		if not self.qianxi_isred then
@@ -158,12 +168,14 @@ sgs.ai_skill_playerchosen.qianxi_target = function(self, targets)
 				if getKnownCard(enemy, self.player, "Jink", false, "h") > 0 and self:slashIsEffective(slash, enemy) then return enemy end
 			end
 		end
+		Global_room:writeToConsole("潜袭选择结束")
 		return enemies[1]
 	end
+	Global_room:writeToConsole("潜袭视为杀目标")
 	return sgs.ai_skill_playerchosen.zero_card_as_slash(self, targets)--ai默认函数
 end
 
-sgs.ai_playerchosen_intention.qianxi_target = 60
+sgs.ai_playerchosen_intention.qianxi = 60
 
 function sgs.ai_cardneed.qianxi(to, card, self)
 	return card:isKindOf("Slash") or card:isKindOf("Analeptic") or (card:isRed() and getKnownCard(to, self.player, "red", false) < 2)
@@ -458,15 +470,59 @@ end
 --张任
 sgs.ai_skill_invoke.chuanxin = function(self, data)
 	local damage = data:toDamage()
-	if damage.to:hasShownSkill("niepan") and not damage.to:inHeadSkills("niepan") and damage.to:getMark("@nirvana") > 0 then
+	if not self:isFriend(damage.to) and damage.to:hasShownSkill("jianglve") and damage.to:inDeputySkills("jianglve") then
+		return damage.to:getMark("@strategy") > 0
+	end
+	if not self:isFriend(damage.to) and damage.to:hasShownSkill("xiongsuan") and damage.to:inDeputySkills("xiongsuan") and damage.to:getMark("@fierce") == 0 then
+		return false
+	end
+	if not self:isFriend(damage.to) and damage.to:hasShownSkill("niepan") and damage.to:inDeputySkills("niepan") then
+		return damage.to:getMark("@nirvana") > 0
+	end
+	if not self:isFriend(damage.to) and damage.to:hasShownSkill("buqu") and damage.to:inDeputySkills("buqu") then
 		return true
 	end
-	return not self:isFriend(damage.to)
-		and not self:hasHeavySlashDamage(self.player, damage.card, damage.to)
-		and not (damage.to:getHp() == 1 and not damage.to:getArmor())
+	if not self:isFriend(damage.to) and damage.to:hasShownSkill("jiancai") and damage.to:inDeputySkills("jiancai") then
+		return true
+	end
+	if not self:isFriend(damage.to) and damage.to:hasShownSkill("tianxiang") and damage.to:inDeputySkills("tianxiang") 
+		and getKnownCard(damage.to, self.player, "diamond|club", false) < damage.to:getHandcardNum() then
+		return true
+	end
+	if not self:isFriend(damage.to) then
+		local peach_num = getCardsNum("Peach", damage.to, self.player) + getCardsNum("Analeptic", damage.to, self.player)
+		if not self.player:hasSkill("wansha") then
+			for _, enemy_f in ipairs(self:getFriendsNoself(damage.to)) do
+				peach_num = peach_num + getCardsNum("Peach", enemy_f, self.player)
+			end
+		end
+		
+		if not self:hasHeavySlashDamage(self.player, damage.card, damage.to) and damage.damage <= 1 then
+			if damage.to:getHp() - damage.damage + peach_num > 0 then return true end
+			if not self:isWeak(damage.to) or not (damage.to:getHp() == 1 and not damage.to:getArmor()) then
+				return true
+			end
+		else
+			if damage.to:getHp() - damage.damage + peach_num > 1 then return true end
+			return false
+		end
+	end
+	--穿心崩坏？
+	return false
 end
 
 sgs.ai_skill_choice.chuanxin = "discard"
+
+sgs.ai_skill_cardask["@fengshi-discard"] = function(self, data, pattern, target, target2)
+	--pattern = ".|.|.|equipped!"
+	if self:needToThrowArmor() then
+		return "$" .. self.player:getArmor():getEffectiveId()
+	end
+	local cards = self.player:getCards("e")
+	cards=sgs.QList2Table(cards)
+	self:sortByUseValue(cards, true)
+	return cards[1]:toString()--必须弃1
+end
 
 --君·张角
 sgs.ai_skill_invoke.wuxin = true
@@ -479,9 +535,11 @@ wendao_skill.getTurnUseCard = function(self)
 		local invoke = "no"
 		local discardpile = self.room:getDiscardPile()
 		local owner = nil
+		local peace_spell = nil--被禁止使用就别问道
 		for _, i in sgs.qlist(discardpile) do
 			if sgs.Sanguosha:getCard(i):objectName() == "PeaceSpell" then
 				invoke = "di"
+				peace_spell = sgs.Sanguosha:getCard(i)
 				break
 			end
 		end
@@ -490,15 +548,23 @@ wendao_skill.getTurnUseCard = function(self)
 				if p:getArmor() and p:getArmor():objectName() == "PeaceSpell" then
 					invoke = "eq"
 					owner = p
+					peace_spell = p:getArmor()
 					break
 				end
 			end
 		end
-		if invoke ~= "no" then
+		local cards = sgs.QList2Table(self.player:getCards("he"))
+		self:sortByKeepValue(cards)
+		local cards_copy = {}
+		for _, c in ipairs(cards) do
+			table.insert(cards_copy, c)
+		end
+		if invoke ~= "no" and peace_spell then
 			if invoke == "eq" then
-				assert(owner)
+				assert(owner)--
 				if owner:hasArmorEffect("PeaceSpell") then
 					if (owner:objectName() == self.player:objectName()) then
+						if self.player:isCardLimited(peace_spell, sgs.Card_MethodUse) then return nil end--被限制装备时不发动
 						if (not self.player:hasSkill("hongfa")) or (self.player:getPile("heavenly_army"):isEmpty()) then
 							if self.player:getHp() == 2 and self:getCardsNum("Peach") == 0 then --太平效果修改
 								return nil
@@ -506,30 +572,73 @@ wendao_skill.getTurnUseCard = function(self)
 						end
 					else
 						if (self.player:isFriendWith(owner)) then
-							if not self:needToLoseHp(owner, self.player) then return nil end
-							if owner:isChained() then return nil end
+							if self.player:isCardLimited(peace_spell, sgs.Card_MethodUse) then return nil end--被限制装备时不发动
+							if self:isWeak(owner) and owner:getHp() > 1 then 
+								if not self:needToThrowArmor(owner) then return nil end
+								if not self:needToLoseHp(owner, self.player) then return nil end
+								if owner:isChained() then return nil end
+							end
 						else
 							if self:needToLoseHp(owner, self.player) then return nil end
 						end
 					end
 				end
-			end
-			local cards = sgs.QList2Table(self.player:getCards("he"))
-			self:sortByKeepValue(cards)
-			local cards_copy = {}
-			for _, c in ipairs(cards) do
-				table.insert(cards_copy, c)
-			end
+			elseif self.player:isCardLimited(peace_spell, sgs.Card_MethodUse) then return nil end
 			for _, c in ipairs(cards_copy) do
-				if c:objectName() == "PeaceSpell" then--君角技能修改
+				if c:objectName() == "PeaceSpell" or not c:isRed() then								  
 					table.removeOne(cards, c)
-				end
-				if (not c:isRed()) or isCard("Peach", c, self.player) then
-					table.removeOne(cards, c)
+				else
+					if isCard("Peach", c, self.player) then
+						table.removeOne(cards, c)
+					end
 				end
 			end
 			if #cards == 0 then return nil end
 			return sgs.Card_Parse("@WendaoCard=" .. cards[1]:getEffectiveId() .. "&wendao")
+		else
+			for _, c in ipairs(cards_copy) do
+				if c:objectName() == "PeaceSpell" or not c:isRed() then
+					table.removeOne(cards, c)
+				else
+					if c:isKindOf("Peach") and not (self.player:hasSkill("lirang") and #self.friends_noself > 0) then
+						table.removeOne(cards, c)
+					end
+				end
+			end
+			if #cards == 0 then return end
+			if self.player:hasSkill("lirang") and #self.friends_noself > 0 then
+				local card, friend = self:getCardNeedPlayer(cards, self.friends_noself)
+				if not card or not friend then return end
+				if ((self.player:hasEquip(card) and self.player:hasSkills(sgs.lose_equip_skill))
+					or (self:isWeak(friend) and not self:isWeak())) then
+					return sgs.Card_Parse("@WendaoCard=" .. card:getEffectiveId() .. "&wendao")
+				end
+			else
+				local erzhang = sgs.findPlayerByShownSkillName("guzheng")
+				if self:getOverflow() > 1 and erzhang and erzhang:isAlive() and self:isEnemy(erzhang) then
+					local to_save = 0
+					local over_flow = 0
+					for _, c in ipairs(cards_copy) do
+						if self.player:hasEquip(c) then continue end
+						local dummy_use
+						if c:targetFixed() then
+							dummy_use = { isDummy = true }
+						else
+							dummy_use = { isDummy = true, to = sgs.SPlayerList() }
+						end
+						self:useCardByClassName(c,dummy_use)
+						if dummy_use.card then continue end
+						to_save = to_save + 1
+					end
+					over_flow = math.max(to_save - self.player:getHandcardNum() + self:getOverflow(), 0)
+					if over_flow > 1 then
+						for _, c in ipairs(cards) do
+							if c:isKindOf("Peach") or self.player:hasEquip(c) then continue end
+							return sgs.Card_Parse("@WendaoCard=" .. c:getEffectiveId() .. "&wendao")
+						end
+					end
+				end
+			end
 		end
 	end
 	return nil
@@ -635,7 +744,21 @@ sgs.ai_skill_exchange["hongfa2"] = function(self,pattern,max_num,min_num,expand_
 	local ints = sgs.QList2Table(self.player:getPile("heavenly_army"))
 	local pn = self.player:getTag("HongfaTianbingData"):toPlayerNum()
 	if pn.m_toCalculate ~= self.player:getKingdom() then return {} end
-	if pn.m_reason == "wuxin" or "hongfa" == pn.m_reason or pn.m_reason == "PeaceSpell" then
+	if pn.m_reason == "wuxin" or "hongfa" == pn.m_reason then
+		return ints
+	elseif pn.m_reason == "PeaceSpell" then
+		local current = self.room:getCurrent()
+		local use_lirang = false
+		if current:hasShownSkill("lirang") and not self:isWeak(current) then
+			local friends = self:getFriendsNoself(current)
+			for _, friend in ipairs(friends) do
+				if self:isWeak(friend) or friend:hasShownSkills(sgs.cardneed_skill) then
+					use_lirang = true
+					break
+				end
+			end
+		end
+		if use_lirang then return {} end
 		return ints
 	elseif pn.m_reason == "DragonPhoenix" or pn.m_reason == "xiongyi" then
 		return {}

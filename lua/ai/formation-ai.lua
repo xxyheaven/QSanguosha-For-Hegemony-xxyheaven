@@ -412,6 +412,7 @@ sgs.ai_card_intention.ShangyiCard = 50
 
 --徐盛
 sgs.ai_skill_invoke.yicheng = function(self, data)
+	--local friend = data:toPlayer()
 	if not self:willShowForDefence() and not self:willShowForAttack() then
 		return false
 	end
@@ -426,7 +427,8 @@ sgs.ai_skill_discard.yicheng = function(self, discard_num, min_num, optional, in
 	local unpreferedCards = {}
 	local cards = sgs.QList2Table(self.player:getHandcards())
 
-	if self:needToThrowArmor() then
+	--没有data无法判定杀伤害的类型,为了避免火杀只能直接弃藤甲
+	if self:needToThrowArmor() or (self.player:getArmor() and self.player:hasArmorEffect("Vine")) then
 		table.insert(unpreferedCards, self.player:getArmor():getId())
 	end
 
@@ -505,8 +507,15 @@ sgs.ai_skill_cardask["@qianhuan-put"] = function(self, data, pattern, target, ta
 			table.removeOne(cards, WoodenOx)
 		end
 	end
+	local shicai_peach = false
+	if self.player:hasShownSkill("shicai") then--恃才弃手牌
+		local damage = self.player:getTag("qianhuan_data"):toDamage()
+		if damage and damage.to and damage.to:objectName() == self.player:objectName() and damage.damage > 1 then
+			shicai_peach = true
+		end
+	end
 	for _,card in ipairs(cards) do
-		if qianhuan_CanPut(card) and (not isCard("Peach", card, self.player)) then
+		if qianhuan_CanPut(card) and (shicai_peach or (not isCard("Peach", card, self.player))) then
 			return card:toString()
 		end
 	end
@@ -517,12 +526,42 @@ local invoke_qianhuan = function(self, use)
 	if (use.from and self:isFriend(use.from)) then return false end
 	if use.to:isEmpty() then return false end
 	if use.card:isKindOf("Peach") or use.card:isKindOf("Analeptic") then return false end
-	if use.card:isKindOf("Lightning") or use.card:isKindOf("KnownBoth") then return end
+	if use.card:isKindOf("KnownBoth") then return end
 	local to = use.to:first()
+	if use.card:isKindOf("Lightning") and self:getFinalRetrial(to, "Lightning") ~= 2 then return end
 	if use.card:isKindOf("Slash") and not self:slashIsEffective(use.card, to, use.from) then return end
 	if use.card:isKindOf("TrickCard") and not self:trickIsEffective(use.card, to, use.from) then return end
 	if self.player:getPile("sorcery"):length() == 1 then
-		if use.card:isKindOf("Slash") or use.card:isKindOf("Duel")  or use.card:isKindOf("BurningCamps")
+		if use.card:isKindOf("Slash") then
+			local hcard = to:getHandcardNum()
+			if self:isWeak(to) or self:hasHeavySlashDamage(use.from, use.card) or to:hasFlag("QianxiTarget") then
+				return true
+			elseif (use.from:hasWeapon("Triblade") and use.from:getCardCount(true) > 1) then
+				for _, aplayer in sgs.qlist(self.room:getOtherPlayers(to)) do
+					if to:distanceTo(aplayer) == 1 and self:isFriend(aplayer) then
+						return true	
+					end
+				end
+			elseif (use.from:hasWeapon("axe") and use.from:getCardCount(true) > 2) 
+				or (use.from:hasShownSkill("liegong") and (hcard >= use.from:getHp() or hcard <= use.from:getAttackRange()))
+				or getCardsNum("Jink", to, self.player) == 0 then
+				return true	
+			else
+				local niaoxiang_BA = false
+				local jiangqin = sgs.findPlayerByShownSkillName("niaoxiang")
+				if jiangqin then
+					if jiangqin:inSiegeRelation(jiangqin, to) then
+						niaoxiang_BA = true
+					end
+				end
+				local need_double_jink = use.from:hasShownSkill("wushuang") or niaoxiang_BA
+				if need_double_jink and getCardsNum("Jink", to, self.player) < 2 then
+					return true	
+				end
+			end
+			return false
+		end
+		if use.card:isKindOf("Duel") or use.card:isKindOf("BurningCamps")
 			or use.card:isKindOf("ArcheryAttack")  or use.card:isKindOf("SavageAssault")
 			or (use.card:isKindOf("FireAttack") and to:getHp() == 1)
 			or (use.card:isKindOf("Drowning") and to:getEquips():length() > 1) then
@@ -558,6 +597,8 @@ end
 local function will_discard_zhendu(self)
 	local current = self.room:getCurrent()
 	local need_damage = self:needDamagedEffects(current, self.player) or self:needToLoseHp(current, self.player)
+	local analeptic = sgs.cloneCard("Analeptic")
+	if current:isCardLimited(analeptic, sgs.Card_MethodUse) then return -1 end--司敌禁止？
 	if self:isFriend(current) and not self.player:hasSkill("congjian") and not current:hasSkill("congjian") then
 		if current:getMark("drank") > 0 and not need_damage then return -1 end
 		if (getKnownCard(current, self.player, "Slash") > 0 or (getCardsNum("Slash", current, self.player) >= 1 and current:getHandcardNum() >= 2))
@@ -574,7 +615,8 @@ local function will_discard_zhendu(self)
 			end
 		end
 		if need_damage then return 3 end
-	elseif self:isEnemy(current) then
+	elseif self:isEnemy(current) or self:isWeak(current) then
+		if not self:damageIsEffective(current, nil, self.player)then return -1 end
 		if self.player:hasSkill("congjian") and not current:hasArmorEffect("SilverLion")  then--张绣配合，无白银狮子
 			if current:getHp() <= 2 then
 				return 1
@@ -614,7 +656,56 @@ end
 sgs.ai_skill_invoke.qiluan = true
 
 --君·刘备
-sgs.ai_skill_invoke.jizhao = sgs.ai_skill_invoke.niepan
+sgs.ai_skill_invoke.jizhao = function(self, data)
+	if self.player:getMark("command5_effect") > 0 then
+		return false
+	end
+	if not self.player:canRecover() then return false end
+	local dying = data:toDying()
+	local need_peaches = 1 - dying.who:getHp()
+	local self_recovers = (self:getCardsNum("Peach") + self:getCardsNum("Analeptic"))
+	if need_peaches > self_recovers then return true end
+	local value = math.max(self.player:getMaxHp() - self.player:getHandcardNum(), 0)
+	local shouyue_value = 0
+	if self.player:hasLordSkill("shouyue") then
+		local fazheng = sgs.findPlayerByShownSkillName("xuanhuo")
+		if fazheng and self.player:isFriendWith(fazheng) then
+			for _, friend in ipairs(self:getFriendsNoself(fazheng)) do
+				if self.player:isFriendWith(friend) then
+					shouyue_value = shouyue_value + 2
+				elseif self:isFriendWith(friend) and not friend:hasShownAllGenerals() then
+					shouyue_value = shouyue_value + 1
+				elseif not friend:hasShownOneGeneral() then
+					shouyue_value = shouyue_value + 0.5
+				end
+			end
+			if shouyue_value ~= 0 then
+				shouyue_value = math.max(3, shouyue_value)
+			end
+		else
+			for _, friend in ipairs(self.friends) do
+				if friend:hasShownOneGeneral() and self.player:isFriendWith(friend) then
+					if friend:hasShownSkills("wusheng|paoxiao|longdan|tieqi|liegong") then
+						shouyue_value = shouyue_value + 2
+					elseif not friend:hasShownAllGenerals() then--期待队友的暗置武将牌
+						shouyue_value = shouyue_value + 1
+					end
+				elseif self:isFriendWith(friend) and not friend:hasShownAllGenerals() then
+					shouyue_value = shouyue_value + 1
+				elseif not friend:hasShownOneGeneral() then
+					shouyue_value = shouyue_value + 0.5
+				end
+			end
+		end
+		value = value - shouyue_value
+	end
+	
+	local peach_marks = (self.player:getMark("@companion") + self.player:getMark("@careerist"))
+	if self_recovers - peach_marks <= need_peaches then
+		value = value + 2*(need_peaches - self_recovers + peach_marks)
+	end
+	return value > 0
+end
 
 sgs.ai_skill_invoke.zhangwu = true
 
@@ -652,8 +743,14 @@ sgs.ai_skill_invoke.DragonPhoenix = function(self, data)
 	if death.who then return true
 	else
 		local to = data:toPlayer()
-		return self:doNotDiscard(to) == self:isFriend(to)
+		if self:doNotDiscard(to, "he", true, 1, "DragonPhoenix") then
+			return self:isFriend(to)
+		else
+			return self:isEnemy(to)
+		end
+		return not self.player:isFriendWith(to)
 	end
+	return true
 end
 
 sgs.ai_skill_choice.DragonPhoenix_revive = function(self)
@@ -664,6 +761,9 @@ sgs.ai_skill_choice.DragonPhoenix = function(self, choices, data)
 	local kingdom = data:toString()
 	local choices_pri = {}
 	choices_t = string.split(choices, "+")
+	local max_hp = self.player:getMaxHp()
+	local e_num = self.room:getAlivePlayers():length() - self.player:getPlayerNumWithSameKingdom("AI", kingdom)
+	
 	if (kingdom == "wei") then
 		if (string.find(choices, "guojia")) then
 			table.insert(choices_pri,"guojia") end
@@ -675,7 +775,7 @@ sgs.ai_skill_choice.DragonPhoenix = function(self, choices, data)
 			table.insert(choices_pri,"zhanghe") end
 		if (string.find(choices, "caopi")) then
 			table.insert(choices_pri,"caopi") end
-		if (string.find(choices, "zhangliao")) then
+		if (string.find(choices, "zhangliao")) and e_num > 1 then
 			table.insert(choices_pri,"zhangliao") end
 
 		table.removeOne(choices_t, "caohong")
@@ -697,7 +797,9 @@ sgs.ai_skill_choice.DragonPhoenix = function(self, choices, data)
 			table.insert(choices_pri, "jiangwanfeiyi") end
 		if (string.find(choices, "wolong")) then
 			table.insert(choices_pri, "wolong") end
-
+		if (string.find(choices, "menghuo")) and max_hp > 4 then
+			table.insert(choices_pri, "menghuo") end
+			
 		table.removeOne(choices_t, "guanyu")
 		table.removeOne(choices_t, "zhangfei")
 		table.removeOne(choices_t, "weiyan")
@@ -711,11 +813,13 @@ sgs.ai_skill_choice.DragonPhoenix = function(self, choices, data)
 			table.insert(choices_pri, "lusu") end
 		if (string.find(choices, "taishici")) then
 			table.insert(choices_pri, "taishici") end
-		if (string.find(choices, "sunjian")) then
+		if (string.find(choices, "sunjian")) and max_hp >= 4 then
 			table.insert(choices_pri, "sunjian") end
 		if (string.find(choices, "sunshangxiang")) then
 			table.insert(choices_pri, "sunshangxiang") end
-
+		if (string.find(choices, "sunquan")) and max_hp >= 4 then
+			table.insert(choices_pri, "sunquan") end
+			
 		table.removeOne(choices_t, "sunce")
 		table.removeOne(choices_t, "chenwudongxi")
 		table.removeOne(choices_t, "luxun")
@@ -741,17 +845,54 @@ sgs.ai_skill_choice.DragonPhoenix = function(self, choices, data)
 
 	end
 	
-	if #choices_pri > 0 then 
-		return choices_pri[math.random(1, #choices_pri)] 
-	end
 	if #choices_t == 0 then choices_t = string.split(choices, "+") end
+	
+	if #choices_pri > 0 then
+		return choices_pri[math.random(1, #choices_pri)]
+	end
+	
+	local secondly
+	local masochisms = sgs.masochism_skill:split("|")
+	local cardneeds = sgs.cardneed_skill:split("|")
+	
+	for _,name in ipairs(choices_t) do
+		local general = sgs.Sanguosha:getGeneral(name)
+		for _,skill in sgs.qlist(general:getVisibleSkillList()) do
+			if table.contains(masochisms, skill) then
+				if general:getMaxHpHead() == 3 then
+					return name
+				else
+					secondly = name
+				end
+			end
+		end
+	end
+	if secondly then return secondly end
+	for _,name in ipairs(choices_t) do
+		local general = sgs.Sanguosha:getGeneral(name)
+		for _,skill in sgs.qlist(general:getVisibleSkillList()) do
+			if table.contains(cardneeds, skill) then
+				if general:getMaxHpHead() == 3 then
+					return name
+				else
+					secondly = name
+				end
+			end
+		end
+	end
+	if secondly then return secondly end
 	return choices_t[math.random(1, #choices_t)]
 end
 --]]
 
 sgs.ai_skill_invoke.DragonPhoenix = function(self, data)
 	local target = data:toPlayer()
-	return not self:isFriend(target)
+	if self:doNotDiscard(target, "he", true, 1, "DragonPhoenix") then
+		return (self:isFriend(target) or target:getHp() <= 0)
+	else
+		return self:isEnemy(target)
+	end
+	return not self.player:isFriendWith(target)
 end
 
 sgs.ai_skill_discard.DragonPhoenix = function(self, discard_num, min_num, optional, include_equip)

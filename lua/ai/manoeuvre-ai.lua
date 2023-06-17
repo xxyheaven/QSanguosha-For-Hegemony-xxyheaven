@@ -160,11 +160,18 @@ sgs.ai_skill_choice.xibing = function(self, choices, data)
         return "deputy"
       end
     end
-    if self.player:inDeputySkills("xibing") and table.contains(choices,"deputy") then--暗着可以发动息兵
-      return "deputy"
-    else
-      return "head"
-    end
+    --[[
+		if self.player:inDeputySkills("xibing") and table.contains(choices,"deputy") then--暗着可以发动息兵
+			return "deputy"
+		else
+			return "head"
+		end
+	--]]
+		if self.player:inHeadSkills("wanggui") and table.contains(choices,"deputy") then--望归威慑
+			return "deputy"
+		elseif self.player:inDeputySkills("wanggui") and table.contains(choices,"head") then
+			return "head"
+		end
   else
     if table.contains(choices,"head") then
       if current:inHeadSkills(self.xibing_skill) then
@@ -223,7 +230,7 @@ sgs.ai_skill_choice.zhente = function(self, choices, data)
         black_count = black_count + 1
       end
     end
-    if black_count > 1 and self:getOverflow() > 0 then
+    if black_count > 1 and self:getOverflow() > 0 and self.player:getPhase() <= sgs.Player_Play then
       return "nullified"
     else
       return "cardlimited"
@@ -265,30 +272,81 @@ sgs.ai_skill_playerchosen.zhiwei = function(self, targets)
 end
 
 --宗预
-sgs.ai_skill_invoke.qiao =  function(self, data)
-  if not self:willShowForDefence() then
-    return false
-  end
-  local target = data:toPlayer()
-  if not target or self:isFriend(target) or target:isNude() then
-    return false
-  end
-  local use = self.player:getTag("QiaoUsedata"):toCardUse()
-  local card = use.card
-  if self.player:getHandcardNum() ==1 then
-    if (card:isKindOf("Slash") and (self:hasHeavySlashDamage(use.from, card, self.player) or self:isWeak())
-      or card:isKindOf("ArcheryAttack")) and self:getCardsNum("Jink","h") == 1 then
-      return false
-    end
-    if (card:isKindOf("SavageAssault") or card:isKindOf("Duel")) and self:isWeak() and self:getCardsNum("Slash","h") == 1 then
-      return false
-    end
-  end
-  if (self.player:getHandcardNum() <= 2 and (self:needKongcheng() or self:getLeastHandcardNum() > 0) and self:getCardsNum("Peach","h") == 0)
-  or self.player:isNude() or self:getOverflow() > 0 or self:getDangerousCard(target) then
-    return true
-  end
+sgs.ai_skill_invoke.qiao =	function(self, data)
+	if not self:willShowForDefence() then
+		return false
+	end
+	local target = data:toPlayer()
+	if not target or self:isFriend(target) or target:isNude() then
+		return false
+	end
+	local use = self.player:getTag("QiaoUsedata"):toCardUse()
+	local card = use.card
+	
+	if card:isKindOf("ImperialOrder") then
+		if (self.player:inHeadSkills("jianxiong") or self.player:inHeadSkills("rende")
+			or self.player:inHeadSkills("zhiheng") or self.player:inHeadSkills("guidao"))--君主替换
+    		and sgs.GetConfig("EnableLordConvertion", true) and self.player:getMark("Global_RoundCount") <= 1 then
+    		return false
+		end	
+		if sgs.GetConfig("RewardTheFirstShowingPlayer", true) then
+			local reward = true
+			for _, p in sgs.qlist(self.room:getAlivePlayers()) do
+				if p:hasShownOneGeneral() then
+					reward = false
+					break
+				end
+			end
+			if reward then return true end
+		end
+		return false
+	end
+	if self.player:getCardCount(true) == 1 then
+		if card:isKindOf("Drowning") then return false end
+		if card:isKindOf("FireAttack") and self:getLeastHandcardNum() == 0 then return true end
+		if card:isKindOf("Collateral") or card:isKindOf("Dismantlement") or card:isKindOf("Snatch") or self:needToThrowArmor() then return true end
+		if self.player:getHandcardNum() == 1 then
+			if isCard("Peach", self.player:getHandcards():first(), self.player) and self.player:getHp() <= 1
+				and not (card:isKindOf("Slash") and self:hasHeavySlashDamage(use.from, card, self.player) and self:getCardsNum("Peach") < 2) then
+				return false
+			end
+			if self:getCardsNum("Slash","h") == 1 then
+				if self:isWeak() and (card:isKindOf("SavageAssault") or card:isKindOf("Duel")) then return false end
+			end
+			if self:getCardsNum("Jink","h") == 1 then
+				if card:isKindOf("Slash") and not self:canHit(self.player, target) then
+					if self:hasHeavySlashDamage(use.from, card, self.player) or self:isWeak() then return false end
+				elseif card:isKindOf("ArcheryAttack") then return false end
+			end
+			if self:getLeastHandcardNum() > 0 or not self:isWeak() then return true end
+		end
+	end
+	if ((self.player:getHandcardNum() <= 2 or self:doNotDiscard(self.player, "he")) and (self:needKongcheng() or self:getLeastHandcardNum() > 0)
+		and self:getCardsNum("Peach","h") <= ((self:getLeastHandcardNum() > 0) and (self.player:getHandcardNum()-1) or 0))
+		or (self.player:hasSkill("lirang") and #self.friends_noself > 0) or self.player:isNude() or self:getOverflow() > 0 or self:getDangerousCard(target) then
+		return true
+	end
 	return false
+end
+--气傲自弃牌
+sgs.ai_skill_discard["qiao_discard"] = function(self)
+	local use = self.player:getTag("QiaoUsedata"):toCardUse()
+	local card = use.card
+	
+	if not card then return self:askForDiscard("dummy_reason", 1, 1, false, true) end
+	
+	if card:isKindOf("Drowning") and self.player:getEquips():length() == 1 then--水淹不弃唯一装备
+		return self:askForDiscard("dummy_reason", 1, 1, false, false)
+	elseif card:isKindOf("FireAttack") and (self:getLeastHandcardNum() > 0 or self.player:getHandcardNum() == 1) then--火攻考虑弃手牌
+		return self:askForDiscard("dummy_reason", 1, 1, false, false)
+	elseif card:isKindOf("Collateral") and self.player:getWeapon() then--借刀扔刀
+		return {self.player:getWeapon():getEffectiveId()}
+	elseif card:isKindOf("Snatch") and self.player:getCardCount(true) == 2 then--顺手弃价值更高的
+		local cards = self:askForDiscard("dummy_reason", 2, 2, false, true)
+		self:sortByUseValue(cards, true)
+		return {cards[2]:getEffectiveId()}
+	end
+	return self:askForDiscard("dummy_reason", 1, 1, false, true)
 end
 
 sgs.ai_skill_invoke.chengshang = true
@@ -316,24 +374,98 @@ sgs.kuangcai_keep_value = {
 	BefriendAttacking = 5
 }--复制的咆哮，是否合理？
 
-sgs.ai_skill_invoke.shejian =  function(self, data)
-  if not self:willShowForDefence() then
-    return false
-  end
-  local target = data:toPlayer()
-  if not target or self:isFriend(target) then
-    return false
-  end
-  local use = self.player:getTag("ShejianUsedata"):toCardUse()
-  local card = use.card
-  if card:isKindOf("Slash") and self:hasHeavySlashDamage(use.from, card, self.player) and self:getCardsNum("Jink","h") > 0 then
-    return false
-  end
-  if (self.player:getHandcardNum() < ((self:needKongcheng() or self.player:hasSkill("lirang")) and 4 or 3) and self:getCardsNum("Peach","h") == 0)
-  and target:getHp() <= (self.player:hasSkill("congjian") and 2 or 1) and self:isWeak(target) then
-    return true
-  end
+sgs.ai_skill_invoke.shejian = function(self, data)
+	if not self:willShowForDefence() then
+		return false
+	end
+	local use = self.player:getTag("ShejianUsedata"):toCardUse()
+	local card = use.card
+	if card:isKindOf("Slash") and self:hasHeavySlashDamage(use.from, card, self.player) and not self:canHit(self.player, use.from) then
+		return false
+	end
+	local target = data:toPlayer()
+	if not target then
+		if self:getCardsNum("Peach","h") == 0 and self.player:getHandcardNum() < 2 and (self:needKongcheng() or (self.player:hasSkill("lirang") and #self.friends_noself > 0)) then
+			return true
+		end
+		return false
+	elseif self:isFriend(target) then
+		if self:getCardsNum("Peach","h") > 0 or self.player:hasShownOneGeneral() or self:isWeak(target) then return false end
+		if not self.player:hasShownOneGeneral() and self:isWeak() and self.player:getHp() <= 1 and self:getCardsNum("Peach","h") == 0 and self:getCardsNum("Analeptic","h") == 0 then
+			if self:isWeak(target) and getCardsNum("Peach", target, self.player) == 0 then return false end
+			if card:isKindOf("Slash") and self:getCardsNum("Jink","h") > 0 then return false end
+			if self:isWeak(target) or self.player:getHandcardNum() <= 2 then
+				self.shejianchoice = "discard"
+			else
+				self.shejianchoice = "damage"
+			end
+			return true
+		end
+		return false
+	elseif self:canAttack(target) or self:needKongcheng() then
+		if self:hasCrossbowEffect(target) and sgs.Slash_IsAvailable(target) and getCardsNum("Slash", target, self.player) > 1 then
+			if getCardsNum("Slash", target, self.player) > self:getCardsNum("Jink","h") or self:canHit(self.player, target) then
+				self.shejianchoice = "discard"
+				return true
+			end
+		end
+		if card:isKindOf("Slash") and self:getCardsNum("Jink","h") > 0 and not self:canHit(self.player, use.from) then return false end
+		if self:isWeak() and self:getCardsNum("Analeptic","h") + self:getCardsNum("Peach","h") > 0 then return false end
+		--[[
+		if (self.player:getHandcardNum() < ((self:needKongcheng() or self.player:hasSkill("lirang")) and 4 or 3) and self:getCardsNum("Peach","h") == 0)
+			and target:getHp() <= (self.player:hasSkill("congjian") and 2 or 1) and self:isWeak(target) then
+			return true
+		end
+		--]]
+		local v = 0
+		if self.player:hasSkill("lirang") and #self.friends_noself > 0 then
+			if self.player:getHandcardNum() > 3 then
+				v = 2 - self.player:getHandcardNum()
+			else
+				v = v - self.player:getHandcardNum()/2
+			end
+			if self:needKongcheng() then v = v + 1 end
+		else
+			if self:needKongcheng() then v = 1
+			else v = v - self.player:getHandcardNum() end
+			for _, card in sgs.qlist(self.player:getCards("h")) do
+				if self:getKeepValue(card) >= 4.1 or self:getUseValue(card) >= 6 then
+					if isCard("Peach", card, self.player) then
+						v = v - 3
+					else
+						v = v - 2
+					end
+				end
+			end
+		end
+		if self:getCardsNum("Peach","h") == 0 and card:isKindOf("FireAttack") then
+			v = v + 1
+		end
+		if self:canAttack(target) then
+			v = v + 2
+			if self.player:hasSkill("congjian") then v = v + 2 end
+			if self:isWeak(target) then v = v + 1 end
+			if v > 0 then 
+				self.shejianchoice = "damage"
+				Global_room:writeToConsole("舌剑伤害价值:"..tostring(v))
+			end
+		end
+		if v <= 0 then
+			v = v + math.min(self.player:getHandcardNum(), target:getCardCount(true))
+			self.shejianchoice = "discard"
+			Global_room:writeToConsole("舌剑弃牌价值:"..tostring(v))
+		end
+		return v > 0
+	end
 	return false
+end
+
+sgs.ai_skill_choice["shejian"] = function(self, choices)
+	choices = choices:split("+")
+	if self.shejianchoice and table.contains(choices,self.shejianchoice) then
+		return self.shejianchoice
+	end
+	return choices[1]
 end
 
 function sgs.ai_cardneed.shejian(to, card, self)
@@ -361,6 +493,10 @@ end
 sgs.ai_skill_choice.yusui = function(self, choices, data)--没有来源的data，暂时用self
   choices = choices:split("+")
   local can_losehp = not self.yusui_target:hasSkill("hongfa") or self.yusui_target:getPile("heavenly_army"):isEmpty()
+	if self:hasCrossbowEffect(self.yusui_target) and sgs.Slash_IsAvailable(self.yusui_target) and getCardsNum("Slash", self.yusui_target, self.player) > 1 then
+		self.yusui_target = nil
+		return "discard"
+	end
   if (self.yusui_target:getHp() - self.player:getHp() > 1) and can_losehp then
     self.yusui_target = nil
     return "losehp"
@@ -720,6 +856,27 @@ end
 
 sgs.ai_cardneed.fenglve = sgs.ai_cardneed.bignumber
 
+sgs.ai_choicemade_filter.pindian.fenglve = function(self, player, promptlist)
+	local target
+	for _, p in sgs.qlist(self.room:getOtherPlayers(player)) do
+		if p:objectName() == promptlist[5] then
+			target = p
+			break
+		end
+	end
+	if target:getJudgingArea():length() == 0 and target:getCardCount(true) >= 2 and target:getHandcardNum() >= 1 then
+		local target_str = sgs.Sanguosha:translate(target:getActualGeneral1Name()).."/"..sgs.Sanguosha:translate(target:getActualGeneral2Name())
+		local player_card_number = sgs.Sanguosha:getCard(promptlist[4]):getNumber()
+		local target_card_number = sgs.Sanguosha:getCard(promptlist[6]):getNumber()
+		Global_room:writeToConsole("锋略目标:"..target_str.."("..tostring(player_card_number)..":"..tostring(target_card_number)..")")
+		if target_card_number >= 10 then
+			sgs.updateIntention(target, player, 20*(14 - target_card_number))
+		elseif target_card_number <= 4 then
+			sgs.updateIntention(target, player, 20*(4-target_card_number))
+		end
+	end
+end
+
 --一次交给2牌用默认策略可否？参考军令2
 
 sgs.ai_skill_exchange["fenglve_give"] = function(self,pattern,max_num,min_num,expand_pile)
@@ -906,7 +1063,7 @@ sgs.ai_skill_invoke.anyong =  function(self, data)
       end
     end
     if (tp:hasArmorEffect("SilverLion") and (not card or not card:isKindOf("Slash") or not IgnoreArmor(from, tp)))
-    or gongqing_avoid then
+    or gongqing_avoid or (tp:hasSkill("qiuan") and tp:getPile("letter"):isEmpty()) then
       n = 1
     else
       if not chained then--初次加伤，非传导伤害

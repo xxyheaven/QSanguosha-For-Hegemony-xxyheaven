@@ -661,7 +661,7 @@ sgs.ai_card_intention.XiongsuanCard = -40
 sgs.ai_use_priority.XiongsuanCard = 6.8--复制的苦肉优先度
 
 --左慈
---[[旧技能
+---[[旧技能
 sgs.ai_skill_invoke.huashen = function(self, data)
 	local huashens = self.player:getTag("Huashens"):toList()
 	if huashens:length() < 2 then return true end
@@ -677,7 +677,7 @@ end
 sgs.ai_skill_invoke["xinsheng"] = function(self, data)
 	return true
 end
-
+--]]
 sgs.ai_skill_choice.huashen = function(self, choice, data)
 	local head = self.player:inHeadSkills("huashen") or self.player:inHeadSkills("xinsheng")
 	local names = choice:split("+")
@@ -693,7 +693,7 @@ sgs.ai_skill_choice.huashen = function(self, choice, data)
 				ajust1 = ajust1 - 1
 			end
 		end
-		--
+		--]]
 		for _, name2 in ipairs(names) do
 			local g2 = sgs.Sanguosha:getGeneral(name2)
 			if not g2 or g1:getKingdom() ~= g2:getKingdom() or name1 == name2 then continue end
@@ -803,15 +803,14 @@ end
 sgs.ai_skill_choice.xinsheng = function(self, choice, data)
 	return sgs.ai_skill_choice["huashen"](self, choice, data)
 end
-]]--
 
 local yigui_skill = {}
 yigui_skill.name = "yigui"
 table.insert(sgs.ai_skills, yigui_skill)
 yigui_skill.getTurnUseCard = function(self)
 	if not self.player:hasShownSkill("yigui") then return end
-	local huashens = self.player:getGeneralPile("soul")
-	if #huashens == 0 then return end
+	if self.player:property("Huashens"):toString() == "" then return end
+	local huashens = self.player:property("Huashens"):toString():split("+");
 --[[
 	if (Self->hasFlag("Yigui_" + classname)) return false;
 	QString card_name = Self->tag["yigui"].toString();
@@ -1016,7 +1015,9 @@ yigui_skill.getTurnUseCard = function(self)
 	end
 	if not self.player:hasFlag("Yigui_BurningCamps") then
 		local np = self.player:getNextAlive()
-		if #yigui_kingdom[np:getKingdom()] > 0 then
+		local np_kingdom = np:getKingdom()
+		if np_kingdom == "god" then np_kingdom = "careerist" end
+		if #yigui_kingdom[np_kingdom] > 0 then
 			local can_burn = false
 			local burn_weak = 0
 			local players = np:getFormation()
@@ -1035,7 +1036,7 @@ yigui_skill.getTurnUseCard = function(self)
 			local dummyuse = { isDummy = true, to = sgs.SPlayerList() }
 			self:useCardBurningCamps(sgs.cloneCard("burning_camps"), dummyuse)
 			if dummyuse.card and can_burn then
-				soul_name = yigui_kingdom[np:getKingdom()][1]
+				soul_name = yigui_kingdom[np_kingdom][1]
 				class_string = "burning_camps"
 				Global_room:writeToConsole("役鬼火烧2")
 				return sgs.Card_Parse(str .. class_string .. "+" .. soul_name)
@@ -1105,7 +1106,8 @@ sgs.ai_skill_use_func.YiguiCard = function(card, use, self)
 	userstring = (userstring:split("+"))[1]
 	Global_room:writeToConsole("役鬼卡使用:"..userstring)
 	if self.player:isCardLimited(sgs.cloneCard(userstring), sgs.Card_MethodUse) then
-        return
+        Global_room:writeToConsole("役鬼卡Limited:"..userstring)
+		return
     end
 	use.card = card
 	if use.to and self.yigui_to then--部分锦囊需要手选目标，决斗、远交近攻等
@@ -1118,8 +1120,8 @@ sgs.ai_use_priority.YiguiCard = 2.8
 
 function sgs.ai_cardsview.yigui(self, class_name, player)
 	if not player:hasShownSkill("yigui") then return end
-	local huashens = player:getGeneralPile("soul")
-	if  #huashens == 0 then return end
+	if player:property("Huashens"):toString() == "" then return end
+	local huashens = player:property("Huashens"):toString():split("+");
 	if class_name == "Peach" or class_name == "Analeptic" then
 		local soul_name
 		local class_string
@@ -1533,7 +1535,50 @@ sgs.ai_skill_use_func.YongjinCard = function(card, use, self)
 end
 
 sgs.ai_use_priority.YongjinCard = 10--优先度多少合适？
+sgs.ai_skill_playerchosen.yongjin = function(self, _targets, max_num, min_num)
 
+	self:sort(self.enemies, "defense")
+		for _, friend in ipairs(self.friends_noself) do
+			if friend:hasEquip() and friend:hasShownSkills(sgs.lose_equip_skill) and self:getMoveCardorTarget(friend, ".", "e") then
+				return {friend, self:getMoveCardorTarget(friend, "target", "e")}
+			end
+		end
+
+		local targets = {}
+		for _, enemy in sgs.qlist(self.room:getAlivePlayers()) do
+			if not self.player:isFriendWith(enemy) and self:getMoveCardorTarget(enemy, "." ,"e") then
+				table.insert(targets, enemy)
+			end
+		end
+
+		if #targets > 0 then
+			self:sort(targets, "defense")
+			return {targets[#targets], self:getMoveCardorTarget(targets[#targets], "target", "e")}
+		end
+
+		if self.player:hasEquip() and self.player:hasShownSkills(sgs.lose_equip_skill) and self:getMoveCardorTarget(self.player, ".", "e") then
+			return {self.player, self:getMoveCardorTarget(self.player, "target" ,"e")}
+		end
+
+		local friends = {}--没有敌人则简单转移队友装备
+		for _, friend in ipairs(self.friends) do
+			if self:getMoveCardorTarget(friend, "." ,"e") then
+				table.insert(friends, friend)
+			end
+		end
+
+		if #friends > 0 then
+			self:sort(friends, "hp", true)
+			return {friends[#friends], self:getMoveCardorTarget(friends[#friends], "target", "e")}
+		end
+
+	return {}
+end
+
+sgs.ai_skill_transfercardchosen.yongjin = function(self, targets, equipArea, judgingArea)
+	return self:getMoveCardorTarget(targets:first(), "card", "e")
+end
+--[[
 sgs.ai_skill_use["@@yongjin_move"] = function(self, prompt, method)
 	if prompt ~= "@yongjin-next" then
 		return "."
@@ -1558,7 +1603,7 @@ sgs.ai_skill_use["@@yongjin_move"] = function(self, prompt, method)
 			return YJMoveCard .. targets[#targets]:objectName() .. "+" .. self:getMoveCardorTarget(targets[#targets], "target" ,"e"):objectName()
 		end
 
-		if self.player:hasEquip() and self:getMoveCardorTarget(self.player, ".") then--没有目标给自己的武器，但是好像不会给敌人再给回自己的高级操作
+		if self.player:hasEquip() and self:getMoveCardorTarget(self.player, "." ,"e") then--没有目标给自己的武器，但是好像不会给敌人再给回自己的高级操作
 			return YJMoveCard .. self.player:objectName() .. "+" .. self:getMoveCardorTarget(self.player, "target" ,"e"):objectName()
 		end
 
@@ -1569,7 +1614,7 @@ sgs.ai_skill_use["@@yongjin_move"] = function(self, prompt, method)
 		end
 	return "."
 end
-
+--]]
 --吕范
 --[[旧调度
 local diaodu_skill = {}
@@ -1897,6 +1942,8 @@ flamemap_skill.getTurnUseCard = function(self)
 		if c:isKindOf("EquipCard") then table.insert(cards, c) end
 	end
 	if #cards == 0 then return end
+	local sunquan = self.room:getLord(self.player:getKingdom())
+	if not self.player:hasLordSkill("jiahe") and (not sunquan or not sunquan:hasLordSkill("jiahe")) then return end--AI加入野心家后发动会导致闪退
 	if not self.player:hasUsed("FlameMapCard") then
 		return sgs.Card_Parse("@FlameMapCard=.&showforviewhas")
 	end
@@ -2035,11 +2082,11 @@ sgs.ai_skill_choice.flamemap = function(self, choices)
 	end
 
 	if self.player:hasSkill("haoshi") and table.contains(choices, "haoshi_flamemap") then
-		table.removeOne(choices, "haoshi_flamemap")--太复杂情况不考虑
-		--[[if sgs.ai_skill_invoke.haoshi(self) and self.haoshi_target then
-			return "haoshi_flamemap"--有目标时双好施，给完一次半数后超过5会给两次牌。。
+		if sgs.ai_skill_invoke.haoshi(self) and self.haoshi_target and self.haoshi_flamemap_target then
+			return "haoshi_flamemap"--有目标时双好施,给完一次半数后超过5会给两次牌
 		else
-		end]]
+			table.removeOne(choices, "haoshi_flamemap")--复杂情况不考虑
+		end
 	end
 
 	if n > 4 and table.contains(choices, "haoshi_flamemap") and
@@ -2056,7 +2103,7 @@ sgs.ai_skill_choice.flamemap = function(self, choices)
 		table.removeOne(choices, "duoshi_flamemap")--已有度势，没额外摸牌技和手牌少时移除度势
 	end
 
-	if n > 4 and table.contains(choices, "duoshi_flamemap") then
+	if n > 4 and table.contains(choices, "duoshi_flamemap") and not self.player:hasSkill("duoshi") then
 		return "duoshi_flamemap"--能选择两项则必选度势
 	end
 
@@ -2082,6 +2129,11 @@ sgs.ai_skill_choice.flamemap = function(self, choices)
 		return "haoshi_flamemap"
 	end
 
+	if n > 4 and table.contains(choices, "yingzi_flamemap") and
+		self.player:getHandcardNum() > 3 and sgs.ai_skill_invoke.haoshi_flamemap(self) then--宁可好施英姿，避免好施涉猎
+		return "yingzi_flamemap"
+	end
+
 	if table.contains(choices, "shelie") and sgs.ai_skill_invoke.shelie(self) then
 		return "shelie"
 	end
@@ -2101,11 +2153,7 @@ sgs.ai_skill_askforag.flamemap = function(self, card_ids)
 		local card = sgs.Sanguosha:getCard(id)
 		if card:isKindOf("LuminousPearl") then
 			return id
-		end
-	end
-	for _, id in ipairs(card_ids) do
-		local card = sgs.Sanguosha:getCard(id)
-		if card:isKindOf("DragonPhoenix") then
+		elseif card:isKindOf("DragonPhoenix") then
 			local lord = self.room:getLord("shu")
 			if not lord or self:isFriend(lord) then
 				return id
@@ -2120,6 +2168,8 @@ sgs.ai_skill_askforag.flamemap = function(self, card_ids)
 			if not lord or self:isFriend(lord) then
 				return id
 			end
+		else
+			return id
 		end
 	end
 	return card_ids[1]
@@ -2314,14 +2364,25 @@ local LuminousPearl_skill = {}
 LuminousPearl_skill.name = "LuminousPearl"
 table.insert(sgs.ai_skills, LuminousPearl_skill)
 LuminousPearl_skill.getTurnUseCard = function(self)
-	if not self.player:hasUsed("ZhihengCard") and not self.player:hasShownSkill("zhiheng") and self.player:hasTreasure("LuminousPearl") then
-		return sgs.Card_Parse("@ZhihengCard=.")
+	--有一个BUG:玩家带着夜明珠开五谷托管,AI和玩家可以分别用一次制衡
+	--问题在于玩家使用的时候记录的P:hasUsed("ZhihengLPCard"),AI用的时候记录的P:hasUsed("ZhihengCard")
+	--因为源码是视为拥有制衡,带着夜明珠可以查到P:hasSkill("zhiheng")为true,AI仍可以调用制衡的getTurnUseCard使用ZhihengCard
+	--且AI进入ai_skill_use_func.ZhihengLPCard后不能使用use.card = sgs.Card_Parse("@ZhihengLPCard=" .. table.concat(use_cards, "+") .. "&LuminousPearl")
+	if self.player:hasUsed("ZhihengCard") then return end--发动制衡后,有夜明珠也不能再次制衡
+	if (self.player:inHeadSkills("zhiheng") and self.player:hasShownGeneral1()) or 
+		(self.player:inDeputySkills("zhiheng") and self.player:hasShownGeneral2()) then return end--明置武将牌上的制衡后,不能使用夜明珠
+	if self.player:hasTreasure("LuminousPearl") and not self.player:hasUsed("ZhihengLPCard") then
+		return sgs.Card_Parse("@ZhihengLPCard=.LuminousPearl")
 	end
 end
 
 sgs.ai_use_priority.LuminousPearl = 5.7
 sgs.ai_keep_value.LuminousPearl = 4.2
 
+sgs.ai_skill_use_func.ZhihengLPCard = sgs.ai_skill_use_func.ZhihengCard
+sgs.ai_use_value.ZhihengLPCard = sgs.ai_use_value.ZhihengCard
+sgs.ai_use_priority.ZhihengLPCard = 2.71
+sgs.dynamic_value.benefit.ZhihengLPCard = sgs.dynamic_value.benefit.ZhihengCard
 
 --变更武将相关
 function sgs.readGeneralValuefromtxt()--读入ai-selector/general-value.txt
@@ -2444,15 +2505,23 @@ sgs.ai_skill_choice.transform = function(self, generals)
 	local pairvalue = 0
 	local pairchoice
 	for _, g2name in ipairs(generals) do
-		Global_room:writeToConsole("当前可选武将:"..sgs.Sanguosha:translate(g2name).."|"..sgs.general_value[g2name])
+		local value_revise = 0
+		local deputy = sgs.Sanguosha:getGeneral(g2name)
+		if deputy:getMaxHpHead() > deputy:getMaxHpDeputy() then--有额外的副将技
+			value_revise = 1
+		elseif deputy:getMaxHpDeputy() >= 5 then--关羽价值8
+			value_revise = -4
+		end
+		Global_room:writeToConsole("当前可选武将:"..sgs.Sanguosha:translate(g2name).."|"..(sgs.general_value[g2name] + value_revise))
 		for pairname, value in pairs(sgs.general_pair_value) do
 			if (g1name .. "+" .. g2name == pairname or g2name .. "+" .. g1name == pairname) then
+				value = value + value_revise
 				if value < 10 and #generals > 0 then--去掉不合适匹配武将
 					table.removeOne(generals, g2name)
 				elseif pairname == "xunyou+xiahouyuan" or pairname == "lvfan+sunjian"
 				or pairname == "masu+menghuo" or pairname == "masu+zhurong" then--单独去掉一些选将配对值
 					continue
-				elseif value > pairvalue  then
+				elseif value > pairvalue then
 					Global_room:writeToConsole("与主将配对:"..pairname.."|"..value)
 					pairvalue = value
 					pairchoice = g2name
@@ -2463,14 +2532,21 @@ sgs.ai_skill_choice.transform = function(self, generals)
 	local singlevalue = 0
 	local singlechoice
 	for _, g2name in ipairs(generals) do
+		local value_revise = 0
+		local deputy = sgs.Sanguosha:getGeneral(g2name)
+		if deputy:getMaxHpHead() > deputy:getMaxHpDeputy() then--有额外的副将技
+			value_revise = 1
+		elseif deputy:getMaxHpDeputy() >= 5 then--关羽价值8
+			value_revise = -4
+		end
 		if self:isWeak() and (g2name == "pangtong" or g2name == "xushu" or g2name == "zhoutai" or g2name == "sunce" or g2name == "lukang") then
-			if sgs.general_value[g2name] and sgs.general_value[g2name] + 2 > singlevalue then
-				singlevalue = sgs.general_value[g2name] + 2
+			if sgs.general_value[g2name] and sgs.general_value[g2name] + 2 + value_revise > singlevalue then
+				singlevalue = sgs.general_value[g2name] + 2 + value_revise
 				singlechoice = g2name--残血优先选庞统和周泰等，"zhoutai"和"xiaoqiao"本身就很高，是否去掉？
 			end
 		end
-		if sgs.general_value[g2name] and sgs.general_value[g2name] > singlevalue then
-			singlevalue = sgs.general_value[g2name]
+		if sgs.general_value[g2name] and sgs.general_value[g2name] + value_revise > singlevalue then
+			singlevalue = sgs.general_value[g2name] + value_revise
 			singlechoice = g2name
 		end
 	end

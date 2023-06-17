@@ -49,9 +49,13 @@ sgs.ai_skill_invoke.Fan = function(self, data)
 		if self:isFriend(target) then
 			if not self:damageIsEffective(target, sgs.DamageStruct_Fire) then return true end
 			if target:isChained() and self:isGoodChainTarget(target, nil, nil, nil, use.card) then return true end
+			if self:findLeijiTarget(target, 50, self.player) then return false end
+			if target:hasArmorEffect("IronArmor") then return true end
 		else
+			if target:hasArmorEffect("IronArmor") then return false end
 			if not self:damageIsEffective(target, sgs.DamageStruct_Fire) then return false end
 			if target:isChained() and not self:isGoodChainTarget(target, nil, nil, nil, use.card) then return false end
+			if target:isChained() and self:isGoodChainTarget(target, nil, nil, nil, use.card) then return true end
 			if target:hasArmorEffect("Vine") then
 				return true
 			end
@@ -113,6 +117,9 @@ function sgs.ai_armor_value.Vine(player, self)
 	end
 	if not self:isFriend(player,lp) and (lp:hasShownSkills("qice|yigui") or getKnownCard(lp, player, "BurningCamps") > 0) then--上家有奇策、役鬼,火烧
 		return -3
+	end
+	if self:needToLoseHp(player) or self:needDamagedEffects(player) then--卖血不上藤甲
+		return -2
 	end
 
 	local fslash = sgs.cloneCard("fire_slash")
@@ -182,7 +189,7 @@ function SmartAI:shouldUseAnaleptic(target, card_use)
 		return true
 	end
 	if self.player:hasSkills("wushuang|wushuang_lvlingqi") then
-		if getKnownCard(target, target, "Jink", true, "he") >= 2 then return false end
+		if getKnownCard(target, self.player, "Jink", true, "he") >= 2 then return false end
 		return getCardsNum("Jink", target, self.player) < 2
 	end
 	if self.player:hasSkills("tieqi|tieqi_xh") then
@@ -369,6 +376,7 @@ function SmartAI:isGoodChainTarget_(damageStruct)
 	local card = damageStruct.card
 
 	if card and card:isKindOf("Slash") then
+		if from:hasSkill("yinbing") then return end
 		nature = sgs.Slash_Natures[card:getClassName()]
 		damage = self:hasHeavySlashDamage(from, card, to, true)
 	end
@@ -469,15 +477,84 @@ function SmartAI:isGoodChainTarget_(damageStruct)
 
 	if F_count > 0 and E_count <= 0 then return end
 
+	--预备造成传导伤害时(例如属性杀敌友敌,依次结算会坑队友)
+	local current_str = ""
+	local current_message = ""
+	local friend_chained = false
+	for _,p in sgs.qlist(to:getAliveSiblings()) do
+		if not p:isChained() then continue end
+		if from:isFriendWith(p) then friend_chained = true break end
+	end
+	if from and friend_chained then
+		current_str = sgs.Sanguosha:translate(from:getActualGeneral1Name()).."/"..sgs.Sanguosha:translate(from:getActualGeneral2Name())
+		current_message = from:getSeat()
+		if card then
+			current_message = current_message..":"..tostring(card:getEffectiveId())
+		end
+		if not card or not self.chained_message or self.chained_message ~= current_message then
+			repetitive = false
+			self.chained_message = current_message
+		end
+	else
+		self.chained_message = nil
+	end
+	local target_str = sgs.Sanguosha:translate(to:getActualGeneral1Name()).."/"..sgs.Sanguosha:translate(to:getActualGeneral2Name()).."("..sgs.Sanguosha:translate(string.format("SEAT(%s)",to:getSeat()))..")"
+	if card then
+		target_str = target_str .. ":" .. card:objectName()
+	end
+	local repetitive = true
+	local current_damage = self.room:getTag("CurrentDamageStruct"):toDamage()
+	if current_damage and current_damage.to then--伤害结算过程中的判断
+		if (to:objectName() ~= current_damage.to:objectName())
+			or (nature ~= current_damage.nature or damage ~= current_damage.damage) then
+			repetitive = false
+		else
+			if from and current_damage.from and from:objectName() == current_damage.from:objectName() then
+			else repetitive = false end
+			if card and current_damage.card and card:getEffectiveId() == current_damage.card:getEffectiveId() then
+			else repetitive = false end
+		end
+	end
+	
+	
+	if good > bad and to:isChained() then
+		if card and self:isFriend(to) and from and sgs.Sanguosha:correctCardTarget(sgs.TargetModSkill_ExtraTarget, from, card) > 0 then
+			for _,p in sgs.qlist(to:getAliveSiblings()) do
+				if not p:isChained() or self:isFriend(p) then continue end
+				if self:playerGetRound(p) > self:playerGetRound(to) then continue end--只考虑之前的敌人
+				local newDamageStruct = damageStruct
+				newDamageStruct.to = p
+				if not self:damageIsEffective_(newDamageStruct) then continue end
+				local skip_str = sgs.Sanguosha:translate(string.format("SEAT(%s)",p:getSeat()))
+				if card:isKindOf("Slash") and from:canSlash(p, card) and not self:slashProhibit(card, p, from) and card:targetFilter(sgs.PlayerList(), p, from) then
+					Global_room:writeToConsole(current_str..":攻击:"..target_str..":跳过:"..skip_str)
+					return false
+				elseif card:isKindOf("TrickCard") and self:trickIsEffective(card, to, self.player) then
+					Global_room:writeToConsole(current_str..":攻击:"..target_str..":跳过:"..skip_str)
+					return false
+				end
+			end
+		end
+		current_str = current_str..":连环传导有利:"
+		if friend_chained and not repetitive then
+			Global_room:writeToConsole(current_str..target_str)
+		end
+	end
+
 	return good > bad
 end
 
 function SmartAI:useCardIronChain(card, use)
-	if self.player:isLocked(card) then return end
+	local needTarget = (card:getSkillName() == "guhuo" or card:getSkillName() == "nosguhuo" or card:getSkillName() == "qice" 
+		or card:getSkillName() == "yigui" or card:getSkillName() == "miewu" or card:getSkillName() == "tiandian" or card:getSkillName() == "xuanyan")
+	if not needTarget then
+		if self.player:isLocked(card) then return end
+		if #self.enemies == 1 and #self:getChainedFriends() <= 1 then return end
+	end
 	use.card = card
-	if #self.enemies == 1 and #self:getChainedFriends() <= 1 then return end
 	local friendtargets, friendtargets2 = {}, {}
 	local enemytargets = {}
+	local danlaoenemies = {}
 	self:sort(self.friends, "defense")
 	for _, friend in ipairs(self.friends) do
 		if friend:isChained() and not self:isGoodChainPartner(friend) and self:trickIsEffective(card, friend, self.player) then
@@ -494,7 +571,11 @@ function SmartAI:useCardIronChain(card, use)
 		if not enemy:isChained()
 			and self:trickIsEffective(card, enemy, self.player) and self:objectiveLevel(enemy) > 3
 			and not self:needDamagedEffects(enemy) and not self:needToLoseHp(enemy) and sgs.isGoodTarget(enemy, self.enemies, self) then
-			table.insert(enemytargets, enemy)
+			if not enemy:hasShownSkill("danlao") then
+				table.insert(enemytargets, enemy)
+			elseif self:isWeak(enemy) then
+				table.insert(danlaoenemies, enemy)
+			end
 		end
 	end
 
@@ -540,9 +621,12 @@ function SmartAI:useCardIronChain(card, use)
 			if use.to then use.to:append(self.player) end
 		end
 	end
+	if use.to and use.to:length() == 0 and #danlaoenemies > 0 then
+		use.to:append(danlaoenemies[1])
+	end
 	if use.to then assert(use.to:length() < targets_num + 1) end
 	if (not use.to or use.to:isEmpty())
-	and (self.player:isCardLimited(card, sgs.Card_MethodRecast) or not card:canRecast()) then
+	and (needTarget or self.player:isCardLimited(card, sgs.Card_MethodRecast) or not card:canRecast()) then
 		use.card = nil
 	end
 end
@@ -572,6 +656,13 @@ sgs.ai_skill_cardask["@fire-attack"] = function(self, data, pattern, target)
 		return "."
 	end
 
+	if self.player:isFriendWith(target) and not (self:needToLoseHp(target) or self:needDamagedEffects(target)) then
+		if not (target:isChained() and self:isGoodChainTarget(target)) then
+			--暗置队友在火攻过程中明置时
+			Global_room:writeToConsole("火攻队友不弃牌")
+			return "."
+		end
+	end
 	self:sortByUseValue(cards, true)
 
 	for _, acard in ipairs(cards) do
@@ -742,7 +833,8 @@ function SmartAI:useCardFireAttack(fire_attack, use)
 	end
 
 	self.fireattack_onlyview = nil
-	if self.player:isLastHandCard(fire_attack) and (self:needKongcheng() or self.player:getMark("@firstshow") + self.player:getMark("@careerist") > 0) then
+	--if self.player:isLastHandCard(fire_attack) and (self:needKongcheng() or self.player:getMark("@firstshow") + self.player:getMark("@careerist") > 0) then--公孙诸葛带野心标记火攻看牌至空牌
+	if self.player:isLastHandCard(fire_attack) and (self:needKongcheng() or self.player:getMark("@firstshow") > 0) then
 		self.fireattack_onlyview = true
 	end
 	if #targets == 0 and self:getOverflow() > 0 then
@@ -751,18 +843,16 @@ function SmartAI:useCardFireAttack(fire_attack, use)
 	if self.fireattack_onlyview then
 		if #targets == 0 and #self.enemies > 0 then
 			for _,p in ipairs(self.enemies) do
-				if not p:isKongcheng() and not p:hasArmorEffect("IronArmor") and not p:isRemoved() then
-					table.insert(targets, p)
-					break
-				end
+				if p:isKongcheng() or not self:trickIsEffective(fire_attack, p) then continue end--过滤无效角色
+				table.insert(targets, p)
+				break
 			end
 		end
 		if #targets == 0 then
 			for _,p in sgs.qlist(self.room:getOtherPlayers(self.player)) do
-				if not p:isKongcheng() and not p:hasArmorEffect("IronArmor") and not p:isRemoved() then
-					table.insert(targets, p)
-					break
-				end
+				if p:isKongcheng() or not self:trickIsEffective(fire_attack, p) then continue end--过滤无效角色
+				table.insert(targets, p)
+				break
 			end
 		end
 	end

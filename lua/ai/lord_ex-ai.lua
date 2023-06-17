@@ -22,25 +22,34 @@
 --孟达
 sgs.ai_skill_invoke.qiuan = function(self, data)
 	local damage = data:toDamage()
-  if damage.damage > 1 then
-    return true
-  end
-  if damage.card:isKindOf("AOE") then--优先于奸雄
-    if self.get_AOE_subcard then
-      self.get_AOE_subcard = nil
-      return not self.player:hasSkill("jianxiong")
-    end
-    return true
-  end
-  if not self:willShowForDefence() then
-    return false
-  end
-  if self.player:hasSkills(sgs.masochism_skill) and self.player:getHp() > 1 and damage.damage < 2 then--详细判断，如节命、望归
-    return false
-  end
-  if self.player:hasSkill("wangxi") and damage.from and self:isFriend(damage.from) and damage.damage < 2 then
-    return false
-  end
+	if damage.card:isKindOf("AOE") then--优先于奸雄
+		if self.get_AOE_subcard then
+			self.get_AOE_subcard = nil
+			return not self.player:hasSkill("jianxiong")
+		end
+		if damage.card:subcardsLength() == 1 then
+			local card = sgs.Sanguosha:getEngineCard(damage.card:getEffectiveId())
+			if card:isKindOf("AOE") then
+				local dummy_use = {isDummy = true}
+				if not card:targetFixed() then dummy_use.to = sgs.SPlayerList() end
+				self:useCardByClassName(card, dummy_use)
+				if dummy_use.card then
+					return true
+				end
+			end
+		else
+			return true
+		end
+	end
+	if not self:willShowForDefence() then
+		return false
+	end
+	if self.player:hasSkills(sgs.masochism_skill) and self.player:getHp() > 1 and damage.damage < 2 then--详细判断，如节命、望归
+		return false
+	end
+	if self.player:hasSkill("wangxi") and damage.from and self:isFriend(damage.from) and damage.damage < 2 then
+		return false
+	end
 	return true
 end
 
@@ -75,6 +84,7 @@ sgs.ai_skill_movecards.xunxun_tangzi = function(self, upcards, downcards, min_nu
 	table.removeOne(upcards_copy,id2)
 	return upcards_copy,down
 end
+
 --张鲁
 sgs.ai_skill_invoke.bushi = function(self, data)
 	if self.player:getPhase() == sgs.Player_Start then return false end
@@ -180,28 +190,181 @@ sgs.ai_skill_cardask["@midao-card"] = function(self, data)
 	return "."
 end
 
+--[[
+sgs.ai_skill_invoke.bushi = function(self, data)
+	if not self:willShowForMasochism() then
+    return false
+  end
+  local damage = data:toDamage()
+	return damage.to:objectName() == self.player:objectName()
+end
+
+sgs.ai_skill_playerchosen.bushi = function(self, targets)
+  targets = sgs.QList2Table(targets)
+  self:sort(targets, "handcard")
+	return targets[1]
+end
+
+sgs.ai_skill_invoke.midao = function(self, data)
+	if self:willShowForAttack() then
+		local use = data:toCardUse()
+		--local use = self.player:getTag("MidaoUseData"):toCardUse()
+		if use.card and use.card:isKindOf("BasicCard") and not use.card:isKindOf("Slash") then
+			--Global_room:writeToConsole("米道无效卡:"..use.card:objectName())
+			return false
+		end
+		return true
+	end
+	return false
+end
+
+sgs.ai_skill_suit.midao= function(self)
+  local use = self.player:getTag("MidaoUseData"):toCardUse()
+  local card = use.card
+  local targets = sgs.QList2Table(use.to)
+  local suit = math.random(0, 3)
+  if card:isKindOf("Slash") then--杀激昂和仁王盾
+    for _,p in ipairs(targets) do
+      if p:hasShownSkills("jiang") then
+        suit = math.random(0, 1)
+      end
+    end
+    for _,p in ipairs(targets) do
+      if p:hasArmorEffect("RenwangShield") then
+        suit = math.random(2, 3)
+      end
+    end
+  end
+  if card:isKindOf("TrickCard") then--锦囊帷幕
+    for _,p in ipairs(targets) do
+      if p:hasShownSkills("weimu") and self:isFriend(p) then
+        suit = math.random(0, 1)
+      end
+      if p:hasShownSkills("weimu") and not self:isFriend(p) then
+        suit = math.random(2, 3)
+      end
+    end
+  end
+  if (card:isKindOf("Slash") or card:isNDTrick()) then--息兵
+    for _,p in ipairs(targets) do
+      if p:hasShownSkills("xibing") and (self:isFriend(p) or use.to:length() > 1) then
+        suit = math.random(0, 1)
+      end
+      if p:hasShownSkills("xibing") and not self:isFriend(p) and use.to:length() == 1 then
+        suit = math.random(2, 3)
+      end
+    end
+  end
+  if card:isKindOf("BasicCard") or card:isNDTrick() then--贞特
+    for _,p in ipairs(targets) do
+      if p:hasShownSkills("zhente") and not p:setFlags("ZhenteUsed") and self:isFriend(p) then
+        suit = math.random(0, 1)
+      end
+      if p:hasShownSkills("zhente") and not p:setFlags("ZhenteUsed") and not self:isFriend(p) then
+        suit = math.random(2, 3)
+      end
+    end
+  end
+  for _,p in ipairs(targets) do--玉碎
+    if p:hasShownSkills("yusui") and not self:isFriend(p) then
+      suit = math.random(2, 3)
+    end
+  end
+
+	return suit
+end
+
+sgs.ai_skill_choice.midao = function(self, choices, data)
+  local use = self.player:getTag("MidaoUseData"):toCardUse()
+  local card = use.card
+  local from = use.from
+  local targets = sgs.QList2Table(use.to)
+  local fire_value, thunder_value, normal_value = 0,0,0
+  for _,p in ipairs(targets) do
+    if self:damageIsEffective(p, sgs.DamageStruct_Normal, from) then
+      normal_value = normal_value + (self:isFriend(p) and -1 or 1)-- exp and x or y 和 exp ? x : y 等价
+    end
+    if self:damageIsEffective(p, sgs.DamageStruct_Fire, from) then
+      fire_value = fire_value + (self:isFriend(p) and -1 or 1)
+    end
+    if self:damageIsEffective(p, sgs.DamageStruct_Thunder, from) then
+      thunder_value = thunder_value + (self:isFriend(p) and -1 or 1)
+    end
+    if p:hasArmorEffect("Vine") then
+      fire_value = fire_value + (self:isFriend(p) and -2 or 2)
+    end
+    if p:hasArmorEffect("IronArmor") and card:isKindOf("Slash") then
+      fire_value = fire_value + (self:isFriend(p) and 2 or -2)
+    end
+    if p:isChained() then
+      fire_value = fire_value + (self:isFriend(p) and -0.5 or 0.5)--考虑全场的连环角色！
+      thunder_value = thunder_value + (self:isFriend(p) and -0.5 or 0.5)
+    end
+  end
+  Global_room:writeToConsole("米道火:"..fire_value.." 雷:"..thunder_value.." 普通:"..normal_value)
+  if from:hasShownSkill("xinghuo") then fire_value = 2*fire_value end--兴火
+  if thunder_value >= fire_value and thunder_value >= normal_value then--优先雷防明光铠，是否应该把普放第一？
+    return "thunder"
+  end
+  if normal_value >= fire_value and normal_value >= thunder_value then
+    return "normal"
+  end
+  if fire_value >= normal_value and fire_value >= thunder_value then
+    return "fire"
+  end
+  return "normal"
+end
+
+sgs.ai_skill_exchange["midao"] = function(self,pattern,max_num,min_num,expand_pile)
+  if self:getOverflow() < 2 or self.player:isKongcheng() then
+    return {}
+  end
+  local use = self.player:getTag("MidaoUseData"):toCardUse()
+  local card = use.card
+  local targets = sgs.QList2Table(use.to)--可以细化对目标效果不好时改属性？
+  if card:isKindOf("Analeptic") and self:getCardsNum("Slash") > 0 and self:slashIsAvailable() then--酒有杀不给
+    return {}
+  end
+  local zhanglu = sgs.findPlayerByShownSkillName("midao")
+  if self:isFriend(zhanglu) and self:isWeak(zhanglu) then
+    if self.player:getHp() > 1 and self:getCardsNum("Analeptic") > 0 then
+      return self:getCard("Analeptic"):getEffectiveId()
+    end
+    if not self:isWeak() and self:getCardsNum("Peach") > 1 then
+      return self:getCard("Peach"):getEffectiveId()
+    end
+    if self:getCardsNum("Jink") > 1 then
+      return self:getCard("Jink"):getEffectiveId()
+    end
+  end
+  local cards = self.player:getCards("h")-- 获得所有手牌
+  cards=sgs.QList2Table(cards) -- 将列表转换为表
+  self:sortByUseValue(cards,true)
+  return cards[1]:getEffectiveId()
+end
+--]]
 --糜芳＆傅士仁
 sgs.ai_skill_invoke.fengshix = function(self, data)
 	if not self:willShowForAttack() then
-    return false
-  end
-  local target = data:toPlayer()
-  if not target or self:isFriend(target) then
-    return false
-  end
-  local use = self.player:getTag("FengshixUsedata"):toCardUse()
-  local card = use.card--更多的非伤害锦囊的情况？现在空城也可触发无需担心
-  self.fengshix_discard = nil
-  if card:isKindOf("FireAttack") and target:getCardCount(true) == 1 then
-    return false
-  end
-  if card:isKindOf("Drowning") and target:getEquips():length() == 1 then
-    self.fengshix_discard = target:getEquips():first():getEffectiveId()
-    return true
-  end
-  if self.player:getHandcardNum() > 3 or self:isWeak(target) then
-    return true
-  end
+		return false
+	end
+	local target = data:toPlayer()
+	if not target or self:isFriend(target) then
+		return false
+	end
+	local use = self.player:getTag("FengshixUsedata"):toCardUse()
+	local card = use.card--更多的非伤害锦囊的情况？现在空城也可触发无需担心
+	self.fengshix_discard = nil
+	if (card:isKindOf("FireAttack") or card:isKindOf("Dismantlement") or card:isKindOf("Snatch")) and target:getCardCount(true) == 1 then
+		return false
+	end
+	if card:isKindOf("Drowning") and target:getEquips():length() == 1 then
+		self.fengshix_discard = target:getEquips():first():getEffectiveId()
+		return true
+	end
+	if self.player:getHandcardNum() > 3 or self:isWeak(target) then
+		return true
+	end
 	return false
 end
 
@@ -262,11 +425,16 @@ sgs.ai_skill_playerchosen.wenji = function(self, targets)
     end
   end
   if not target then
-    for _, p in ipairs(targets) do
-      if self:isFriend(p) and self:needToThrowArmor(p) then--拿队友防具，屯江无法主动触发所以暂无配合
-        target = p
-      end
-    end
+	for _, p in ipairs(targets) do
+		if self.player:isFriendWith(p) and (self:needToThrowArmor(p)
+			or (p:getHandcardNum() == 1 and self:needKongcheng())
+			or (p:hasSkills(sgs.lose_equip_skill) and not p:getEquips():isEmpty())) then
+			target = p
+			break
+		elseif self:isFriend(p) and self:needToThrowArmor(p) then--拿队友防具，屯江无法主动触发所以暂无配合
+			target = p
+		end
+	end
   end
   local give_peach = false
   if not self.player:isNude() then
@@ -280,7 +448,7 @@ sgs.ai_skill_playerchosen.wenji = function(self, targets)
   self:sort(targets, "handcard")
   if not target and not give_peach then--敌人，不给桃
     for _, p in ipairs(targets) do
-      if not self.player:isFriendWith(p) then
+      if not self.player:isFriendWith(p) and not self:doNotDiscard(p, "he", true, 1, "wenji") then--不问计屯田
         target = p
       end
     end
@@ -292,65 +460,91 @@ sgs.ai_skill_playerchosen.wenji = function(self, targets)
 end
 
 sgs.ai_skill_exchange["wenji_give"] = function(self,pattern,max_num,min_num,expand_pile)
-  local liuqi = sgs.findPlayerByShownSkillName("wenji")
-  if self:isFriendWith(liuqi) then--队友：杀、duel、AOE
-    if self:getCardsNum("AOE") > 0 then
-      local card
-      card = self:getCard("SavageAssault")
-      if card and self:getAoeValue(card) > 0 then
-        return card:getEffectiveId()
-      end
-      card = self:getCard("ArcheryAttack")
-      if card and self:getAoeValue(card) > 0 then
-        return card:getEffectiveId()
-      end
-    end
-    if self:getCardsNum("Slash") > 0 then
-      return self:getCard("Slash"):getEffectiveId()
-    end
-    if self:getCardsNum("Duel") > 0 then
-      return self:getCard("Duel"):getEffectiveId()
-    end
-  end
-  if self:needToThrowArmor() then
-    return self.player:getArmor():getEffectiveId()
-  end
-  local cards = self.player:getCards("he")
+	local liuqi = sgs.findPlayerByShownSkillName("wenji")
+	--不能使用self:getCard("Slash"),防止问计给弘法杀
+	if self:isFriendWith(liuqi) then--队友：杀、duel、AOE
+		if self:getCardsNum("AOE") > 0 then
+			for _, card in sgs.qlist(self.player:getCards("he")) do
+				if liuqi:isCardLimited(card, sgs.Card_MethodUse) then continue end
+				if isCard("SavageAssault", card, liuqi) and self:getAoeValue(card) > 0 then
+					return card:getEffectiveId()
+				elseif isCard("ArcheryAttack", card, liuqi) and self:getAoeValue(card) > 0 then
+					return card:getEffectiveId()
+				end
+			end
+		end
+		if self:getCardsNum("Slash") > 0 then
+			for _, card in sgs.qlist(self.player:getCards("he")) do
+				if liuqi:isCardLimited(card, sgs.Card_MethodUse) then continue end
+				if isCard("Slash", card, liuqi) then
+					return card:getEffectiveId()
+				end
+			end
+		end
+		if self:getCardsNum("Duel") > 0 then
+			for _, card in sgs.qlist(self.player:getCards("he")) do
+				if liuqi:isCardLimited(card, sgs.Card_MethodUse) then continue end
+				if isCard("Duel", card, liuqi) then
+					return card:getEffectiveId()
+				end
+			end
+		end
+	end
+	if self:needToThrowArmor() then
+		return self.player:getArmor():getEffectiveId()
+	end
+	local cards = self.player:getCards("he")
 	cards = sgs.QList2Table(cards)
 	self:sortByKeepValue(cards)
 	return cards[1]:getEffectiveId()
 end
 
 sgs.ai_skill_exchange["wenji_giveback"] = function(self,pattern,max_num,min_num,expand_pile)
-  local to
+	local to
 	for _, p in sgs.qlist(self.room:getOtherPlayers(self.player)) do
 		if p:hasFlag("WenjiTarget") then
 			to = p
 			break
 		end
 	end
-  --QString pattern = QString("^%1").arg(card_id);
-  --local id = tonumber(string.match(pattern, "(%d+)"))
-  --Global_room:writeToConsole(pattern.."|"..id)
-  if self:isFriend(to) and self:isWeak(to) then
-    if self.player:getHp() > 1 and self:getCardsNum("Analeptic") > 0 then
-      return self:getCard("Analeptic"):getEffectiveId()
-    end
-    if not self:isWeak() and self:getCardsNum("Peach") > 1 then
-      return self:getCard("Peach"):getEffectiveId()
-    end
-    if self:getCardsNum("Jink") > 1 then
-      return self:getCard("Jink"):getEffectiveId()
-    end
-  end
-  local cards = self.player:getCards("he")
+	--QString pattern = QString("^%1").arg(card_id);
+	--local id = tonumber(string.match(pattern, "(%d+)"))
+	--Global_room:writeToConsole(pattern.."|"..id)
+	--不能使用self:getCard("Slash"),防止问计给弘法杀
+	local cards = self.player:getCards("he")
 	cards = sgs.QList2Table(cards)
 	self:sortByUseValue(cards,true)
-  for _, c in ipairs(cards) do
-    if sgs.Sanguosha:matchExpPattern(pattern,self.player,c) then--已有pattern匹配函数
-      return c:getEffectiveId()
-    end
-  end
+	if self:isFriend(to) and self:isWeak(to) then
+		if self.player:getHp() > 1 and self:getCardsNum("Analeptic") > 0 then
+			for _, card in ipairs(cards) do
+				if liuqi:isCardLimited(card, sgs.Card_MethodUse) then continue end
+				if isCard("Analeptic", card, liuqi) then
+					return card:getEffectiveId()
+				end
+			end
+		end
+		if not self:isWeak() and self:getCardsNum("Peach") > 1 then
+			for _, card in ipairs(cards) do
+				if liuqi:isCardLimited(card, sgs.Card_MethodUse) then continue end
+				if isCard("Peach", card, liuqi) then
+					return card:getEffectiveId()
+				end
+			end
+		end
+		if self:getCardsNum("Jink") > 1 then
+			for _, card in ipairs(cards) do
+				if liuqi:isCardLimited(card, sgs.Card_MethodUse) then continue end
+				if isCard("Jink", card, liuqi) then
+					return card:getEffectiveId()
+				end
+			end
+		end
+	end
+	for _, c in ipairs(cards) do
+		if sgs.Sanguosha:matchExpPattern(pattern,self.player,c) then--已有pattern匹配函数
+			return c:getEffectiveId()
+		end
+	end
 end
 
 function SmartAI:hasWenjiBuff(card)
@@ -676,7 +870,6 @@ sgs.ai_skill_use_func.ZaoyunCard= function(card, use, self)
 end
 
 --徐庶
---[[
 sgs.ai_skill_invoke.pozhen = function(self, data)
   local target = data:toPlayer()
   local has_attack_skill = target:hasSkills("luanji|shuangxiong")
@@ -729,36 +922,6 @@ sgs.ai_skill_invoke.jiancai = function(self, data)
   end
 	return false
 end
-]]
-
-
---徐庶
-
---player->askForSkillInvoke(this, data)
-sgs.ai_skill_invoke.qiance = function(self, data)
-	if not self:willShowForAttack() then return false end
-	
-	
-	
-	
-	return true
-end
-
---room->askForChoice(player, "qiance", "yes+no", data, "@qiance:" + ask_who->objectName()) == "yes"
-sgs.ai_skill_choice["qiance"] = function(self, choices, data)
-	
-	
-	return "yes"
-end
-
---player->tag["jujianDyingdata"] = data;
---bool invoke = player->askForSkillInvoke(this, QVariant::fromValue(dying.who));
-sgs.ai_skill_invoke.jujian = function(self, data)
-	local dying = self.player:getTag("jujianDyingdata"):toDying()
-	
-	
-	return dying.who and self.player:isFriendWith(dying.who)
-end
 
 --吴景
 local diaogui_skill = {}
@@ -799,33 +962,413 @@ end
 
 sgs.ai_skill_use_func.DiaoguiCard = function(card, use, self)
 --[[
-      foreach (ServerPlayer *p, to_count) {
-        Player *p1 = p->getNextAlive();
-        Player *p2 = p->getLastAlive();
+	foreach (ServerPlayer *p, to_count) {
+		Player *p1 = p->getNextAlive();
+		Player *p2 = p->getLastAlive();
 
-        if (p1 && p2 && p1 != p2 && p1->getFormation().contains(p2)) {
-            if (card_use.from->isFriendWith(p1))
-                x = qMax(x, p1->getFormation().length());
-        }
-    }
-    self.player:getNextAlive():getFormation()
-    enemy:getFormation():contains(self.player)
+		if (p1 && p2 && p1 != p2 && p1->getFormation().contains(p2)) {
+			if (card_use.from->isFriendWith(p1))
+				x = qMax(x, p1->getFormation().length());
+		}
+	}
+	self.player:getNextAlive():getFormation()
+	enemy:getFormation():contains(self.player)
 ]]--主动形成队列怎么判定？
-
-	local dummyuse = { isDummy = true, to = sgs.SPlayerList() }
-  local clone_tiger = sgs.cloneCard("lure_tiger", card:getSuit(), card:getNumber())
-  if self.player:isCardLimited(clone_tiger, sgs.Card_MethodUse) then
-    return
-  end
-  self:useCardLureTiger(clone_tiger, dummyuse)
-	if not dummyuse.to:isEmpty() then
-    use.card = card
+	local lure_targets = sgs.PlayerList()
+	local clone_tiger = sgs.cloneCard("lure_tiger", card:getSuit(), card:getNumber())
+	if self.player:isCardLimited(clone_tiger, sgs.Card_MethodUse) then
+		return
+	end
+	local current_formation = self.player:getFormation()
+	function formationFirst(formation)--自身队列起始角色
+		if formation:length() == 1 then return formation:first() end
+		local begin_f = formation:first()
+		local LP = begin_f:getLastAlive()
+		while formation:contains(LP) do
+			begin_f = LP
+			LP = begin_f:getLastAlive()
+		end
+		return begin_f
+	end
+	function formationLast(formation)--自身队列末尾角色
+		if formation:length() == 1 then return formation:last() end
+		local ending_f = formation:last()
+		local NP = ending_f:getNextAlive()
+		while formation:contains(NP) do
+			ending_f = NP
+			NP = ending_f:getNextAlive()
+		end
+		return ending_f
+	end
+	local lure_draw = 0
+	local residue = self.player:aliveCount() - current_formation:length()
+	local max_formation = sgs.PlayerList()
+	for _, afriend in ipairs(self.friends) do
+		if not self.player:isFriendWith(afriend) then continue end
+		if max_formation:contains(afriend) then continue end
+		max_formation:append(afriend)
+	end
+	local max_num = max_formation:length()
+	--Global_room:writeToConsole("调归调虎最大摸牌数:"..tostring(max_num))
+	if max_num >= 2 then
+		local count = 0
+		local invest = false
+		local last_draw = 0
+		local last_players = sgs.PlayerList()--targetFilter不能用SPlayerList
+		local begin_f = formationFirst(current_formation)--自身队列起始角色,不能使用current_formation:first(),因为没有排序,必然是自己
+		local LP = begin_f:getLastAlive(1,true)--考虑调虎上家
+		while not current_formation:contains(LP) do
+			local name = LP:getActualGeneral1Name() .. "/" .. LP:getActualGeneral2Name()
+			--Global_room:writeToConsole("当前调归考虑:"..name)
+			if not self.player:isFriendWith(LP) then
+				if clone_tiger:targetFilter(last_players, LP, self.player) and self:trickIsEffective(clone_tiger, LP, self.player) then
+					--Global_room:writeToConsole("调归尝试增加:"..name)
+					last_players:append(LP)
+					invest = true--先加入预选,标记,用于之后判断是否有摸牌收益
+					LP = LP:getLastAlive(1,true)
+					count = count + 1
+				elseif invest then--达到目标上限或被无效目标卡住时,反推取消无收益目标
+					local NP_invalid = LP:getNextAlive(1,true)
+					while not self.player:isFriendWith(NP_invalid) do
+						local return_name = NP_invalid:getActualGeneral1Name() .. "/" .. NP_invalid:getActualGeneral2Name()
+						--Global_room:writeToConsole("调归减少无效目标:"..return_name)
+						if not self.player:isFriendWith(NP_invalid) and last_players:contains(NP_invalid) then
+							last_players:removeOne(NP_invalid)
+							NP_invalid = NP_invalid:getNextAlive(1,true)
+							if current_formation:contains(NP_invalid) then
+								LP = begin_f:getLastAlive(1,true)
+								invest = false
+								break
+							end
+						else
+							invest = false
+							break
+						end
+					end
+					break
+				else--保留有收益目标,跳出循环
+					break
+				end
+			elseif self.player:isFriendWith(LP) then
+				--Global_room:writeToConsole("调归确定收益:"..name..":"..tostring(last_draw)..":"..tostring(LP:getFormation():length())..":"..tostring(self.player:getFormation():length()))
+				last_draw = last_draw + LP:getFormation():length() + self.player:getFormation():length()
+				count = count + LP:getFormation():length()
+				invest = false--确定能摸牌,移除标记
+				if residue - count < 3 then break end--根据剩余角色数判断不存在调虎后仍然不在队列的队友
+				LP = formationFirst(LP:getFormation()):getLastAlive(1,true)--调虎上一个目标后形成的新队列起始
+			end
+		end
+		Global_room:writeToConsole("调归上家:"..tostring(last_players:length())..":"..tostring(last_draw))
+		local count = 0
+		local invest = false
+		local next_draw = 0
+		local next_players = sgs.PlayerList()--targetFilter不能用SPlayerList
+		local ending_f = formationLast(current_formation)--自身队列末尾角色
+		local NP = ending_f:getNextAlive(1,true)--考虑调虎下家
+		while not current_formation:contains(NP) do
+			local name = NP:getActualGeneral1Name() .. "/" .. NP:getActualGeneral2Name()
+			--Global_room:writeToConsole("当前调归考虑:"..name)
+			if not self.player:isFriendWith(NP) then
+				if clone_tiger:targetFilter(next_players, NP, self.player) and self:trickIsEffective(clone_tiger, NP, self.player) then
+					--Global_room:writeToConsole("调归尝试增加:"..name)
+					next_players:append(NP)
+					invest = true
+					NP = NP:getNextAlive(1,true)
+					count = count + 1
+				elseif invest then--达到目标上限或被无效目标卡住时,反推取消无收益目标
+					local LP_invalid = NP:getLastAlive(1,true)
+					while not self.player:isFriendWith(LP_invalid) do
+						local return_name = LP_invalid:getActualGeneral1Name() .. "/" .. LP_invalid:getActualGeneral2Name()
+						--Global_room:writeToConsole("调归减少无效目标:"..return_name)
+						if not self.player:isFriendWith(LP_invalid) and next_players:contains(LP_invalid) then
+							next_players:removeOne(LP_invalid)
+							LP_invalid = LP_invalid:getLastAlive(1,true)
+							if current_formation:contains(LP_invalid) then
+								NP = ending_f:getNextAlive(1,true)
+								invest = false
+								break
+							end
+						else
+							invest = false
+							break
+						end
+					end
+					break
+				else--保留有收益目标,跳出循环
+					break
+				end
+			elseif self.player:isFriendWith(NP) then
+				--Global_room:writeToConsole("调归确定收益:"..name..":"..tostring(next_draw)..":"..tostring(NP:getFormation():length())..":"..tostring(self.player:getFormation():length()))
+				next_draw = next_draw + NP:getFormation():length() + self.player:getFormation():length()
+				count = count + NP:getFormation():length()
+				invest = false
+				if residue - count < 3 then break end
+				NP = formationLast(NP:getFormation()):getNextAlive(1,true)--调虎上一个目标后形成的新队列末尾
+			end
+		end
+		Global_room:writeToConsole("调归下家:"..tostring(next_players:length())..":"..tostring(next_draw))
+		if max_num == last_draw or next_players:isEmpty() then
+			lure_draw = last_draw
+			for _, p in sgs.qlist(last_players) do
+				lure_targets:append(p)
+			end
+		elseif max_num == next_draw or last_players:isEmpty() then
+			lure_draw = next_draw
+			for _, p in sgs.qlist(next_players) do
+				lure_targets:append(p)
+			end
+		else
+			--退掉末端(Last)添加首端(Next),重新判断收益
+			local max_draw = last_draw
+			local new_lure_targets = sgs.PlayerList()
+			for _, p in sgs.qlist(last_players) do
+				new_lure_targets:append(p)
+			end
+			local i = 0
+			while true do
+				new_lure_targets:removeAt(0)
+				new_lure_targets:append(next_players:at(i))
+				i = i + 1
+				local new_formation = sgs.PlayerList()--新队列
+				for _, afriend in sgs.qlist(max_formation) do
+					if new_formation:contains(afriend) then continue end
+					for _, e in sgs.qlist(new_lure_targets) do
+						if afriend:isAdjacentTo(e) and not new_formation:contains(afriend) then
+							for _, p in sgs.qlist(afriend:getFormation()) do
+								if not new_formation:contains(p) then
+									new_formation:append(p)
+								end
+							end
+						end
+					end
+				end
+				if new_formation:length() > max_draw then
+					max_draw = new_formation:length()
+					lure_targets = sgs.PlayerList()
+					for _, p in sgs.qlist(new_lure_targets) do
+						lure_targets:append(p)
+					end
+					lure_draw = new_formation:length()
+					if new_formation:length() == max_num then break end
+				end
+				if new_lure_targets:first() == next_players:first() then break end
+			end
+		end
+	end
+	--调归至少摸2
+	if lure_draw > 2 and not lure_targets:isEmpty() then
+		use.card = card
 		if use.to then
-			use.to =  dummyuse.to
-    end
-  end
+			Global_room:writeToConsole("调归多摸:"..tostring(lure_draw))
+			use.to = sgs.PlayerList2SPlayerList(lure_targets)
+		end
+	else
+		local dummyuse = { isDummy = true, to = sgs.SPlayerList() }
+		self:useCardLureTiger(clone_tiger, dummyuse)
+		if not dummyuse.to:isEmpty() then
+			use.card = card
+			if use.to then
+				use.to = dummyuse.to
+			end
+		elseif lure_draw == 2 and not lure_targets:isEmpty() then
+			use.card = card
+			if use.to then
+				Global_room:writeToConsole("调归摸:"..tostring(lure_draw))
+				use.to = sgs.PlayerList2SPlayerList(lure_targets)
+			end
+		end
+	end
 end
-
+--[[--调归测试
+	Global_room:writeToConsole("lure_test")
+	local target = R:askForPlayerChosen(P, R:getOtherPlayers(P), "TheTest")
+	local lure_targets = sgs.PlayerList()
+	local clone_tiger = sgs.cloneCard("lure_tiger", sgs.Card_NoSuit, 0)
+	local current_formation = target:getFormation()
+	function formationFirst(formation)--自身队列起始角色
+		if formation:length() == 1 then return formation:first() end
+		local begin_f = formation:first()
+		local LP = begin_f:getLastAlive()
+		while formation:contains(LP) do
+			begin_f = LP
+			LP = begin_f:getLastAlive()
+		end
+		return begin_f
+	end
+	function formationLast(formation)--自身队列末尾角色
+		if formation:length() == 1 then return formation:last() end
+		local ending_f = formation:last()
+		local NP = ending_f:getNextAlive()
+		while formation:contains(NP) do
+			ending_f = NP
+			NP = ending_f:getNextAlive()
+		end
+		return ending_f
+	end
+	local lure_draw = 0
+	local residue = target:aliveCount() - current_formation:length()
+	local max_formation = sgs.PlayerList()
+	
+	for _,afriend in sgs.qlist(R:getAlivePlayers()) do
+		if not target:isFriendWith(afriend) then continue end
+		if max_formation:contains(afriend) then continue end
+		max_formation:append(afriend)
+	end
+	local max_num = max_formation:length()
+	Global_room:writeToConsole("max_num:"..tostring(max_num))
+	if max_num >= 2 then
+		--比较极端的情况(1-1-0--2-)表示(10人局无君主最多4队友,有君主超过4队友的碾压局暂不考虑)如果能单方向调虎2目标摸3牌仍然不会少摸牌
+		local count = 0
+		local invest = false
+		local last_draw = 0
+		local last_players = sgs.PlayerList()--targetFilter不能用SPlayerList
+		local begin_f = formationFirst(current_formation)--自身队列起始角色
+		local LP = begin_f:getLastAlive(1,true)--考虑调虎上家
+		while not current_formation:contains(LP) do
+			local name = LP:getActualGeneral1Name() .. "/" .. LP:getActualGeneral2Name()
+			Global_room:writeToConsole("current_consider:"..name)
+			if not target:isFriendWith(LP) then
+				--if clone_tiger:targetFilter(last_players, LP, target) and self:trickIsEffective(clone_tiger, LP, target) then
+				if clone_tiger:targetFilter(last_players, LP, target) and not target:isProhibited(LP, clone_tiger, last_players) then
+					Global_room:writeToConsole("current_lure:"..name)
+					last_players:append(LP)
+					invest = true
+					LP = LP:getLastAlive(1,true)
+					count = count + 1
+				elseif invest then--达到目标上限或被无效目标卡住时,反推取消无收益目标
+					local NP_invalid = LP:getNextAlive(1,true)
+					while not target:isFriendWith(NP_invalid) do
+						local return_name = NP_invalid:getActualGeneral1Name() .. "/" .. NP_invalid:getActualGeneral2Name()
+						Global_room:writeToConsole("consider_return:"..return_name)
+						if not target:isFriendWith(NP_invalid) and last_players:contains(NP_invalid) then
+							last_players:removeOne(NP_invalid)
+							NP_invalid = NP_invalid:getNextAlive(1,true)
+							if current_formation:contains(NP_invalid) then
+								LP = begin_f:getLastAlive(1,true)
+								invest = false
+								break
+							end
+						else
+							invest = false
+							break
+						end
+					end
+					break
+				else--保留有收益目标,跳出循环
+					break
+				end
+			elseif target:isFriendWith(LP) then
+				Global_room:writeToConsole("current_add:"..name..":"..tostring(last_draw)..":"..tostring(LP:getFormation():length())..":"..tostring(target:getFormation():length()))
+				last_draw = last_draw + LP:getFormation():length() + target:getFormation():length()
+				count = count + LP:getFormation():length()
+				invest = false
+				if residue - count < 3 then break end--根据剩余角色数判断不存在调虎后仍然不在队列的队友
+				LP = formationFirst(LP:getFormation()):getLastAlive(1,true)--调虎上一个目标后形成的新队列起始
+			end
+		end
+		Global_room:writeToConsole("lure_last:"..tostring(last_players:length())..":"..tostring(last_draw))
+		local count = 0
+		local invest = false
+		local next_draw = 0
+		local next_players = sgs.PlayerList()--targetFilter不能用SPlayerList
+		local ending_f = formationLast(current_formation)--自身队列末尾角色
+		local NP = ending_f:getNextAlive(1,true)--考虑调虎下家
+		while not current_formation:contains(NP) do
+			local name = NP:getActualGeneral1Name() .. "/" .. NP:getActualGeneral2Name()
+			Global_room:writeToConsole("current_consider:"..name)
+			if not target:isFriendWith(NP) then
+				--if clone_tiger:targetFilter(next_players, NP, target) and self:trickIsEffective(clone_tiger, NP, target) then
+				if clone_tiger:targetFilter(next_players, NP, target) and not target:isProhibited(NP, clone_tiger, next_players) then
+					Global_room:writeToConsole("current_lure:"..name)
+					next_players:append(NP)
+					invest = true
+					NP = NP:getNextAlive(1,true)
+					count = count + 1
+				elseif invest then--达到目标上限或被无效目标卡住时,反推取消无收益目标
+					local LP_invalid = NP:getLastAlive(1,true)
+					while not target:isFriendWith(LP_invalid) do
+						local return_name = LP_invalid:getActualGeneral1Name() .. "/" .. LP_invalid:getActualGeneral2Name()
+						Global_room:writeToConsole("consider_return:"..return_name)
+						if not target:isFriendWith(LP_invalid) and next_players:contains(LP_invalid) then
+							next_players:removeOne(LP_invalid)
+							LP_invalid = LP_invalid:getLastAlive(1,true)
+							if current_formation:contains(LP_invalid) then
+								NP = ending_f:getNextAlive(1,true)
+								invest = false
+								break
+							end
+						else
+							invest = false
+							break
+						end
+					end
+					break
+				else--保留有收益目标,跳出循环
+					break
+				end
+			elseif target:isFriendWith(NP) then
+				Global_room:writeToConsole("current_add:"..name..":"..tostring(next_draw)..":"..tostring(NP:getFormation():length())..":"..tostring(target:getFormation():length()))
+				next_draw = next_draw + NP:getFormation():length() + target:getFormation():length()
+				count = count + NP:getFormation():length()
+				invest = false
+				if residue - count < 3 then break end
+				NP = formationLast(NP:getFormation()):getNextAlive(1,true)--调虎上一个目标后形成的新队列末尾
+			end
+		end
+		Global_room:writeToConsole("lure_next:"..tostring(next_players:length())..":"..tostring(next_draw))
+		if max_num == last_draw or next_players:isEmpty() then
+			lure_draw = last_draw
+			for _, p in sgs.qlist(last_players) do
+				lure_targets:append(p)
+			end
+		elseif max_num == next_draw or last_players:isEmpty() then
+			lure_draw = next_draw
+			for _, p in sgs.qlist(next_players) do
+				lure_targets:append(p)
+			end
+		else
+			--退掉末端(Last)添加首端(Next),重新判断收益
+			local max_draw = last_draw
+			local new_lure_targets = sgs.PlayerList()
+			for _, p in sgs.qlist(last_players) do
+				new_lure_targets:append(p)
+			end
+			local i = 0
+			while true do
+				new_lure_targets:removeAt(0)
+				new_lure_targets:append(next_players:at(i))
+				i = i + 1
+				local new_formation = sgs.PlayerList()
+				for _, afriend in sgs.qlist(max_formation) do
+					if new_formation:contains(afriend) then continue end
+					for _, e in sgs.qlist(new_lure_targets) do
+						if afriend:isAdjacentTo(e) and not new_formation:contains(afriend) then
+							for _, p in sgs.qlist(afriend:getFormation()) do
+								if not new_formation:contains(p) then
+									new_formation:append(p)
+								end
+							end
+						end
+					end
+				end
+				if new_formation:length() > max_draw then
+					max_draw = new_formation:length()
+					lure_targets = sgs.PlayerList()
+					for _, p in sgs.qlist(new_lure_targets) do
+						lure_targets:append(p)
+					end
+					lure_draw = new_formation:length()
+					if new_formation:length() == max_num then break end
+				end
+				if new_lure_targets:first() == next_players:first() then break end
+			end
+		end
+	end
+	Global_room:writeToConsole("lure_draw:"..tostring(lure_draw))
+	for _, p in sgs.qlist(lure_targets) do
+		Global_room:writeToConsole("lure_targets:"..sgs.Sanguosha:translate(p:getActualGeneral1Name()).."/"..sgs.Sanguosha:translate(p:getActualGeneral2Name()).."("..sgs.Sanguosha:translate(string.format("SEAT(%s)",p:getSeat()))..")")
+	end
+--]]
 sgs.ai_use_priority.DiaoguiCard = sgs.ai_use_priority.LureTiger - 0.05--先用普通的掉虎
 
 sgs.ai_skill_invoke.fengyang = true
@@ -1099,19 +1642,20 @@ sgs.ai_skill_invoke.zhaoxin = function(self, data)
         end
       end
     end
-    if value > my_value then
-      Global_room:writeToConsole("昭心换好牌")
-      self.zhaoxin_target = p
-      return true
-    end
-    if p_hnum == my_hnum and not (known == p_hnum and value < my_value) and value >= same_card_value then
-      same_card_value = value
-      same_card_target = p
-    end
-    if p_hnum + 1 == my_hnum and not (known == p_hnum and value < my_value) and value >= one_less_value then
-      one_less_value = value
-      one_less_target = p
-    end
+    local extra_value = self:getLeastHandcardNum()*4
+	if value + extra_value > my_value then
+		Global_room:writeToConsole("昭心换好牌")
+		self.zhaoxin_target = p
+		return true
+	end
+	if p_hnum == my_hnum and not (known == p_hnum and value + extra_value < my_value) and value + extra_value >= same_card_value then
+		same_card_value = value + extra_value
+		same_card_target = p
+	end
+	if p_hnum + 1 == my_hnum and not (known == p_hnum and value + extra_value < my_value) and value + extra_value >= one_less_value then
+		one_less_value = value + extra_value
+		one_less_target = p
+	end
   end
   if need_peach and same_card_target then
     Global_room:writeToConsole("昭心换等量牌")
@@ -1165,7 +1709,7 @@ sgs.ai_skill_cardask["@shilu"] = function(self, data, pattern, target, target2, 
 
   local xiongnve_nolimit = false
   self.xiongnve_choice = nil
-  local name = sgs.ai_skill_choice.xiongnve_attack(self, table.concat(self.player:getGeneralPile("massacre"), "+"))
+  local name = sgs.ai_skill_choice.xiongnve_attack(self, self.player:property("massacre_pile"):toString())
   if name and self.xiongnve_choice == "nolimit" then
     self.xiongnve_choice = nil
     xiongnve_nolimit = true
@@ -1295,7 +1839,7 @@ end
 sgs.ai_skill_invoke.xiongnve = function(self, data)
   if data:toString() == "attack" then
     self.xiongnve_choice = nil
-    local name = sgs.ai_skill_choice.xiongnve_attack(self, table.concat(self.player:getGeneralPile("massacre"), "+"))
+    local name = sgs.ai_skill_choice.xiongnve_attack(self, self.player:property("massacre_pile"):toString())
     if name and self.xiongnve_choice then
       Global_room:writeToConsole("凶虐进攻选择:"..name.."|"..self.xiongnve_choice)
       return true
@@ -1315,7 +1859,7 @@ sgs.ai_skill_invoke.xiongnve = function(self, data)
       return true
     end
     local useless_num = 0
-    local generals = self.player:getGeneralPile("massacre")
+    local generals = self.player:property("massacre_pile"):toString():split("+")
     local xiongnve_kingdom = {["wei"] = {}, ["shu"] = {}, ["wu"] = {}, ["qun"] = {}, ["careerist"] = {}, ["double"] = {}}
     for _, name in ipairs(generals) do
       local general = sgs.Sanguosha:getGeneral(name)
@@ -1470,13 +2014,14 @@ sgs.ai_skill_choice.xiongnve_attack = function(self, generals)
   end
   local burningcamps = self:getCard("BurningCamps")
 	if burningcamps and burningcamps:isAvailable(self.player) then
-    local np = self.player:getNextAlive()
-    if #xiongnve_kingdom[np:getKingdom()] > 0 then
+    local np_kingdom = self.player:getNextAlive():getKingdom()
+	if np_kingdom == "god" then np_kingdom = "careerist" end
+    if #xiongnve_kingdom[np_kingdom] > 0 then
       local dummyuse = { isDummy = true, to = sgs.SPlayerList() }
 			self:useCardBurningCamps(burningcamps, dummyuse)
 			if dummyuse.card then
 				self.xiongnve_choice = "adddamage"
-				return xiongnve_kingdom[np:getKingdom()][1]
+				return xiongnve_kingdom[np_kingdom][1]
 			end
     end
   end
@@ -1907,6 +2452,177 @@ sgs.ai_skill_exchange["_jinfa"] = function(self,pattern,max_num,min_num,expand_p
 end
 
 --彭羕
+sgs.ai_skill_invoke.tongling = true
+
+sgs.ai_skill_playerchosen.tongling = function(self, targets, data)
+	--type(data)="number"
+	--Global_room:writeToConsole("tongling:"..tostring(type(data))..":"..tostring(data))
+	--tongling:1
+	--player->tag["tongling-damage"] = data;
+	
+	targets = sgs.QList2Table(targets)
+	self:sort(targets, "handcard", true)
+	
+	local damage = self.player:getTag("tongling-damage"):toDamage()
+	local target = damage.to
+	local friend = nil
+	--杀,决斗,AOE,火烧,火攻
+	for _, p in ipairs(targets) do
+		if target and not self:canAttack(target,p) then continue end
+		if p:objectName() ~= self.player:objectName() then
+			local slash = sgs.cloneCard("slash")
+			if getCardsNum("Slash", p, self.player) > 0 and self:slashIsEffective(slash, target)
+				and p:canSlash(target, nil, true) and not self:slashProhibit(nil, target) and self:canHit(target, p) then 
+				friend = p 
+				break
+			end
+			if getCardsNum("Duel", p, self.player) > 0 then
+			elseif getCardsNum("ArcheryAttack", p, self.player) > 0 then
+			elseif getCardsNum("SavageAssault", p, self.player) > 0 then
+			elseif getCardsNum("BurningCamps", p, self.player) > 0 then
+			elseif getCardsNum("FireAttack", p, self.player) > 0 then
+			end
+		else
+			local slashes = self:getCards("Slash")
+			for _, slash in ipairs(slashes) do
+				if self:slashIsEffective(slash, target) and p:canSlash(target, slash, true) and not self:slashProhibit(slash, target) and self:canHit(target, p) then 
+					friend = p 
+					break
+				end
+			end
+			if friend then break end
+			if self:getCardsNum({"Duel", "ArcheryAttack", "SavageAssault", "BurningCamps", "FireAttack"}) > 0 then 
+				friend = p 
+				break
+			end
+		end
+	end
+	--[[
+	local duel = sgs.cloneCard("duel")
+	local dummy_use = { isDummy = true }
+	self:useTrickCard(duel, dummy_use)
+	if dummy_use.card then end
+	--]]
+	if friend then return friend end
+	return nil
+end
+
+sgs.ai_skill_use["@@tongling_usecard"] = function(self, data, method)
+	--@tongling-usecard::sgs2
+	if type(data) ~= "string" then return "." end
+	local prompt = tostring(data):split(":")
+	local target = nil
+	for _, p in sgs.qlist(self.room:getAlivePlayers()) do
+		if p:objectName() == prompt[3] then
+			target = p
+			break
+		end
+	end
+	Global_room:writeToConsole("通令目标:"..sgs.Sanguosha:translate(string.format("SEAT(%s)",target:getSeat())))
+	--local target = self.player:getTag("tongling-damage"):toDamage().to
+	if target and self:damageIsEffective(target, nil, self.player) then
+		local cards = self.player:getCards("h")
+		for _, id in sgs.qlist(self.player:getHandPile()) do
+			cards:prepend(sgs.Sanguosha:getCard(id))
+		end
+		cards = sgs.QList2Table(cards)
+		self:sortByUseValue(cards)
+
+		for _, card in ipairs(cards) do
+			--杀,决斗,AOE,火烧,火攻
+			if self.player:isProhibited(target, card) then continue end
+			if not card:targetFilter(sgs.PlayerList(), target, self.player) then continue end--targetFixed
+			local dummy_use = { isDummy = true, current_targets = {}}--local dummy_use = { isDummy = true, to = sgs.SPlayerList()}
+			table.insert(dummy_use.current_targets, target:objectName())
+			if not card:targetFixed() then
+				dummy_use.to = sgs.SPlayerList()
+				--dummy_use.to:append(target)
+			end
+			if card:isKindOf("Slash") then
+			elseif card:isKindOf("Duel") then
+			elseif card:isKindOf("FireAttack") then
+			elseif card:isKindOf("SavageAssault") then
+				if self:getAoeValue(card) <= 0 or getCardsNum("Slash", target, self.player) > 0 then continue end
+			elseif card:isKindOf("ArcheryAttack") then
+				if self:getAoeValue(card) <= 0 or getCardsNum("Jink", target, self.player) > 0 or self:hasEightDiagramEffect(target) then continue end
+			elseif card:isKindOf("BurningCamps") then
+				local next_targets = self.room:nextPlayer(self.player):getFormation()
+				if not next_targets:contains(target) then continue end
+			else continue end
+			local type = card:getTypeId()
+			self["use" .. sgs.ai_type_name[type + 1]](self, card, dummy_use)
+			if dummy_use.card and not card:isKindOf("Analeptic") then--详细考虑？
+				Global_room:writeToConsole("通令考虑牌:"..card:objectName())
+				if not card:targetFixed() then
+					if dummy_use.to and not dummy_use.to:isEmpty() and dummy_use.to:contains(target) then
+						local target_objectname = {}
+						for _, p in sgs.qlist(dummy_use.to) do
+							table.insert(target_objectname, p:objectName())
+						end
+						return card:toString() .."->" .. table.concat(target_objectname, "+")
+					else
+						Global_room:writeToConsole("通令不想选原目标:"..card:objectName())
+						return "."
+					end
+				end
+				return card:toString()--"@YuancongUseCard=".. card:getEffectiveId()--正确写法？？
+			end
+		end
+	end
+	return "."
+end
+
+sgs.ai_skill_invoke.jinxian = function(self, data)
+	local value = 0
+	for _, p in sgs.qlist(self.player:getAliveSiblings()) do
+		if p:hasShownAllGenerals() or self.player:distanceTo(p) >= 2 then continue end
+		if self:doNotDiscard(p, "he") then
+			if self:isFriend(p) then 
+				value = value + 1
+			else
+				value = value - 2
+			end
+		else
+			if self:isFriend(p) then 
+				value = value - math.min(p:getCardCount(true), 2)
+			else
+				value = value + math.min(p:getCardCount(true), 2)
+			end
+		end
+	end
+	return value > 0
+end
+sgs.ai_skill_choice.jinxian_hide = function(self, choices, data)
+	choices = choices:split("+")
+	local value = 0
+	if #choices == 1 then return choices[1] end
+	if self.player:hasSkill("jinxian") then
+		for _, p in sgs.qlist(self.player:getAliveSiblings()) do
+			if p:hasShownAllGenerals() or self.player:distanceTo(p) >= 2 then continue end
+			if self:doNotDiscard(p, "he") then
+				if self:isFriend(p) then 
+					value = value + 1
+				else
+					value = value - 2
+				end
+			else
+				if self:isFriend(p) then 
+					value = value - math.min(p:getCardCount(true), 2)
+				else
+					value = value + math.min(p:getCardCount(true), 2)
+				end
+			end
+		end
+		--有价值时,考虑连续触发
+		if value >= 0 and table.contains(choices, "head") and self.player:inHeadSkills("jinxian") then return "head" end
+		if value >= 0 and table.contains(choices, "deputy") and self.player:inDeputySkills("jinxian") then return "deputy" end
+		if value < -1 and table.contains(choices, "head") and self.player:inDeputySkills("jinxian") then return "head" end
+		if value < -1 and table.contains(choices, "deputy") and self.player:inHeadSkills("jinxian") then return "deputy" end
+	end
+	--役鬼不屈等技能,暗置选择……
+	return choices[1]
+end
+
 --[[
 sgs.ai_skill_cardask["@daming"] = function(self, data, pattern, target, target2)
   local friend = self.room:getCurrent()
@@ -2040,22 +2756,17 @@ sgs.daming_keep_value = {
   Indulgence = 5.6,
   SupplyShortage = 5.3,
 }
-]]
-
-
-
-
-
-
-
-
-
-
+--]]
 --苏飞
 sgs.ai_skill_playerchosen.lianpian = function(self, targets)
-  targets = sgs.QList2Table(targets)
-  self:sort(targets, "handcard")
-	return targets[1]
+	targets = sgs.QList2Table(targets)
+	self:sort(targets, "handcard")
+	for _,p in ipairs(targets) do
+		if p:getHandcardNum() < p:getMaxHp() then
+			return p
+		end
+	end
+	return nil
 end
 
 sgs.ai_skill_choice.lianpian = function(self, choices, data)
@@ -2292,20 +3003,20 @@ local qingyin_skill = {}
 qingyin_skill.name = "qingyin"
 table.insert(sgs.ai_skills, qingyin_skill)
 qingyin_skill.getTurnUseCard = function(self)
-	if self.player:getMark("@qingyin") < 1 then return end
-  --Global_room:writeToConsole("进入刘巴技能:" .. self.player:objectName())
-  local count = 0
+	if self.player:getMark("@qingyin") < 1 or self:getAllPeachNum() > 3 then return end
+	--Global_room:writeToConsole("进入刘巴技能:" .. self.player:objectName())
+	local count = 0
 	for _, friend in ipairs(self.friends) do
-		if self.player:isFriendWith(friend) and friend:canRecover()
-    and (friend:getHp() <= 1 or friend:getLostHp() > 2
-      or (friend:getHp() <= 2 and friend:getHandcardNum() < 2 and friend:getLostHp() > 1)) then
-      count = count + 1
+		if self.player:isFriendWith(friend) and friend:canRecover() then
+			if self:isWeak(friend) and friend:getLostHp() > 1 and friend:getHandcardNum() < 2 then
+				count = count + 1
+			end
 		end
 	end
-  --Global_room:writeToConsole("计数:"..count)
-  if count > 1 or (self.player:getHp() == 1 and self:isWeak() and self:getAllPeachNum() < 1) then
-  	return sgs.Card_Parse("@QingyinCard=.&qingyin")
-  end
+	--Global_room:writeToConsole("计数:"..count)
+	if count > 1 or (self.player:getHp() == 1 and self:isWeak() and self:getAllPeachNum() < 1) then
+		return sgs.Card_Parse("@QingyinCard=.&qingyin")
+	end
 end
 
 sgs.ai_skill_use_func.QingyinCard = function(card, use, self)
@@ -2408,7 +3119,7 @@ sgs.ai_skill_use_func.ImperialEdictTrickCard = function(card, use, self)
   use.card = card
 end
 
-sgs.ai_use_priority.ImperialEdictTrickCard = 10
+sgs.ai_use_priority.ImperialEdictTrickCard = 2
 
 local imperialedictattach_skill = {}
 imperialedictattach_skill.name = "imperialedictattach"
@@ -2546,7 +3257,8 @@ sgs.ai_skill_choice["rule_the_world"] = function(self, choices, data)
   local target = data:toPlayer()
   if self:isFriend(target) then
     return "cancel"
-  elseif self:slashIsEffective(sgs.cloneCard("slash"), target, self.player) and not self.player:isKongcheng() then
+  elseif not self:needLeiji(target, self.player) and not self:needDamagedEffects(target, self.player, true) 
+		and self:slashIsEffective(sgs.cloneCard("slash"), target, self.player) and not self.player:isKongcheng() then
     local cards = self.player:getHandcards()
     cards = sgs.QList2Table(cards)
     self:sortByKeepValue(cards)
@@ -2604,6 +3316,8 @@ sgs.ai_skill_playerchosen["conquering_slash"] = function(self, targets)
   local target = sgs.ai_skill_playerchosen.zero_card_as_slash(self, targets)
 	if self:isFriend(target) or not self:slashIsEffective(sgs.cloneCard("slash"), target) then
   --缺势力锦囊使用者和使用卡信息hasFlag("CompleteEffect")，无法判断势力加成。蜀加成杀基数+1，暂不考虑队友
+		return {}
+	elseif self:needLeiji(target, self.player) or not self:slashIsEffective(sgs.cloneCard("slash"), target, self.player) then
 		return {}
 	end
   return target
