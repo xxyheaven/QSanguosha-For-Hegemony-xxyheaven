@@ -2471,7 +2471,7 @@ sgs.ai_skill_playerchosen.tongling = function(self, targets, data)
 		if target and not self:canAttack(target,p) then continue end
 		if p:objectName() ~= self.player:objectName() then
 			local slash = sgs.cloneCard("slash")
-			if getCardsNum("Slash", p, self.player) > 0 and self:slashIsEffective(slash, target)
+			if getCardsNum("Slash", p, self.player) > 0 and self:slashIsEffective(slash, target, p)
 				and p:canSlash(target, nil, true) and not self:slashProhibit(nil, target) and self:canHit(target, p) then 
 				friend = p 
 				break
@@ -2485,14 +2485,15 @@ sgs.ai_skill_playerchosen.tongling = function(self, targets, data)
 		else
 			local slashes = self:getCards("Slash")
 			for _, slash in ipairs(slashes) do
-				if self:slashIsEffective(slash, target) and p:canSlash(target, slash, true) and not self:slashProhibit(slash, target) and self:canHit(target, p) then 
-					friend = p 
+				if self:slashIsEffective(slash, target, self.player) and self.player:canSlash(target, slash, true)
+					and not self:slashProhibit(slash, target) and self:canHit(target, self.player) then 
+					friend = self.player
 					break
 				end
 			end
 			if friend then break end
 			if self:getCardsNum({"Duel", "ArcheryAttack", "SavageAssault", "BurningCamps", "FireAttack"}) > 0 then 
-				friend = p 
+				friend = self.player
 				break
 			end
 		end

@@ -162,7 +162,7 @@ sgs.ai_skill_use_func.RendeCard = function(rdcard, use, self)
 		--if use.to then use.to:append(friend) return end
 		rende_gives[card:getId()] = friend:objectName()
 		need_Num = need_Num - 1
-		Global_room:writeToConsole("rende:"..tostring(card:getId())..":"..friend:objectName())
+		--Global_room:writeToConsole("rende:"..tostring(card:getId())..":"..friend:objectName())
 	end	
 	if #friends_tables > 1 then
 		for _, p in ipairs(friends_tables) do
@@ -209,6 +209,7 @@ end
 
 sgs.dynamic_value.benefit.RendeCard = true
 
+--[[--无效,虽然源码确实是@@rende_basic,感觉打包的版本就不对(国战2.3.40版本,主程序日期2023.4.27 22:44)
 sgs.ai_skill_use["@@rende_basic"] = function(self, prompt, method)
 
 	Global_room:writeToConsole("仁德使用基本牌")
@@ -286,7 +287,97 @@ sgs.ai_skill_use["@@rende_basic"] = function(self, prompt, method)
 		return peach:toString()
 	end
 end
+--]]
+sgs.ai_skill_choice.rende_basic = function(self, choices)
+	--"slash+fire_slash+thunder_slash+analeptic+peach+cancel"
+	Global_room:writeToConsole("仁德使用基本牌:"..choices)
+	choices = choices:split("+")
+	
+	local peach = sgs.cloneCard("peach", sgs.Card_NoSuit, 0)
+	peach:setSkillName("_rende")
 
+	if self.player:getHp() < 3 and peach:isAvailable(self.player) and table.contains(choices, peach:objectName()) then
+		return peach:objectName()
+	end
+	
+	local clone_slashes = {}
+
+	local fslash = sgs.cloneCard("fire_slash", sgs.Card_NoSuit, 0)
+	fslash:setSkillName("_rende")
+	if fslash:isAvailable(self.player) and table.contains(choices, fslash:objectName()) then
+		table.insert(clone_slashes, fslash)
+	end
+
+
+	local tslash = sgs.cloneCard("thunder_slash", sgs.Card_NoSuit, 0)
+	tslash:setSkillName("_rende")
+	if tslash:isAvailable(self.player) and table.contains(choices, tslash:objectName()) then
+		table.insert(clone_slashes, tslash)
+	end
+	
+	
+	local nslash = sgs.cloneCard("slash", sgs.Card_NoSuit, 0)
+	nslash:setSkillName("_rende")
+	if nslash:isAvailable(self.player) and table.contains(choices, nslash:objectName()) then
+		table.insert(clone_slashes, nslash)
+	end
+	
+	if self.enemies then
+		self:sort(self.enemies, "defenseSlash")
+		for _, slash in ipairs(clone_slashes) do
+			for _, enemy in ipairs(self.enemies) do
+				if self:isWeak(enemy) and self.player:canSlash(enemy, slash, true) and not self:slashProhibit(slash, enemy)
+						and self:slashIsEffective(slash, enemy) and sgs.isGoodTarget(enemy, self.enemies, self)
+						and not (self.player:hasFlag("slashTargetFix") and not enemy:hasFlag("SlashAssignee")) then
+					self.rendeslash = enemy:objectName()
+					return slash:objectName()
+				end
+			end
+		end
+	end
+	
+	local analeptic = sgs.cloneCard("analeptic", sgs.Card_NoSuit, 0)
+	analeptic:setSkillName("_rende")
+	
+	if analeptic:isAvailable(self.player) and self:getCardsNum("Slash") > 0 and table.contains(choices, analeptic:objectName()) then
+		local slashes = self:getCards("Slash")
+		self:sortByUseValue(slashes)
+		if self.enemies then
+			self:sort(self.enemies, "defenseSlash")
+			for _, slash in ipairs(slashes) do
+				for _, enemy in ipairs(self.enemies) do
+					if self:isWeak(enemy) and not self.player:canSlash(enemy, slash, true) and not self:slashProhibit(slash, enemy)
+							and self:slashIsEffective(slash, enemy) and sgs.isGoodTarget(enemy, self.enemies, self)
+							and not (self.player:hasFlag("slashTargetFix") and not enemy:hasFlag("SlashAssignee")) then
+						
+						local use = { to = sgs.SPlayerList() }
+						use.card = slash
+						use.to:append(enemy)
+						if self:shouldUseAnaleptic(enemy, use) then
+							return analeptic:objectName()
+						end
+					end
+				end
+			end
+		end
+	end
+	
+	
+	if peach:isAvailable(self.player) and table.contains(choices, peach:objectName()) then
+		return peach:objectName()
+	end
+	return "cancel"
+end
+
+sgs.ai_skill_use["@@rende_slash"] = function(self, data, method)
+	--"@rende-slash:::fire_slash"
+	local prompt = tostring(data):split(":")
+	local slash = sgs.cloneCard(prompt[4], sgs.Card_NoSuit, 0)
+	if slash and self.rendeslash and self.rendeslash ~= "" then
+		slash:setSkillName("_rende")
+		return slash:toString() .. "->" .. self.rendeslash
+	end
+end
 --复制身份未修改
 --[[
 local tenyearrende_skill = {}
