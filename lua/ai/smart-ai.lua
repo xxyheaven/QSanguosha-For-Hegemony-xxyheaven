@@ -437,11 +437,6 @@ function SmartAI:activate(use)
 
 			self["use" .. sgs.ai_type_name[type + 1]](self, card, use)
 
-			if not use.card and card and card:isKindOf("ZhihengLPCard") and not card:getSubcards():isEmpty() then
-			--我实在是不能理解,明明ZhihengLPCard已经塞到useSkillCard的use里面了(通过writeToConsole确定),use.card在这里还是查不到
-				use.card = card
-			end
-
 			if use:isValid(nil) then
 				self.toUse = nil
 				return
@@ -6037,6 +6032,7 @@ function SmartAI:useSkillCard(card, use)
 		name = card:getClassName()
 	end
 	if not use.isDummy and name ~= "TransferCard" and not HasRuleSkill(card:getSkillName(), self.player)
+		and not (self.player:hasSkill("LuminousPearl") and name == "ZhihengLPCard")--sgs.Card_Parse("@ZhihengLPCard=.&LuminousPearl")的getSkillName为zhihenglp
 		and not self.player:hasSkill(card:getSkillName()) and not self.player:hasLordSkill(card:getSkillName()) then return end
 	if sgs.ai_skill_use_func[name] then
 		--Global_room:writeToConsole("Consider_using:"..name)
