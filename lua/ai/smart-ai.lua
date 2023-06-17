@@ -437,6 +437,11 @@ function SmartAI:activate(use)
 
 			self["use" .. sgs.ai_type_name[type + 1]](self, card, use)
 
+			if not use.card and card and card:isKindOf("ZhihengLPCard") and not card:getSubcards():isEmpty() then
+			--我实在是不能理解,明明ZhihengLPCard已经塞到useSkillCard的use里面了(通过writeToConsole确定),use.card在这里还是查不到
+				use.card = card
+			end
+
 			if use:isValid(nil) then
 				self.toUse = nil
 				return
@@ -6945,9 +6950,9 @@ function SmartAI:useEquipCard(card, use)
 			end
 		end
 		if self.player:getTreasure() and self.player:getTreasure():isKindOf("LuminousPearl") and not self.player:hasUsed("ZhihengCard") and not self.player:hasUsed("ZhihengLPCard") then
-			local skill_card = sgs.Card_Parse("@ZhihengCard=.")
+			local skill_card = sgs.Card_Parse("@ZhihengLPCard=.")
 			if self.player:getPhase() == sgs.Player_Play and skill_card then--仅出牌阶段,防止回合外选择使用宝物时触发夜明珠制衡
-				sgs.ai_skill_use_func["ZhihengCard"](skill_card, use, self)
+				sgs.ai_skill_use_func["ZhihengLPCard"](skill_card, use, self)
 				return
 			end
 		end

@@ -22,22 +22,10 @@ local zhiheng_skill = {}
 zhiheng_skill.name = "zhiheng"
 table.insert(sgs.ai_skills, zhiheng_skill)
 zhiheng_skill.getTurnUseCard = function(self)
-	--有一个BUG:玩家带着夜明珠开五谷托管,AI和玩家可以分别用一次制衡
-	--问题在于玩家使用的时候记录的P:hasUsed("ZhihengLPCard"),AI用的时候记录的P:hasUsed("ZhihengCard")
-	--[[
-	--很奇怪,玩家可以用ZhihengLPCard,而AI进入ai_skill_use_func.ZhihengLPCard后不能使用use.card = sgs.Card_Parse("@ZhihengLPCard=" .. table.concat(use_cards, "+") .. "&LuminousPearl")
-	local skill_card = sgs.Card_Parse("@ZhihengLPCard=.&LuminousPearl")
-	assert(skill_card)
-	skill_card:addSubcards(P:getCards("h"))
-	R:useCard(sgs.CardUseStruct(skill_card, P, sgs.SPlayerList()), false)
-	Global_room:writeToConsole(tostring(P:usedTimes("ZhihengLPCard")))
-	Global_room:writeToConsole(tostring(P:usedTimes("ZhihengCard")))
-	--]]
-	--addPlayerHistory可以限制玩家发动夜明珠制衡,弃置夜明珠后会清空usedTimes,所以可以从弃牌堆拿回来再次发动夜明珠制衡
 	if self.player:hasUsed("ZhihengCard") then return end--限一次(包括夜明珠)
-	--因为夜明珠源码是视为拥有制衡,带着夜明珠可以查到P:hasSkill("zhiheng")为true,AI仍可以调用制衡的getTurnUseCard使用ZhihengCard
+	--因为夜明珠源码是视为拥有制衡,带着夜明珠可以查到P:hasSkill("zhiheng")为true,AI仍可以调用制衡的getTurnUseCard使用ZhihengCard,所以需要防止
 	if self.player:hasTreasure("LuminousPearl") and not self.player:hasUsed("ZhihengLPCard") and not self.player:ownSkill("zhiheng") then
-		return sgs.Card_Parse("@ZhihengLPCard=.LuminousPearl")--装备夜明珠且没有明置制衡时优先使用夜明珠(使用夜明珠后仍然可以再亮将使用制衡)
+		return sgs.Card_Parse("@ZhihengLPCard=.")--装备夜明珠且没有明置制衡时优先使用夜明珠(使用夜明珠后仍然可以再亮将使用制衡)
 	elseif self.player:ownSkill("zhiheng") and not self.player:hasUsed("ZhihengCard") and (self:willShowForAttack() or self:willShowForDefence()) then
 		return sgs.Card_Parse("@ZhihengCard=.&zhiheng")
 	end
@@ -81,6 +69,8 @@ sgs.ai_skill_use_func.ZhihengCard = function(c, use, self)
 		if #unpreferedCards > 0 then
 			if #unpreferedCards > self.player:getMaxHp() then
 				use.card = sgs.Card_Parse("@ZhihengCard=" .. table.concat(unpreferedCards, "+") .. "&zhiheng")
+			elseif use_LP then
+				use.card = sgs.Card_Parse("@ZhihengLPCard=" .. table.concat(unpreferedCards, "+") .. "& ")
 			else
 				use.card = sgs.Card_Parse("@ZhihengCard=" .. table.concat(unpreferedCards, "+") .. show)
 			end
@@ -238,6 +228,8 @@ sgs.ai_skill_use_func.ZhihengCard = function(c, use, self)
 	if #use_cards > 0 then
 		if #unpreferedCards > self.player:getMaxHp() then
 			use.card = sgs.Card_Parse("@ZhihengCard=" .. table.concat(use_cards, "+") .. "&zhiheng")
+		elseif use_LP then
+			use.card = sgs.Card_Parse("@ZhihengLPCard=" .. table.concat(use_cards, "+") .. "& ")
 		else
 			use.card = sgs.Card_Parse("@ZhihengCard=" .. table.concat(use_cards, "+") .. show)
 		end

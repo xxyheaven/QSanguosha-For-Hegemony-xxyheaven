@@ -2364,15 +2364,11 @@ local LuminousPearl_skill = {}
 LuminousPearl_skill.name = "LuminousPearl"
 table.insert(sgs.ai_skills, LuminousPearl_skill)
 LuminousPearl_skill.getTurnUseCard = function(self)
-	--有一个BUG:玩家带着夜明珠开五谷托管,AI和玩家可以分别用一次制衡
-	--问题在于玩家使用的时候记录的P:hasUsed("ZhihengLPCard"),AI用的时候记录的P:hasUsed("ZhihengCard")
-	--因为源码是视为拥有制衡,带着夜明珠可以查到P:hasSkill("zhiheng")为true,AI仍可以调用制衡的getTurnUseCard使用ZhihengCard
-	--且AI进入ai_skill_use_func.ZhihengLPCard后不能使用use.card = sgs.Card_Parse("@ZhihengLPCard=" .. table.concat(use_cards, "+") .. "&LuminousPearl")
 	if self.player:hasUsed("ZhihengCard") then return end--发动制衡后,有夜明珠也不能再次制衡
 	if (self.player:inHeadSkills("zhiheng") and self.player:hasShownGeneral1()) or 
 		(self.player:inDeputySkills("zhiheng") and self.player:hasShownGeneral2()) then return end--明置武将牌上的制衡后,不能使用夜明珠
 	if self.player:hasTreasure("LuminousPearl") and not self.player:hasUsed("ZhihengLPCard") then
-		return sgs.Card_Parse("@ZhihengLPCard=.LuminousPearl")
+		return sgs.Card_Parse("@ZhihengLPCard=.")
 	end
 end
 
@@ -2380,8 +2376,8 @@ sgs.ai_use_priority.LuminousPearl = 5.7
 sgs.ai_keep_value.LuminousPearl = 4.2
 
 sgs.ai_skill_use_func.ZhihengLPCard = sgs.ai_skill_use_func.ZhihengCard
-sgs.ai_use_value.ZhihengLPCard = sgs.ai_use_value.ZhihengCard
-sgs.ai_use_priority.ZhihengLPCard = 2.71
+sgs.ai_use_value.ZhihengLPCard = sgs.ai_use_value.ZhihengCard + 0.1
+sgs.ai_use_priority.ZhihengLPCard = sgs.ai_use_priority.ZhihengCard + 0.1
 sgs.dynamic_value.benefit.ZhihengLPCard = sgs.dynamic_value.benefit.ZhihengCard
 
 --变更武将相关

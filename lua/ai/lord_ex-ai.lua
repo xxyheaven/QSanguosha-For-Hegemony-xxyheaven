@@ -2463,9 +2463,13 @@ sgs.ai_skill_playerchosen.tongling = function(self, targets, data)
 	targets = sgs.QList2Table(targets)
 	self:sort(targets, "handcard", true)
 	
-	local damage = self.player:getTag("tongling-damage"):toDamage()
+	local damage = self.player:getTag("tongling-damage"):toDamage()--估计不能直接封装data
 	local target = damage.to
 	local friend = nil
+	if not target then
+		Global_room:writeToConsole("通令无伤害目标:tongling-damage")
+		return self.player
+	end
 	--杀,决斗,AOE,火烧,火攻
 	for _, p in ipairs(targets) do
 		if target and not self:canAttack(target,p) then continue end

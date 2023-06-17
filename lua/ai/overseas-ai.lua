@@ -2676,13 +2676,18 @@ sgs.ai_skill_exchange.nizhan_give = function(self,pattern,max_num,min_num,expand
     local target = sgs.findPlayerByShownSkillName("nizhan")
 	if not target then return {} end
 	if self:needToThrowArmor() then return {self.player:getArmor():getEffectiveId()} end
-	if self:needDamagedEffects(self.player, target) or self:needToLoseHp(target)then return {} end
+	if self:needDamagedEffects(self.player, target) or self:needToLoseHp()then return {} end
 	local slash = sgs.cloneCard("slash")
-	if self:isFriend(target) or (target:canSlash(self.player, slash, false) and self:slashIsEffective(slash, self.player, target) and self:canHit(self.player, target)
-		and self:damageIsEffective(self.player, sgs.DamageStruct_Normal, target) and self:isWeak() and not self:slashProhibit(slash, self.player, target)) then
-		local cards = self.player:getCards("he")
-		cards = sgs.QList2Table(cards)
-		self:sortByKeepValue(cards)
+	local cards = self.player:getCards("he")
+	cards = sgs.QList2Table(cards)
+	self:sortByKeepValue(cards)
+	if self:isFriend(target) then
+		local acard, afriend = self:getCardNeedPlayer(cards, { target })
+		if acard and afriend then return acard:getEffectiveId() end
+		return cards[1]:getEffectiveId()
+	elseif self:isWeak() and not self:slashProhibit(slash, self.player, target) and target:canSlash(self.player, slash, false)
+		and self:slashIsEffective(slash, self.player, target) and self:damageIsEffective(self.player, sgs.DamageStruct_Normal, target)
+		and self:canHit(self.player, target)  then
 		for _,acard in ipairs(cards) do
 			--if not sgs.Sanguosha:matchExpPattern(pattern, self.player, acard) then continue end
 			if (isCard("Peach", acard, self.player) and self:getCardsNum("Peach") <= 1)

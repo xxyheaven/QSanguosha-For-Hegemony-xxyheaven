@@ -1037,7 +1037,7 @@ function SmartAI:canHit(to, from, conservative)
 	if not conservative and self:hasEightDiagramEffect(to) and not IgnoreArmor(from, to) then return false end
 	local need_double_jink = from and from:hasShownSkill("wushuang")
 	if to:objectName() == self.player:objectName() then
-		if getCardsNum("Jink", to, from) == 0 then return true end
+		if self:getCardsNum("Jink") == 0 then return true end--别用getCardsNum("Jink", to, from),from未必知道你没有闪,但是你自己知道
 		if need_double_jink and getCardsNum("Jink", to, from) < 2 then return true end
 	end
 	if getCardsNum("Jink", to, from) == 0 then return true end
