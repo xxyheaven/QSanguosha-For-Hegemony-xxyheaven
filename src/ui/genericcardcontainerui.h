@@ -160,7 +160,7 @@ public slots:
     // March 14 2014
     //************************************
     void updatePile(const QString &pile_name, bool is_card_pile);
-    void updateTip(const QString &tag_name, bool add_in);
+    void updateTip(const QString &tag_name, const QStringList &value);
 
     void updateKingdom(const QString &kingdom);
     void updateMarks();
@@ -172,6 +172,7 @@ public slots:
     void hideLiegong();
     void onRemovedChanged();
     virtual void showSeat();
+    virtual void showIntMark();
     virtual void showPile();
     virtual void showGeneralPile();
     virtual void hidePile();

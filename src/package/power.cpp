@@ -1736,7 +1736,7 @@ public:
             QVariantList move_datas = data.toList();
             foreach (QVariant move_data, move_datas) {
                 CardsMoveOneTimeStruct move = move_data.value<CardsMoveOneTimeStruct>();
-                if (move.from == NULL && (move.from_places.contains(Player::DrawPileBottom) || move.from_places.contains(Player::DrawPile) || move.from_places.contains(Player::PlaceJudge))
+                if (move.from == NULL && (move.from_places.contains(Player::DrawPileBottom) || move.from_places.contains(Player::DrawPile))
                     && (move.to == player && move.to_place == Player::PlaceHand)) {
                     room->setPlayerFlag(player, "WeidiHadDrawCards");
                 }

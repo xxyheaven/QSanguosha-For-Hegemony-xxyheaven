@@ -71,6 +71,7 @@ public:
     virtual bool canPreshow() const;
     virtual bool canShowInPlay() const;
     virtual bool relateToPlace(bool head = true) const;
+    virtual bool relateToKingdom(const QString &kingdom) const;
 
     virtual bool isEquipskill() const;
 
@@ -83,10 +84,17 @@ public:
         relate_to_place = rtp;
     }
 
+    //for LUA
+    inline void setAttachedKingdom(const char *rtp)
+    {
+        attached_kingdom = rtp;
+    }
+
 protected:
     Frequency frequency;
     QString limit_mark;
     QString relate_to_place;
+    QString attached_kingdom;
     bool attached_lord_skill;
 
 private:
@@ -117,6 +125,8 @@ public:
         return response_or_use;
     }
     virtual QString getExpandPile() const;
+
+    virtual QList<int> getExpandCards() const;
 
     virtual QStringList getViewAsCardNames(const QList<const Card *> &selected = QList<const Card *>()) const;
     virtual bool isEnabledtoViewAsCard(const QString &button_name = QString(), const QList<const Card *> &selected = QList<const Card *>()) const;

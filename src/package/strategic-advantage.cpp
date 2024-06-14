@@ -548,7 +548,7 @@ public:
     virtual bool cost(TriggerEvent triggerEvent, Room *room, ServerPlayer *player, QVariant &, ServerPlayer *) const
     {
         if (triggerEvent == DrawNCards) {
-            if (player->hasShownSkill("yongsi") && player->getTreasure() == NULL) {
+            if (player->hasShownSkill("yongsi")) {
                 room->sendCompulsoryTriggerLog(player, "yongsi");
                 room->broadcastSkillInvoke("yongsi", 1, player);
                 return true;

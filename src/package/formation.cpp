@@ -1221,7 +1221,6 @@ public:
     virtual TriggerList triggerable(TriggerEvent , Room *room, ServerPlayer *, QVariant &data) const
     {
         TriggerList skill_list;
-
         if (data.value<PhaseChangeStruct>().to == Player::NotActive) {
             foreach (ServerPlayer *p, room->getAllPlayers()) {
                 if (p->getMark("GlobalKilledCount") > 0 && TriggerSkill::triggerable(p)) {
@@ -1245,7 +1244,7 @@ public:
     virtual bool effect(TriggerEvent, Room *, ServerPlayer *, QVariant &, ServerPlayer *hetaihou) const
     {
         if (hetaihou)
-            hetaihou->drawCards(3);
+            hetaihou->drawCards(3, objectName());
         return false;
     }
 };

@@ -40,8 +40,12 @@ public:
     {
         if (card->getTypeId() != Card::TypeSkill) {
             if (to->isRemoved()) return true;
-            if (from && from->hasFlag("DisabledTargetOthers") && to != from) return true;
             if (card->isKindOf("DelayedTrick") && to->containsTrick(card->objectName())) return true;
+            if (from) {
+                if (from->hasFlag("DisabledTargetOthers") && to != from) return true;
+                QStringList mark = from->getStringMark("GlobalProhibit-turn");
+                if (mark.contains(to->objectName())) return true;
+            }
         }
 
         return false;

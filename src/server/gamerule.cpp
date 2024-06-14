@@ -396,7 +396,7 @@ bool GameRule::effect(TriggerEvent triggerEvent, Room *room, ServerPlayer *playe
     case EventPhaseStart: {
         if (player->getPhase() == Player::NotActive) {
             QList<ServerPlayer *> all_players = room->getAllPlayers(true);
-            foreach (ServerPlayer * p, all_players) {
+            foreach (ServerPlayer *p, all_players) {
                 room->setPlayerFlag(p, ".");
                 if (p->getMark("drank") > 0) {
                     LogMessage log;
@@ -406,6 +406,9 @@ bool GameRule::effect(TriggerEvent triggerEvent, Room *room, ServerPlayer *playe
 
                     room->setPlayerMark(p, "drank", 0);
                 }
+
+                room->clearPlayerMarks(p, "-turn");
+
                 room->clearPlayerCardLimitation(p, true);
 
                 if (p->isRemoved())
@@ -438,6 +441,8 @@ bool GameRule::effect(TriggerEvent triggerEvent, Room *room, ServerPlayer *playe
             foreach (ServerPlayer *p, room->getAllPlayers())
                 room->setPlayerMark(p, "multi_kill_count", 0);
         }
+        foreach (ServerPlayer *p, room->getAllPlayers(true))
+            room->clearPlayerMarks(p, "-phase");
         break;
     }
     case EventPhaseChanging: {

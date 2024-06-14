@@ -241,8 +241,16 @@ void ClientPlayer::setMark(const QString &mark, int value)
     if (mark == "drank")
         emit drank_changed();
 
-    if (mark.startsWith("#")) {
-        emit tip_changed(mark);
+    if (mark.startsWith("##")) {
+        QStringList str_value;
+        if (value > 0)
+            str_value << QString::number(value);
+        emit tip_changed("@@" + mark.mid(2), str_value);
+    } else if (mark.startsWith("#")) {
+        QStringList str_value;
+        if (value > 0)
+            str_value << QString::number(value);
+        emit tip_changed("@" + mark.mid(1), str_value);
     }
 
     if (!mark.startsWith("@"))
@@ -272,6 +280,25 @@ void ClientPlayer::setMark(const QString &mark, int value)
     if (mark == "@companion" || mark == "@halfmaxhp" || mark == "@firstshow" || mark == "@careerist")
         emit update_markcard();
 
+}
+
+void ClientPlayer::setIntMark(const QString &mark, QList<int> value)
+{
+    int_marks[mark] = value;
+    if (mark.startsWith("@")) {
+        QStringList str_value;
+        if (value.length() > 0)
+            str_value << QString::number(value.length());
+        emit tip_changed(mark, str_value);
+    }
+}
+
+void ClientPlayer::setStringMark(const QString &mark, const QStringList &value)
+{
+    string_marks[mark] = value;
+    if (mark.startsWith("@")) {
+        emit tip_changed(mark, value);
+    }
 }
 
 QStringList ClientPlayer::getBigKingdoms(const QString &, MaxCardsType::MaxCardsCount type) const

@@ -149,6 +149,8 @@ public:
     void setDashboardShadow(const QVariant &player);
     void warn(const QVariant &);
     void setMark(const QVariant &mark_var);
+    void setIntMark(const QVariant &mark_var);
+    void setStringMark(const QVariant &mark_var);
     void showCard(const QVariant &show_str);
     void log(const QVariant &log_str);
     void speak(const QVariant &speak);

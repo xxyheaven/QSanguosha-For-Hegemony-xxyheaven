@@ -462,7 +462,22 @@ void PlayerCardContainer::updatePile(const QString &pile_name, bool is_card_pile
         }
         QString text = Sanguosha->translate(pile_name);
 
-        text.append(QString("[%1]").arg(pile_length));
+        if (pile_name == "ImperialEdict") {
+            QStringList suits;
+            foreach (int id, player->getPile(pile_name)) {
+                const Card *card = Sanguosha->getCard(id);
+                if (card->isKindOf("ImperialEdict")) continue;
+                QString suit_str = card->getSuitString() + "_char";
+                if (!suits.contains(suit_str))
+                    suits << suit_str;
+            }
+            text.append("[");
+            foreach (QString name, suits) {
+                text.append(Sanguosha->translate(name));
+            }
+            text.append("]");
+        } else
+            text.append(QString("[%1]").arg(pile_length));
         button->setText(text);
 
         QFontMetrics fontMetrics(button->font());
@@ -497,7 +512,7 @@ void PlayerCardContainer::updatePile(const QString &pile_name, bool is_card_pile
     }
 }
 
-void PlayerCardContainer::updateTip(const QString &pile_name, bool add_in)
+void PlayerCardContainer::updateTip(const QString &pile_name, const QStringList &value)
 {
     ClientPlayer *player = (ClientPlayer *)sender();
     if (!player)
@@ -505,14 +520,19 @@ void PlayerCardContainer::updateTip(const QString &pile_name, bool add_in)
     if (!player) return;
 
     QString mark_name = pile_name.mid(1);
-    if (mark_name.startsWith("#"))
+    if (mark_name.startsWith("@"))
         mark_name = mark_name.mid(1);
-
-    int count = player->getMark(pile_name);
+    mark_name = mark_name.split("-").first();
 
     int new_length = 0;
 
-    if (count > 0 || add_in) {
+    if (value.isEmpty()) {
+        if (_m_privatePiles.contains(mark_name)) {
+            delete _m_privatePiles[mark_name];
+            _m_privatePiles[mark_name] = NULL;
+            _m_privatePiles.remove(mark_name);
+        }
+    } else {
         QPushButton *button;
         if (!_m_privatePiles.contains(mark_name)) {
             button = new QPushButton;
@@ -529,115 +549,30 @@ void PlayerCardContainer::updateTip(const QString &pile_name, bool add_in)
                 qWarning("PlayerCardContainer::updatePile: button == NULL");
         }
 
-        QStringList mark_names = mark_name.split("+");
-        QString text, dest, arg, arg2, arg3, _arg = "arg:", _arg2 = "arg2:", _arg3 = "arg3:", new_new_mark;
-        foreach (QString name, mark_names) {
-            if (name.startsWith("#")) {
-                if (dest.isEmpty()) {
-                    if ((name.endsWith("Clear") && name.contains("-")) || name.endsWith("-Keep"))
-                        dest = name.mid(1).split("-").first();
-                    else if (name.endsWith("_lun"))
-                        dest = name.mid(1).split("_").first();
-                    else
-                        dest = name.mid(1);
-                }
-                continue;
-            }
-            else if (name.startsWith(_arg)) {
-                if (arg.isEmpty()) {
-                    if ((name.endsWith("Clear") && name.contains("-")) || name.endsWith("-Keep"))
-                        arg = name.mid(1).split("-").first();
-                    else if (name.endsWith("_lun"))
-                        arg = name.mid(1).split("_").first();
-                    else
-                        arg =  name.mid(1);
-                }
-                continue;
-            }
-            else if (name.startsWith(_arg2)) {
-                if (arg2.isEmpty()) {
-                    if ((name.endsWith("Clear") && name.contains("-")) || name.endsWith("-Keep"))
-                        arg2 = name.mid(1).split("-").first();
-                    else if (name.endsWith("_lun"))
-                        arg2 = name.mid(1).split("_").first();
-                    else
-                        arg2 =  name.mid(1);
-                }
-                continue;
-            }
-            else if (name.startsWith(_arg3)) {
-                if (arg3.isEmpty()) {
-                    if ((name.endsWith("Clear") && name.contains("-")) || name.endsWith("-Keep"))
-                        arg3 = name.mid(1).split("-").first();
-                    else if (name.endsWith("_lun"))
-                        arg3 = name.mid(1).split("_").first();
-                    else
-                        arg3 =  name.mid(1);
-                }
-                continue;
-            }
-            if ((name.endsWith("Clear") && name.contains("-")) || name.endsWith("-Keep")) {
-                QString f_name = name.split("-").first();
-                text.append(Sanguosha->translate(f_name));
-                new_new_mark.append(f_name).append("+");
-            } else if (name.endsWith("_lun")) {
-                QString f_name = name.split("_").first();
-                text.append(Sanguosha->translate(f_name));
-                new_new_mark.append(f_name).append("+");
-            } else {
+        QString text = Sanguosha->translate(mark_name);
+
+        if (!pile_name.startsWith("@@")) {
+            text.append("[");
+            foreach (QString name, value) {
                 text.append(Sanguosha->translate(name));
-                new_new_mark.append(name).append("+");
             }
+            text.append("]");
         }
-
-        if (!pile_name.startsWith("##"))
-            text.append(QString("[%1]").arg(count));
         button->setText(text);
-
-        if (new_new_mark.endsWith("+"))
-            new_new_mark.chop(1);
-
-        QString translate = Sanguosha->translate(":&" + new_new_mark);
-        if (translate != ":&" + new_new_mark) {
-            if (!dest.isEmpty() && ClientInstance->getPlayerName(dest) != dest)
-                translate.replace("%dest", ClientInstance->getPlayerName(dest));
-            if (!arg.isEmpty() && ClientInstance->getPlayerName(arg) != arg)
-                translate.replace("%arg", ClientInstance->getPlayerName(arg));
-            if (!arg2.isEmpty() && ClientInstance->getPlayerName(arg2) != arg2)
-                translate.replace("%arg2", ClientInstance->getPlayerName(arg2));
-            if (!arg3.isEmpty() && ClientInstance->getPlayerName(arg3) != arg3)
-                translate.replace("%arg3", ClientInstance->getPlayerName(arg3));
-            if (translate.contains("%src+1"))
-                translate.replace("%src+1", QString::number(player->getMark(pile_name) + 1));
-            else
-                translate.replace("%src", QString::number(player->getMark(pile_name)));
-            button->setToolTip(translate);
-        } else {
-            if (!dest.isEmpty() && ClientInstance->getPlayerName(dest) != dest) {
-                translate = Sanguosha->translate(":&commonmarktooltip");
-                translate.replace("%dest", ClientInstance->getPlayerName(dest));
-                button->setToolTip(translate);
-            }
-        }
 
         QFontMetrics fontMetrics(button->font());
         new_length = fontMetrics.width(text) + 4;
 
-        if (mark_name == "money") {
+        QList<int> int_mark = player->getIntMark(pile_name);
+        if (!int_mark.isEmpty()) {
 
-            disconnect(button, &QPushButton::pressed, this, &PlayerCardContainer::showPile);
-            connect(button, &QPushButton::pressed, this, &PlayerCardContainer::showPile);
+            disconnect(button, &QPushButton::pressed, this, &PlayerCardContainer::showIntMark);
+            connect(button, &QPushButton::pressed, this, &PlayerCardContainer::showIntMark);
 
             disconnect(button, &QPushButton::released, this, &PlayerCardContainer::hidePile);
             connect(button, &QPushButton::released, this, &PlayerCardContainer::hidePile);
         }
 
-    } else {
-        if (_m_privatePiles.contains(mark_name)) {
-            delete _m_privatePiles[mark_name];
-            _m_privatePiles[mark_name] = NULL;
-            _m_privatePiles.remove(mark_name);
-        }
     }
 
     QPoint start = _m_layout->m_privatePileStartPos;
@@ -654,6 +589,20 @@ void PlayerCardContainer::updateTip(const QString &pile_name, bool add_in)
             coordinate = QPoint(start.x(), coordinate.y() + step.y() + size.height());
         widget->setPos(coordinate);
         coordinate += QPoint(widget->size().width() + step.x(), 0);
+    }
+}
+
+void PlayerCardContainer::showIntMark()
+{
+    QPushButton *button = qobject_cast<QPushButton *>(sender());
+    if (button) {
+        const ClientPlayer *player = getPlayer();
+        if (!player) return;
+        QList<int> card_ids = player->getIntMark("@" + button->objectName());
+        card_ids += player->getIntMark("@" + button->objectName() + "-phase");
+        card_ids += player->getIntMark("@" + button->objectName() + "-turn");
+        if (card_ids.isEmpty() || card_ids.contains(-1)) return;
+        RoomSceneInstance->showPile(card_ids, button->objectName());
     }
 }
 

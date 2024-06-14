@@ -382,7 +382,8 @@ public:
 
     virtual bool viewFilter(const QList<const Card *> &selected, const Card *to_select) const
     {
-        return selected.length() < 2 && !to_select->isEquipped() && Self->getMark("luanji_used_" + to_select->getSuitString()) == 0;
+        return selected.length() < 2 && !to_select->isEquipped() &&
+                !Self->getStringMark("@luanji-phase").contains(to_select->getSuitString() + "_char");
     }
 
     virtual const Card *viewAs(const QList<const Card *> &cards) const
@@ -403,7 +404,7 @@ class Luanji : public TriggerSkill
 public:
     Luanji() : TriggerSkill("luanji")
     {
-        events << PreCardUsed << EventPhaseChanging;
+        events << PreCardUsed;
         view_as_skill = new LuanjiViewAsSkill;
     }
 
@@ -412,22 +413,16 @@ public:
         if (triggerEvent == PreCardUsed) {
             CardUseStruct use = data.value<CardUseStruct>();
             if (use.card && use.card->getSkillName() == objectName()) {
+                QStringList luanji_suits = player->getStringMark("@luanji-phase");
                 QList<int> ids = use.card->getSubcards();
                 foreach (int id, ids) {
                     const Card *card = Sanguosha->getCard(id);
-                    QString suit_str = card->getSuitString();
-                    room->addPlayerMark(player, "luanji_used_" + suit_str);
-                }
-                refreshLuanjiMark(room, player);
-            }
-        } else if (triggerEvent == EventPhaseChanging) {
-            if (data.value<PhaseChangeStruct>().from == Player::Play) {
+                    QString suit_str = card->getSuitString() + "_char";
+                    if (!luanji_suits.contains(suit_str))
+                        luanji_suits.append(suit_str);
 
-                foreach (QString mark_name, player->getMarkNames()) {
-                    if (mark_name.startsWith("luanji_used_") || mark_name.startsWith("##luanji"))
-                        room->setPlayerMark(player, mark_name, 0);
                 }
-
+                room->setPlayerStringMark(player, "@luanji-phase", luanji_suits);
             }
         }
     }
@@ -436,28 +431,6 @@ public:
     {
         return QStringList();
     }
-
-private:
-    static void refreshLuanjiMark(Room *room, ServerPlayer *player)
-    {
-        foreach (QString mark_name, player->getMarkNames()) {
-            if (mark_name.startsWith("##luanji"))
-                room->setPlayerMark(player, mark_name, 0);
-        }
-        QStringList luanji_suits, all_suits;
-
-        all_suits << "spade" << "heart" << "club" << "diamond";
-
-        foreach (QString suit_str, all_suits) {
-            if (player->getMark("luanji_used_" + suit_str) > 0) {
-                luanji_suits << suit_str + "_char";
-            }
-        }
-        if (!luanji_suits.isEmpty())
-            room->setPlayerMark(player, "##luanji+" + luanji_suits.join("+"), 1);
-
-    }
-
 };
 
 class LuanjiDraw : public TriggerSkill
@@ -509,26 +482,20 @@ class ShuangxiongViewAsSkill : public OneCardViewAsSkill
 {
 public:
     ShuangxiongViewAsSkill() :OneCardViewAsSkill("shuangxiong")
-    { //Client::updateProperty() / RoomScene::detachSkill()
+    {
         response_or_use = true;
     }
 
     virtual bool isEnabledAtPlay(const Player *player) const
     {
-        return player->getMark("##shuangxiong+no_suit_red") + player->getMark("##shuangxiong+no_suit_black") > 0;
+        return !player->getStringMark("@shuangxiong-turn").isEmpty();
     }
 
     virtual bool viewFilter(const Card *card) const
     {
         if (card->isEquipped()) return false;
-
-        if (card->isRed())
-            return Self->getMark("##shuangxiong+no_suit_red") > 0;
-
-        if (card->isBlack())
-            return Self->getMark("##shuangxiong+no_suit_black") > 0;
-
-        return false;
+        QStringList colors = Self->getStringMark("@shuangxiong-turn");
+        return (card->isRed() && colors.contains("no_suit_black")) or (card->isBlack() && colors.contains("no_suit_red"));
     }
 
     virtual const Card *viewAs(const Card *originalCard) const
@@ -555,21 +522,6 @@ public:
         return true;
     }
 
-    virtual void record(TriggerEvent , Room *room, ServerPlayer *player, QVariant &) const
-    {
-        if (player->getPhase() ==  Player::NotActive) {
-            room->setPlayerMark(player, "##shuangxiong+no_suit_red", 0);
-            room->setPlayerMark(player, "##shuangxiong+no_suit_black", 0);
-            if (player->hasFlag("shuangxiong")) {
-                room->setPlayerFlag(player, "-shuangxiong");
-                if (player->hasFlag("shuangxiong_attachskill")) {
-                    room->setPlayerFlag(player, "-shuangxiong_attachskill");
-                    room->detachSkillFromPlayer(player, "shuangxiong", true, true);
-                }
-            }
-        }
-    }
-
     virtual QStringList triggerable(TriggerEvent , Room *, ServerPlayer *player, QVariant &, ServerPlayer* &) const
     {
         if (player->getPhase() == Player::Draw && TriggerSkill::triggerable(player))
@@ -580,7 +532,7 @@ public:
     virtual bool cost(TriggerEvent, Room *room, ServerPlayer *shuangxiong, QVariant &, ServerPlayer *) const
     {
         if (shuangxiong->askForSkillInvoke(this)) {
-            room->broadcastSkillInvoke(objectName(), 1, shuangxiong);
+            room->broadcastSkillInvoke(objectName(), shuangxiong);
             return true;
         }
 
@@ -599,23 +551,17 @@ public:
         judge.patterns << ".|red" << ".|black";
         room->judge(judge);
 
-        QString pattern = "##shuangxiong+no_suit_red";
-        if (judge.pattern == ".|red")
-            pattern = "##shuangxiong+no_suit_black";
+        QString color;
+        if (judge.card->isBlack())
+            color = "no_suit_black";
+        else if (judge.card->isRed())
+            color = "no_suit_red";
+        else
+            return false;
 
-        room->addPlayerMark(shuangxiong, pattern);
-
-        if (!shuangxiong->hasSkill(objectName(), true)) {
-            room->setPlayerFlag(shuangxiong, "shuangxiong_attachskill");
-            room->attachSkillToPlayer(shuangxiong, objectName());
-        }
+        room->addPlayerStringMark(shuangxiong, "@shuangxiong-turn", color);
 
         return true;
-    }
-
-    virtual int getEffectIndex(const ServerPlayer *, const Card *) const
-    {
-        return 2;
     }
 };
 
@@ -938,14 +884,19 @@ class Leiji : public TriggerSkill
 public:
     Leiji() : TriggerSkill("leiji")
     {
-        events << CardResponded;
+        events << CardUsed << CardResponded;
     }
 
-    virtual QStringList triggerable(TriggerEvent, Room *, ServerPlayer *player, QVariant &data, ServerPlayer* &) const
+    virtual QStringList triggerable(TriggerEvent triggerEvent, Room *, ServerPlayer *player, QVariant &data, ServerPlayer* &) const
     {
         if (!TriggerSkill::triggerable(player)) return QStringList();
-        const Card *card_star = data.value<CardResponseStruct>().m_card;
-        if (card_star->isKindOf("Jink")) return QStringList(objectName());
+        const Card *card = NULL;
+        if (triggerEvent == CardUsed)
+            card = data.value<CardUseStruct>().card;
+        else if (triggerEvent == CardResponded)
+            card = data.value<CardResponseStruct>().m_card;
+
+        if (card != NULL && card->isKindOf("Jink")) return QStringList(objectName());
         return QStringList();
     }
 
@@ -1878,7 +1829,7 @@ public:
         }
 
         if (use.card->isKindOf("Slash")) {
-            use.disresponsive_list << "_ALL_PLAYERS";
+            use.disresponsive_list << targets;
             data = QVariant::fromValue(use);
         }
         if (use.card->isKindOf("ArcheryAttack")) {

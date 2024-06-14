@@ -57,6 +57,8 @@ CommonTranslationTable = {
 	["ndtrick"] = "非延时锦囊",
 	["nothing"] = "不发动",
 	["handcards"] = "手牌",
+    ["red"] = "红色牌",
+    ["black"] = "黑色牌",
 
 	["compulsory"] = "锁定技，",
 	["once_per_turn"] = "出牌阶段限一次，",

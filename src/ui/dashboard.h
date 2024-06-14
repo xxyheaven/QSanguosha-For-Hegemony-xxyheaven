@@ -122,8 +122,8 @@ public:
     const ViewAsSkill *currentSkill() const;
     const Card *getPendingCard() const;
 
-    void expandPileCards(const QString &pile_name);
-    void retractPileCards(const QString &pile_name);
+    void expandPileCards(const QList<int> &card_ids);
+    void retractPileCards();
     void updateHandPile(const QString &pile_name, bool add, QList<int> card_ids);
     void updateMarkCard();
 
@@ -134,11 +134,6 @@ public:
     void retractGeneralCards();
 
     void retractAllSkillPileCards();
-
-    inline QStringList getPileExpanded() const
-    {
-        return _m_pile_expanded.keys();
-    }
 
     void selectCard(CardItem *item, bool isSelected);
 
@@ -314,7 +309,8 @@ protected:
     const Card *pendingCard;
     const ViewAsSkill *viewAsSkill;
     const FilterSkill *filter;
-    QMap<QString, QList<int> > _m_pile_expanded;
+    QList<int> _m_hand_pile;
+    QList<int> _m_pile_expanded;
     QList<CardItem *> _m_guhuo_expanded, _m_general_expanded;
 
     // for transfer

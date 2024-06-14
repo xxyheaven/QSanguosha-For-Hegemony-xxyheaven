@@ -784,6 +784,7 @@ void Card::onUse(Room *room, const CardUseStruct &use) const
     QVariant data = QVariant::fromValue(card_use);
     RoomThread *thread = room->getThread();
     Q_ASSERT(thread != NULL);
+
     thread->trigger(PreCardUsed, room, player, data);
     card_use = data.value<CardUseStruct>();
 
@@ -1126,6 +1127,12 @@ void SkillCard::extraCost(Room *room, const CardUseStruct &card_use) const
         CardMoveReason reason(CardMoveReason::S_REASON_THROW, card_use.from->objectName(), QString(), card_use.card->getSkillName(), general);
         room->moveCardTo(this, card_use.from, NULL, Player::DiscardPile, reason, true);
     }
+}
+
+void SkillCard::onUse(Room *room, const CardUseStruct &use) const
+{
+    // TODO
+    Card::onUse(room, use);
 }
 
 // ---------- Dummy card      -------------------

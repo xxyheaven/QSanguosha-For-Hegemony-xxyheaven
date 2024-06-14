@@ -1375,10 +1375,6 @@ void RoomScene::enableTargets(const Card *card)
         if (status == Client::RespondingForDiscard && Self->isCardLimited(card, Card::MethodDiscard))
             enabled = false;
     }
-    if (!enabled) {
-        ok_button->setEnabled(false);
-        return;
-    }
 
     selected_targets.clear();
 
@@ -1386,7 +1382,7 @@ void RoomScene::enableTargets(const Card *card)
     foreach (PlayerCardContainer *item, item2player.keys())
         item->setSelected(false);
 
-    if (card == NULL) {
+    if (card == NULL || !enabled) {
         foreach (PlayerCardContainer *item, item2player.keys()) {
             QGraphicsItem *animationTarget = item->getMouseClickReceiver();
             animations->effectOut(animationTarget);

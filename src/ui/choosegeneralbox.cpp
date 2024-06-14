@@ -255,15 +255,7 @@ static bool matchKingdom(const QString &gen1, const QString &gen2)
     const General *g1 = Sanguosha->getGeneral(gen1);
     const General *g2 = Sanguosha->getGeneral(gen2);
 
-    if (g1 != NULL && g2 != NULL && !g1->isDoubleKingdoms() && !g2->isLord() && g2->getKingdom() != "careerist") {
-        if (g1->getKingdom() == "careerist") return true;
-        foreach (QString kingdom, g2->getKingdoms()) {
-            if (kingdom == g1->getKingdom())
-                return true;
-        }
-    }
-
-    return false;
+    return !g1->compareKingdomsWith(g2).isEmpty();
 }
 
 void ChooseGeneralBox::chooseGeneral(const QStringList &_generals, bool view_only, bool single_result, const QString &reason, const Player *player, const bool can_convert, const bool same_kingdom)

@@ -67,6 +67,8 @@ public:
 
     QStringList getKingdoms() const;
 
+    QStringList compareKingdomsWith(const General *another) const;
+
     enum Gender
     {
         Sexless, Male, Female, Neuter
@@ -77,9 +79,9 @@ public:
     void addSkill(Skill *skill);
     void addSkill(const QString &skill_name);
     bool hasSkill(const QString &skill_name) const;
-    QList<const Skill *> getSkillList(bool relate_to_place = false, bool head_only = true) const;
-    QList<const Skill *> getVisibleSkillList(bool relate_to_place = false, bool head_only = true) const;
-    QSet<const Skill *> getVisibleSkills(bool relate_to_place = false, bool head_only = true) const;
+    QList<const Skill *> getSkillList(bool relate_to_place = false, bool head_only = true, const QString &kingdom = QString()) const;
+    QList<const Skill *> getVisibleSkillList(bool relate_to_place = false, bool head_only = true, const QString &kingdom = QString()) const;
+    QSet<const Skill *> getVisibleSkills(bool relate_to_place = false, bool head_only = true, const QString &kingdom = QString()) const;
     QSet<const TriggerSkill *> getTriggerSkills() const;
 
     void addRelateSkill(const QString &skill_name);

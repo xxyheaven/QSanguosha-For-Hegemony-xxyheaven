@@ -58,7 +58,8 @@ Dashboard::Dashboard()
     m_headHeroSkinContainer(NULL), m_deputyHeroSkinContainer(NULL),
     m_progressBarPositon(Down)
 {
-    _m_pile_expanded = QMap<QString, QList<int> >();
+    _m_hand_pile = QList<int>();
+    _m_pile_expanded = QList<int>();
     _m_guhuo_expanded = QList<CardItem *>();
     _m_general_expanded = QList<CardItem *>();
 
@@ -1432,9 +1433,8 @@ void Dashboard::startPending(const ViewAsSkill *skill)
 
     retractAllSkillPileCards();
 
-    if (skill && !skill->getExpandPile().isEmpty()) {
-        foreach(const QString &pile_name, skill->getExpandPile().split(","))
-            expandPileCards(pile_name);
+    if (skill) {
+        expandPileCards(skill->getExpandCards());
     }
 
     for (int i = 0; i < S_EQUIP_AREA_LENGTH; i++) {
@@ -1450,9 +1450,8 @@ void Dashboard::stopPending()
 {
     m_mutexEnableCards.lock();
 
-    if (viewAsSkill && !viewAsSkill->getExpandPile().isEmpty()) {
-        foreach(const QString &pile_name, viewAsSkill->getExpandPile().split(","))
-            retractPileCards(pile_name);
+    if (viewAsSkill) {
+        retractPileCards();
     }
 
     retractGeneralCards();
@@ -1481,20 +1480,10 @@ void Dashboard::stopPending()
     m_mutexEnableCards.unlock();
 }
 
-void Dashboard::expandPileCards(const QString &pile_name)
+void Dashboard::expandPileCards(const QList<int> &card_ids)
 {
-    if (_m_pile_expanded.contains(pile_name)) return;
-    QString new_name = pile_name;
-    QList<int> pile;
-    if (new_name.startsWith("%")) {
-        new_name = new_name.mid(1);
-        foreach(const Player *p, Self->getAliveSiblings())
-            pile += p->getPile(new_name);
-    } else {
-        pile = Self->getPile(new_name);
-    }
-    if (pile.isEmpty()) return;
-    QList<CardItem *> card_items = _createCards(pile);
+    if (card_ids.isEmpty()) return;
+    QList<CardItem *> card_items = _createCards(card_ids);
 
     QSanRoomSkin::DashboardLayout *layout = (QSanRoomSkin::DashboardLayout *)_m_layout;
     int leftWidth = layout->m_leftWidth;
@@ -1510,7 +1499,7 @@ void Dashboard::expandPileCards(const QString &pile_name)
     }
 
     foreach(CardItem *card_item, card_items) {
-        _addHandCard(card_item, false, Sanguosha->translate(new_name));
+        _addHandCard(card_item, false);
         m_rightCards.append(card_item);
         _updateHandCards();
     }
@@ -1518,15 +1507,13 @@ void Dashboard::expandPileCards(const QString &pile_name)
     adjustCards();
     _playMoveCardsAnimation(card_items, false);
     update();
-    _m_pile_expanded[pile_name] = pile;
+    _m_pile_expanded = card_ids;
 }
 
-void Dashboard::retractPileCards(const QString &pile_name)
+void Dashboard::retractPileCards()
 {
-    if (!_m_pile_expanded.contains(pile_name)) return;
-    QString new_name = pile_name;
-    QList<int> pile = _m_pile_expanded.value(new_name);
-    _m_pile_expanded.remove(pile_name);
+    QList<int> pile = _m_pile_expanded;
+    _m_pile_expanded.clear();
     if (pile.isEmpty()) return;
     CardItem *card_item;
     foreach (int card_id, pile) {
@@ -1549,9 +1536,7 @@ void Dashboard::retractPileCards(const QString &pile_name)
 
 void Dashboard::updateHandPile(const QString &pile_name, bool add, QList<int> card_ids)
 {
-    QList<int> pile;
-    if (_m_pile_expanded.contains(pile_name))
-        pile = _m_pile_expanded.value(pile_name);
+    QList<int> pile = _m_hand_pile;
     if (add) {
         QList<int> to_append;
         foreach (int card_id, card_ids) {
@@ -1591,10 +1576,7 @@ void Dashboard::updateHandPile(const QString &pile_name, bool add, QList<int> ca
         adjustCards();
     }
     update();
-    if (pile.isEmpty())
-        _m_pile_expanded.remove(pile_name);
-    else
-        _m_pile_expanded[pile_name] = pile;
+    _m_hand_pile = pile;
 }
 
 void Dashboard::updateMarkCard()
@@ -1875,11 +1857,7 @@ void Dashboard::onGeneralCardClicked()
 
 void Dashboard::retractAllSkillPileCards()
 {
-    foreach (const QString &pileName, _m_pile_expanded.keys()) {
-        if (!Self->getHandPileList(false).contains(pileName))
-            retractPileCards(pileName);
-    }
-
+    retractPileCards();
     retractGeneralCards();
     retractGuhuoCards();
 }
@@ -1952,17 +1930,6 @@ void Dashboard::updatePending()
                     }
                 }
             } else {
-                bool not_handcard_pile = true;
-                foreach (const QString &pileName, _m_pile_expanded.keys()) {
-                    if (Self->getHandPileList(false).contains(pileName)) {
-                        QList<int> pile = _m_pile_expanded.value(pileName);
-                        if (pile.contains(item->getId())){
-                            not_handcard_pile = false;
-                            break;
-                        }
-                    }
-                }
-
                 if (cheak_card && cheak_card->isKindOf("Peach") && RoomSceneInstance->battle_started && viewAsSkill->inherits("ResponseSkill")) {
                     const ResponseSkill *resp_skill = qobject_cast<const ResponseSkill *>(viewAsSkill);
                     if (resp_skill && (resp_skill->getRequest() == Card::MethodResponse || resp_skill->getRequest() == Card::MethodUse)) {
@@ -1978,7 +1945,7 @@ void Dashboard::updatePending()
                         }
                     }
                 }
-                frozen = !((expand || not_handcard_pile) && viewAsSkill->viewFilter(pended, cheak_card));
+                frozen = !((expand || !m_leftCards.contains(item)) && viewAsSkill->viewFilter(pended, cheak_card));
             }
             item->setFrozen(frozen, false);
             if (!frozen && Config.EnableSuperDrag)
@@ -2300,8 +2267,8 @@ void Dashboard::updateAvatar()
         // this is just avatar general, perhaps game has not started yet.
         if (m_player->getGeneral() != NULL) {
             QString kingdom = m_player->getKingdom();
-            if (!m_player->hasShownOneGeneral())
-                kingdom = general->getKingdom();
+            if (general->getKingdom() == "careerist")
+                kingdom = "careerist";
             _paintPixmap(_m_kingdomColorMaskIcon, _m_layout->m_kingdomMaskArea,
                 G_ROOM_SKIN.getPixmap(QSanRoomSkin::S_SKIN_KEY_KINGDOM_COLOR_MASK, kingdom), this->_getAvatarParent());
             _paintPixmap(_m_handCardBg, _m_layout->m_handCardArea,
@@ -2351,8 +2318,6 @@ void Dashboard::updateSmallAvatar()
         area = QRect(area.left() + 2, area.top() + 1, area.width() - 2, area.height() - 3);
         _paintPixmap(smallAvatarIconTmp, area, avatarIcon, _getAvatarParent());
         QString kingdom = m_player->getKingdom();
-        if (!m_player->hasShownOneGeneral() && !general->isDoubleKingdoms())
-            kingdom = general->getKingdom();
         _paintPixmap(_m_kingdomColorMaskIcon2, _m_layout->m_kingdomMaskArea2,
             G_ROOM_SKIN.getPixmap(QSanRoomSkin::S_SKIN_KEY_KINGDOM_COLOR_MASK, kingdom), this->_getAvatarParent());
         QString show_name = Sanguosha->translate("&" + name);

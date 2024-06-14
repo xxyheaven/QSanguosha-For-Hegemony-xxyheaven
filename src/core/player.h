@@ -79,6 +79,7 @@ class Player : public QObject
     Q_ENUMS(Phase)
     Q_ENUMS(Place)
     Q_ENUMS(Role)
+    Q_ENUMS(History)
 
 public:
     enum Phase
@@ -94,6 +95,10 @@ public:
     enum Role
     {
         Lord, Loyalist, Rebel, Renegade
+    };
+    enum History
+    {
+        HistoryPhase, HistoryTurn, HistoryRound, HistoryGame
     };
 
     explicit Player(QObject *parent);
@@ -251,6 +256,18 @@ public:
     int getMark(const QString &mark) const;
     QStringList getMarkNames() const;
 
+    void addIntMark(const QString &mark, int value);
+    bool removeIntMark(const QString &mark, int value);
+    virtual void setIntMark(const QString &mark, QList<int> value);
+    QList<int> getIntMark(const QString &mark) const;
+    QStringList getIntMarkNames() const;
+
+    void addStringMark(const QString &mark, QString value);
+    bool removeStringMark(const QString &mark, QString value);
+    virtual void setStringMark(const QString &mark, QStringList value);
+    QStringList getStringMark(const QString &mark) const;
+    QStringList getStringMarkNames() const;
+
     void setChained(bool chained);
     bool isChained() const;
     bool canBeChainedBy(const Player *source = NULL) const;
@@ -405,6 +422,8 @@ public:
 
 protected:
     QMap<QString, int> marks;
+    QMap<QString, QList<int> > int_marks;
+    QMap<QString, QStringList> string_marks;
     QMap<QString, QList<int> > piles;
     QMap<QString, QStringList> general_piles;
     QMap<QString, QStringList> pile_open;

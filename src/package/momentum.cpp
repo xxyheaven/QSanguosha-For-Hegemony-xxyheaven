@@ -252,17 +252,6 @@ public:
         frequency = Frequent;
     }
 
-    virtual void record(TriggerEvent , Room *room, ServerPlayer *player, QVariant &) const
-    {
-        if (player->getPhase() == Player::NotActive) {
-            QList<ServerPlayer *> allplayers = room->getAlivePlayers();
-            foreach (ServerPlayer *p, allplayers) {
-                room->setPlayerMark(p, "##qianxi+no_suit_red", 0);
-                room->setPlayerMark(p, "##qianxi+no_suit_black", 0);
-            }
-
-        }
-    }
     virtual QStringList triggerable(TriggerEvent , Room *, ServerPlayer *player, QVariant &, ServerPlayer* &) const
     {
         if (TriggerSkill::triggerable(player) && player->getPhase() == Player::Start)
@@ -309,7 +298,9 @@ public:
         room->doAnimate(QSanProtocol::S_ANIMATE_INDICATE, target->objectName(), victim->objectName());
 
         QString pattern = QString(".|%1|.|hand").arg(color);
-        room->addPlayerMark(victim, QString("##qianxi+no_suit_%1").arg(color));
+
+        room->addPlayerStringMark(victim, "@qianxi-turn", "no_suit_" + color);
+
         room->setPlayerCardLimitation(victim, "use,response", pattern, true);
 
         LogMessage log;

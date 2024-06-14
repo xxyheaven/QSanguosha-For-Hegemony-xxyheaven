@@ -890,10 +890,12 @@ public:
             } else if (choice.startsWith("losehp")) {
                 room->setPlayerFlag(xiaoqiao, "tianxiang2used");
                 room->loseHp(target);
-                int id = card->getEffectiveId();
-                Player::Place place = room->getCardPlace(id);
-                if (target->isAlive() && (place == Player::DiscardPile || place == Player::DrawPile))
-                    target->obtainCard(card);
+                if (target->isAlive()) {
+                    int id = card->getEffectiveId();
+                    Player::Place place = room->getCardPlace(id);
+                    if (place == Player::DiscardPile || place == Player::DrawPile)
+                        target->obtainCard(card);
+                }
             }
         }
         return true;

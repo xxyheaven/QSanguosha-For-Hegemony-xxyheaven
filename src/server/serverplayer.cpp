@@ -1073,12 +1073,7 @@ bool ServerPlayer::changePhase(Player::Phase from, Player::Phase to)
     if (!phases.isEmpty())
         phases.removeFirst();
 
-    if (!thread->trigger(EventPhaseStart, room, this)) {
-        if (getPhase() != NotActive)
-            thread->trigger(EventPhaseProceeding, room, this);
-    }
-    if (isAlive() && getPhase() != NotActive)
-        thread->trigger(EventPhaseEnd, room, this);
+    executePhaseEvent();
 
     return false;
 }
@@ -1128,23 +1123,29 @@ void ServerPlayer::play(QList<Player::Phase> set_phases)
             && phases[i] != NotActive)
             continue;
 
-        bool phase_end = thread->trigger(EventPhaseStart, room, this);
-        room->freeChain();
+        executePhaseEvent();
 
-        if (!phase_end) {
-            if (getPhase() != NotActive) {
-                thread->trigger(EventPhaseProceeding, room, this);
-                room->freeChain();
-            }
-        }
-        if (getPhase() != NotActive) {
-            if (isAlive()) {
-                thread->trigger(EventPhaseEnd, room, this);
-                room->freeChain();
-            }
-        }
-        else
+        if (getPhase() == NotActive)
             break;
+    }
+}
+
+void ServerPlayer::executePhaseEvent()
+{
+    RoomThread *thread = room->getThread();
+    if (getPhase() == NotActive) {
+        thread->trigger(EventPhaseStart, room, this);
+        return;
+    }
+    bool phase_end = thread->trigger(EventPhaseStart, room, this);
+    room->freeChain();
+    if (!phase_end) {
+        thread->trigger(EventPhaseProceeding, room, this);
+        room->freeChain();
+    }
+    if (isAlive()) {
+        thread->trigger(EventPhaseEnd, room, this);
+        room->freeChain();
     }
 }
 

@@ -128,6 +128,20 @@ QStringList General::getKingdoms() const
     return kindoms;
 }
 
+QStringList General::compareKingdomsWith(const General *another) const
+{
+    QStringList compare_kingdoms;
+    if (another->getKingdom() == "careerist")
+        return compare_kingdoms;
+    if (kingdom == "careerist")
+        return another->getKingdoms();
+    foreach (QString sub_kingdom, getKingdoms()) {
+        if (another->getKingdoms().contains(sub_kingdom))
+            compare_kingdoms.append(sub_kingdom);
+    }
+    return compare_kingdoms;
+}
+
 void General::addSkill(Skill *skill)
 {
     skill->setParent(this);
@@ -149,23 +163,23 @@ bool General::hasSkill(const QString &skill_name) const
     return skill_set.contains(skill_name) || extra_set.contains(skill_name);
 }
 
-QList<const Skill *> General::getSkillList(bool relate_to_place, bool head_only) const
+QList<const Skill *> General::getSkillList(bool relate_to_place, bool head_only, const QString &kingdom) const
 {
     QList<const Skill *> skills;
     foreach (const QString &skill_name, skillname_list) {
         const Skill *skill = Sanguosha->getSkill(skill_name);
         Q_ASSERT(skill != NULL);
-        if (relate_to_place && !skill->relateToPlace(!head_only))
+        if (relate_to_place && !skill->relateToPlace(!head_only) && skill->relateToKingdom(kingdom))
             skills << skill;
         else if (!relate_to_place) skills << skill;
     }
     return skills;
 }
 
-QList<const Skill *> General::getVisibleSkillList(bool relate_to_place, bool head_only) const
+QList<const Skill *> General::getVisibleSkillList(bool relate_to_place, bool head_only, const QString &kingdom) const
 {
     QList<const Skill *> skills;
-    foreach (const Skill *skill, getSkillList(relate_to_place, head_only)) {
+    foreach (const Skill *skill, getSkillList(relate_to_place, head_only, kingdom)) {
         if (skill->isVisible())
             skills << skill;
     }
@@ -173,9 +187,9 @@ QList<const Skill *> General::getVisibleSkillList(bool relate_to_place, bool hea
     return skills;
 }
 
-QSet<const Skill *> General::getVisibleSkills(bool relate_to_place, bool head_only) const
+QSet<const Skill *> General::getVisibleSkills(bool relate_to_place, bool head_only, const QString &kingdom) const
 {
-    return getVisibleSkillList(relate_to_place, head_only).toSet();
+    return getVisibleSkillList(relate_to_place, head_only, kingdom).toSet();
 }
 
 QSet<const TriggerSkill *> General::getTriggerSkills() const

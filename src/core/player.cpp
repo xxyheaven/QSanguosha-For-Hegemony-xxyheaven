@@ -1229,6 +1229,76 @@ QStringList Player::getMarkNames() const
     return marks.keys();
 }
 
+void Player::addIntMark(const QString &mark, int value)
+{
+    QList<int> int_mark = int_marks.value(mark, QList<int>());
+    int_mark.append(value);
+    setIntMark(mark, int_mark);
+}
+
+bool Player::removeIntMark(const QString &mark, int value)
+{
+    QList<int> int_mark = int_marks.value(mark, QList<int>());
+    if (int_mark.removeOne(value)) {
+        setIntMark(mark, int_mark);
+        return true;
+    }
+    return false;
+}
+
+void Player::setIntMark(const QString &mark, QList<int> value)
+{
+    if (value.isEmpty())
+        int_marks.remove(mark);
+    else
+        int_marks[mark] = value;
+}
+
+QList<int> Player::getIntMark(const QString &mark) const
+{
+    return int_marks.value(mark, QList<int>());
+}
+
+QStringList Player::getIntMarkNames() const
+{
+    return int_marks.keys();
+}
+
+void Player::addStringMark(const QString &mark, QString value)
+{
+    QStringList string_mark = string_marks.value(mark, QStringList());
+    string_mark.append(value);
+    setStringMark(mark, string_mark);
+}
+
+bool Player::removeStringMark(const QString &mark, QString value)
+{
+    QStringList string_mark = string_marks.value(mark, QStringList());
+    if (string_mark.removeOne(value)) {
+        setStringMark(mark, string_mark);
+        return true;
+    }
+    return false;
+}
+
+void Player::setStringMark(const QString &mark, QStringList value)
+{
+    if (value.isEmpty())
+        string_marks.remove(mark);
+    else
+        string_marks[mark] = value;
+}
+
+QStringList Player::getStringMark(const QString &mark) const
+{
+    return string_marks.value(mark, QStringList());
+}
+
+QStringList Player::getStringMarkNames() const
+{
+    return string_marks.keys();
+}
+
 bool Player::canSlash(const Player *other, const Card *slash, bool distance_limit,
     int rangefix, const QList<const Player *> &others) const
 {
@@ -1719,6 +1789,8 @@ void Player::copyFrom(Player *p)
     Player *a = p;
 
     b->marks = QMap<QString, int>(a->marks);
+    b->int_marks = QMap<QString, QList<int>>(a->int_marks);
+    b->string_marks = QMap<QString, QStringList>(a->string_marks);
     b->piles = QMap<QString, QList<int> >(a->piles);
     b->general_piles = QMap<QString, QStringList>(a->general_piles);
     b->head_acquired_skills = QSet<QString>(a->head_acquired_skills);

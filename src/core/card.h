@@ -263,6 +263,7 @@ public:
     virtual QString toString(bool hidden = false) const;
 
     virtual void extraCost(Room *room, const CardUseStruct &card_use) const;
+    virtual void onUse(Room *room, const CardUseStruct &card_use) const;
 
 protected:
     QString user_string;

@@ -32,7 +32,7 @@
 #include <QDir>
 
 Skill::Skill(const QString &name, Frequency frequency)
-    : frequency(frequency), limit_mark(QString()), relate_to_place(QString()), attached_lord_skill(false)
+    : frequency(frequency), limit_mark(QString()), relate_to_place(QString()), attached_kingdom(QString()), attached_lord_skill(false)
 {
     static QChar lord_symbol('$');
 
@@ -271,6 +271,11 @@ bool Skill::relateToPlace(bool head) const
     return false;
 }
 
+bool Skill::relateToKingdom(const QString &kingdom) const
+{
+    return attached_kingdom.isEmpty() || attached_kingdom == kingdom;
+}
+
 bool Skill::isEquipskill() const
 {
     return (inherits("WeaponSkill") || inherits("ArmorSkill") || inherits("TreasureSkill"));
@@ -374,6 +379,24 @@ const ViewAsSkill *ViewAsSkill::parseViewAsSkill(const Skill *skill)
 QString ViewAsSkill::getExpandPile() const
 {
     return expand_pile;
+}
+
+QList<int> ViewAsSkill::getExpandCards() const
+{
+    QList<int> pile;
+    QString _expand_pile = getExpandPile();
+    if (_expand_pile.isEmpty())
+        return pile;
+    foreach(QString pile_name, _expand_pile.split(",")) {
+        if (pile_name.startsWith("%")) {
+            pile_name = pile_name.mid(1);
+            foreach(const Player *p, Self->getAliveSiblings())
+                pile += p->getPile(pile_name);
+        } else {
+            pile = Self->getPile(pile_name);
+        }
+    }
+    return pile;
 }
 
 QStringList ViewAsSkill::getViewAsCardNames(const QList<const Card *> &selected) const
@@ -921,7 +944,7 @@ int WeaponSkill::getPriority() const
 
 bool WeaponSkill::triggerable(const ServerPlayer *target) const
 {
-    if (target == NULL) return false;
+    if (target == NULL || target->isDead()) return false;
     if (target->getMark("Equips_Nullified_to_Yourself") > 0) return false;
     return target->hasWeapon(objectName());
 }
@@ -938,7 +961,7 @@ int ArmorSkill::getPriority() const
 
 bool ArmorSkill::triggerable(const ServerPlayer *target) const
 {
-    if (target == NULL)
+    if (target == NULL || target->isDead())
         return false;
     return target->hasArmorEffect(objectName());
 }
@@ -980,7 +1003,7 @@ int TreasureSkill::getPriority() const
 
 bool TreasureSkill::triggerable(const ServerPlayer *target) const
 {
-    if (target == NULL)
+    if (target == NULL || target->isDead())
         return false;
     return target->hasTreasure(objectName());
 }

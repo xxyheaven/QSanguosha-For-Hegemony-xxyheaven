@@ -73,6 +73,8 @@ Client::Client(QObject *parent, const QString &filename)
     callbacks[S_COMMAND_SHOW_CARD] = &Client::showCard;
     callbacks[S_COMMAND_UPDATE_CARD] = &Client::updateCard;
     callbacks[S_COMMAND_SET_MARK] = &Client::setMark;
+    callbacks[S_COMMAND_SET_INT_MARK] = &Client::setIntMark;
+    callbacks[S_COMMAND_SET_STRING_MARK] = &Client::setStringMark;
     callbacks[S_COMMAND_LOG_SKILL] = &Client::log;
     callbacks[S_COMMAND_ATTACH_SKILL] = &Client::attachSkill;
     callbacks[S_COMMAND_MOVE_FOCUS] = &Client::moveFocus;
@@ -1794,6 +1796,37 @@ void Client::setMark(const QVariant &mark_var)
 
     ClientPlayer *player = getPlayer(who);
     player->setMark(mark, value);
+}
+
+void Client::setIntMark(const QVariant &mark_var)
+{
+    JsonArray mark_str = mark_var.value<JsonArray>();
+    if (mark_str.size() != 3) return;
+    if (!JsonUtils::isString(mark_str[0]) || !JsonUtils::isString(mark_str[1])) return;
+
+    QString who = mark_str[0].toString();
+    QString mark = mark_str[1].toString();
+    QList<int> value;
+    JsonUtils::tryParse(mark_str[2], value);
+
+    ClientPlayer *player = getPlayer(who);
+    player->setIntMark(mark, value);
+}
+
+void Client::setStringMark(const QVariant &mark_var)
+{
+    JsonArray mark_str = mark_var.value<JsonArray>();
+    if (mark_str.size() != 3) return;
+    if (!JsonUtils::isString(mark_str[0]) || !JsonUtils::isString(mark_str[1])) return;
+
+    QString who = mark_str[0].toString();
+    QString mark = mark_str[1].toString();
+
+    QStringList value;
+    JsonUtils::tryParse(mark_str[2], value);
+
+    ClientPlayer *player = getPlayer(who);
+    player->setStringMark(mark, value);
 }
 
 void Client::onPlayerChooseSuit(const QString &suit)

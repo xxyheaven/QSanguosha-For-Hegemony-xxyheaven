@@ -106,6 +106,7 @@ public:
     void turnOver();
     void play(QList<Player::Phase> set_phases = QList<Player::Phase>());
     bool changePhase(Player::Phase from, Player::Phase to);
+    void executePhaseEvent();
 
     QList<Player::Phase> &getPhases();
     void skip(Player::Phase phase, bool sendLog = true);

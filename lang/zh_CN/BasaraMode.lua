@@ -127,6 +127,8 @@ return
 	["showdeputy"] = "亮将",
 	[":showdeputy"] = "明置副将的武将牌。",
 
+	["#ChooseInitialKingdom"] = "选择初始的势力",
+	
 	["@careerist-show"] = "暴露野心：是否明置野心家武将",
 	["GameRule:CareeristShow:yes"] = "明置主将",
 	["GameRule:CareeristShow:no"] = "取消",
